@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detalle publicación | ClickLocal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="header-contenedor">
+      <div class="logo-zona">
+        <div class="logo-circulo">C</div>
+
+        <div>
+          <h1 class="logo-texto">ClickLocal</h1>
+          <p class="ciudad">📍 Paraná</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="index.html" class="nav-link">Inicio</a>
+        <a href="#" class="boton-secundario">Soy comercio</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <main class="detalle-main">
+
+    <div class="detalle-contenedor">
+
+      <a href="index.html" class="volver-link">← Volver a la plataforma</a>
+
+      <section class="detalle-layout">
+
+        <aside class="detalle-miniaturas">
+          <button class="miniatura activa" onclick="cambiarImagen('img/mate1.jpg', this)">
+            <img src="img/mate1.jpg" alt="Foto 1" />
+          </button>
+
+          <button class="miniatura" onclick="cambiarImagen('img/mate2.jpg', this)">
+            <img src="img/mate2.jpg" alt="Foto 2" />
+          </button>
+
+          <button class="miniatura" onclick="cambiarImagen('img/mate3.jpg', this)">
+            <img src="img/mate3.jpg" alt="Foto 3" />
+          </button>
+        </aside>
+
+
+        <section class="detalle-foto">
+          <img id="fotoGrande" src="img/mate1.jpg" alt="Equipo de mate" />
+        </section>
+
+
+        <aside class="detalle-info">
+
+          <p class="detalle-ciudad">📍 Paraná</p>
+
+          <h1 class="detalle-titulo">Equipo de mate imperial</h1>
+
+          <p class="detalle-precio">$ 42.000</p>
+
+          <p class="detalle-descripcion">
+            Equipo de mate completo con mate imperial, bombilla de acero,
+            yerbera, azucarera y bolso matero. Ideal para regalo o uso diario.
+          </p>
+
+          <div class="detalle-comercio">
+            <p class="detalle-label">Comercio</p>
+            <h2>Deck Bazar</h2>
+            <p>Venta Online</p>
+          </div>
+
+          <div class="detalle-botones">
+            <a href="#" class="boton-whatsapp">
+              Consultar por WhatsApp
+            </a>
+
+            <a href="#" class="boton-ver-comercio">
+              Ver comercio
+            </a>
+          </div>
+
+        </aside>
+
+      </section>
+
+    </div>
+
+  </main>
+
+
+  <script>
+    function cambiarImagen(ruta, boton) {
+      const fotoGrande = document.getElementById("fotoGrande");
+      fotoGrande.src = ruta;
+
+      const miniaturas = document.querySelectorAll(".miniatura");
+      miniaturas.forEach((miniatura) => {
+        miniatura.classList.remove("activa");
+      });
+
+      boton.classList.add("activa");
+    }
+  </script>
+
+</body>
+</html>

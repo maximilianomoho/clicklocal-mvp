@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ publicacion.nombre }} | ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="header-contenedor">
+      <div class="logo-zona">
+        <div class="logo-circulo">C</div>
+
+        <div>
+          <h1 class="logo-texto">ClickLocal</h1>
+          <p class="ciudad">📍 Paraná</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/" class="nav-link">Inicio</a>
+        <a href="/registro" class="boton-secundario">Soy comercio</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <main class="detalle-main">
+
+    <div class="detalle-contenedor">
+
+      <a href="/" class="volver-link">← Volver a la plataforma</a>
+
+      <section class="detalle-layout detalle-layout-simple">
+
+        <!-- MINIATURA -->
+        <aside class="detalle-miniaturas">
+          <button class="miniatura activa">
+            {% if publicacion.imagen_url %}
+              <img src="{{ publicacion.imagen_url }}" alt="{{ publicacion.nombre }}" />
+            {% else %}
+              <img src="/img/mate1.jpg" alt="{{ publicacion.nombre }}" />
+            {% endif %}
+          </button>
+        </aside>
+
+
+        <!-- FOTO GRANDE -->
+        <section class="detalle-foto">
+          {% if publicacion.imagen_url %}
+            <img src="{{ publicacion.imagen_url }}" alt="{{ publicacion.nombre }}" />
+          {% else %}
+            <img src="/img/mate1.jpg" alt="{{ publicacion.nombre }}" />
+          {% endif %}
+        </section>
+
+
+        <!-- INFO -->
+        <aside class="detalle-info">
+
+          <p class="detalle-ciudad">📍 {{ comercio.ciudad }}</p>
+
+          <h1 class="detalle-titulo">{{ publicacion.nombre }}</h1>
+
+          {% if publicacion.precio %}
+            <p class="detalle-precio">$ {{ publicacion.precio }}</p>
+          {% endif %}
+
+          {% if publicacion.descripcion %}
+            <p class="detalle-descripcion">
+              {{ publicacion.descripcion }}
+            </p>
+          {% endif %}
+
+          <div class="detalle-comercio">
+            <p class="detalle-label">Comercio</p>
+            <h2>{{ comercio.nombre_negocio }}</h2>
+            <p>{{ comercio.direccion_mostrar }}</p>
+          </div>
+
+          <div class="detalle-botones">
+            <a
+              href="https://wa.me/54{{ comercio.whatsapp }}?text=Hola,%20vi%20esta%20publicación%20en%20ClickLocal%20y%20quiero%20consultar%20por:%20{{ publicacion.nombre }}"
+              class="boton-whatsapp"
+              target="_blank"
+            >
+              Consultar por WhatsApp
+            </a>
+
+            <a href="/perfil" class="boton-ver-comercio">
+              Ver comercio
+            </a>
+          </div>
+
+        </aside>
+
+      </section>
+
+    </div>
+
+  </main>
+
+</body>
+</html>

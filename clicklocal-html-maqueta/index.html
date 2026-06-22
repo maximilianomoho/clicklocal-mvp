@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClickLocal | Comprá cerca</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-contenedor">
+      <div class="logo-zona">
+        <div class="logo-circulo">C</div>
+
+        <div>
+          <h1 class="logo-texto">ClickLocal</h1>
+          <p class="ciudad">📍 Paraná</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/" class="nav-link">Inicio</a>
+        <a href="/login" class="boton-secundario">Soy comercio</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <!-- HERO / BUSCADOR PRINCIPAL -->
+  <main>
+
+    <section class="hero">
+      <div class="hero-contenedor">
+
+        <p class="etiqueta-hero">✨ El buscador local de tu ciudad</p>
+
+        <h2 class="titulo-hero">
+          Encontrá lo que buscás,<br />
+          cerca tuyo.
+        </h2>
+
+        <p class="subtitulo-hero">
+          Buscá productos, rubros o comercios y conectate directo por WhatsApp.
+        </p>
+
+        <form class="buscador">
+          <input
+            type="text"
+            placeholder="¿Qué estás buscando?"
+            class="input-busqueda"
+          />
+
+          <button type="submit" class="boton-buscar">
+            Buscar
+          </button>
+        </form>
+
+        <div class="busquedas-rapidas">
+          <a href="/buscar?q=iPhone">iPhone</a>
+          <a href="/buscar?q=hamburguesas">Hamburguesas</a>
+          <a href="/buscar?q=vestidos">Vestidos</a>
+          <a href="/buscar?q=cierres">Cierres</a>
+          <a href="/buscar?q=zapatillas">Zapatillas</a>
+          <a href="/buscar?q=pizza">Pizza</a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- CATEGORÍAS -->
+    <section class="seccion categorias">
+      <div class="contenedor">
+
+        <p class="titulo-chico">CATEGORÍAS</p>
+        <h2 class="titulo-seccion">Recorré la vidriera local</h2>
+
+        <div class="grilla-categorias">
+
+          <a href="/buscar?q=Gastronomía" class="categoria-card">
+            <span class="categoria-icono">🍔</span>
+            <span>Gastronomía</span>
+          </a>
+
+          <a href="/buscar?q=Indumentaria" class="categoria-card">
+            <span class="categoria-icono">👗</span>
+            <span>Indumentaria</span>
+          </a>
+
+          <a href="/buscar?q=Hogar" class="categoria-card">
+            <span class="categoria-icono">🏠</span>
+            <span>Hogar</span>
+          </a>
+
+          <a href="/buscar?q=Tecnología" class="categoria-card">
+            <span class="categoria-icono">📱</span>
+            <span>Tecnología</span>
+          </a>
+
+          <a href="/buscar?q=Salud" class="categoria-card">
+            <span class="categoria-icono">💊</span>
+            <span>Salud</span>
+          </a>
+
+          <a href="/buscar?q=Servicios" class="categoria-card">
+            <span class="categoria-icono">🛠️</span>
+            <span>Servicios</span>
+          </a>
+
+          <a href="/buscar?q=Deportes" class="categoria-card">
+            <span class="categoria-icono">⚽</span>
+            <span>Deportes</span>
+          </a>
+
+          <a href="/buscar?q=Educación y Cursos" class="categoria-card">
+            <span class="categoria-icono">📚</span>
+            <span>Educación y Cursos</span>
+          </a>
+
+        </div>
+      </div>
+    </section>
+
+
+    <!-- LO MÁS VISTO -->
+    <section class="seccion">
+      <div class="contenedor">
+
+        <p class="titulo-chico">DESTACADOS</p>
+        <h2 class="titulo-seccion">Lo más visto en Paraná</h2>
+
+        <div class="grilla-publicaciones">
+
+          <article class="publicacion-card">
+            <img src="img/hamburguesa.jpg" alt="Hamburguesa doble" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Burger Station</p>
+              <h3>Smash Burger Doble</h3>
+              <p class="precio">$ 6.500</p>
+              <p class="ubicacion">📍 Av. Ramírez 1234</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/iphone.jpg" alt="iPhone 13" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Tech Paraná</p>
+              <h3>iPhone 13 128GB</h3>
+              <p class="precio">$ 950.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/auriculares.jpg" alt="Auriculares bluetooth" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Tech Paraná</p>
+              <h3>Auriculares Bluetooth</h3>
+              <p class="precio">$ 28.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/vestido.jpg" alt="Vestido lila" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Moda Lila</p>
+              <h3>Vestido Lino Verano</h3>
+              <p class="precio">$ 35.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/lampara.jpg" alt="Lámpara de pie" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Deco Casa</p>
+              <h3>Lámpara de pie minimal</h3>
+              <p class="precio">$ 78.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/zapatillas.jpg" alt="Zapatillas running" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Fit Sport</p>
+              <h3>Zapatillas Running</h3>
+              <p class="precio">$ 95.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+
+    <!-- PUBLICACIONES RECIENTES -->
+    <section class="seccion">
+      <div class="contenedor">
+
+        <p class="titulo-chico">NOVEDADES</p>
+        <h2 class="titulo-seccion">Publicaciones recientes</h2>
+
+        <div class="grilla-publicaciones">
+
+          <article class="publicacion-card">
+            <img src="img/papas.jpg" alt="Papas rústicas" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Burger Station</p>
+              <h3>Papas Rústicas</h3>
+              <p class="precio">$ 3.200</p>
+              <p class="ubicacion">Av. Ramírez 1234</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/jean.jpg" alt="Jean wide leg" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Moda Lila</p>
+              <h3>Jean Wide Leg</h3>
+              <p class="precio">$ 42.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/almohadones.jpg" alt="Almohadones" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Deco Casa</p>
+              <h3>Almohadones x2</h3>
+              <p class="precio">$ 24.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/pizza.jpg" alt="Pizza muzzarella" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Pizza Nono</p>
+              <h3>Pizza Muzzarella</h3>
+              <p class="precio">$ 8.500</p>
+              <p class="ubicacion">Echagüe 998</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/campera.jpg" alt="Campera puffer" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Urbana Jeans</p>
+              <h3>Campera Puffer</h3>
+              <p class="precio">$ 99.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+          <article class="publicacion-card">
+            <img src="img/mascota.jpg" alt="Alimento premium" />
+            <div class="publicacion-info">
+              <p class="nombre-comercio">Mascotienda</p>
+              <h3>Alimento Premium 15kg</h3>
+              <p class="precio">$ 38.000</p>
+              <p class="ubicacion">Venta Online</p>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>ClickLocal Paraná</p>
+    <p>El buscador local de productos, comercios y servicios de tu ciudad.</p>
+  </footer>
+
+</body>
+</html>
