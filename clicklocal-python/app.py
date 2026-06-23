@@ -2,11 +2,12 @@ from flask import Flask, render_template, send_from_directory, request, redirect
 from werkzeug.utils import secure_filename
 import os
 import uuid
+from supabase_config import supabase_auth, supabase_admin
 
 app = Flask(__name__)
 
 # Clave temporal para session en desarrollo local
-app.secret_key = "clicklocal-mvp-dev"
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "clicklocal-mvp-dev")
 
 # Carpeta donde guardamos fotos subidas en esta etapa local
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
@@ -24,7 +25,7 @@ def comercio_default():
         "ciudad": "Paraná",
         "categoria": "Hogar",
         "descripcion": "Bazar, regalos, mates y productos para el hogar.",
-        "plan": "Gratis",
+        "plan": "gratis",
     }
 
 
@@ -53,64 +54,114 @@ def inicio():
 def registro():
     if request.method == "POST":
         nombre_negocio = request.form.get("nombre_negocio", "").strip()
-        email = request.form.get("email", "").strip()
+        email = request.form.get("email", "").strip().lower()
         whatsapp = request.form.get("whatsapp", "").strip()
         direccion = request.form.get("direccion", "").strip()
         venta_online = request.form.get("venta_online") == "on"
         ciudad = request.form.get("ciudad", "Paraná").strip()
         categoria = request.form.get("categoria", "").strip()
         descripcion = request.form.get("descripcion", "").strip()
-        password = request.form.get("password", "")
-        repetir_password = request.form.get("repetir_password", "")
+        password = request.form.get("password", "").strip()
+        repetir_password = request.form.get("repetir_password", "").strip()
 
-        if not nombre_negocio:
-            return render_template("registro.html", error="Falta el nombre del negocio.")
-
-        if not email:
-            return render_template("registro.html", error="Falta el email.")
-
-        if not whatsapp:
-            return render_template("registro.html", error="Falta el WhatsApp.")
-
-        if not direccion and not venta_online:
-            return render_template(
-                "registro.html",
-                error="Tenés que cargar una dirección o marcar Venta Online."
-            )
+        if not nombre_negocio or not email or not password:
+            return "Faltan datos obligatorios: nombre del negocio, email o contraseña.", 400
 
         if password != repetir_password:
-            return render_template("registro.html", error="Las contraseñas no coinciden.")
+            return "Las contraseñas no coinciden.", 400
 
         if len(password) < 6:
-            return render_template("registro.html", error="La contraseña debe tener al menos 6 caracteres.")
+            return "La contraseña debe tener al menos 6 caracteres.", 400
 
         direccion_mostrar = direccion if direccion else "Venta Online"
 
-        comercio = {
-            "nombre_negocio": nombre_negocio,
-            "email": email,
-            "whatsapp": whatsapp,
-            "direccion": direccion,
-            "direccion_mostrar": direccion_mostrar,
-            "venta_online": venta_online,
-            "ciudad": ciudad,
-            "categoria": categoria,
-            "descripcion": descripcion,
-            "plan": "Gratis",
-        }
+        try:
+            auth_res = supabase_admin.auth.admin.create_user({
+                "email": email,
+                "password": password,
+                "email_confirm": True
+            })
 
-        session["comercio"] = comercio
-        session["publicaciones"] = []
+            user = auth_res.user
 
-        return redirect(url_for("panel"))
+            if not user:
+                return "No se pudo crear el usuario en Supabase Auth.", 400
+
+            comercio_nuevo = {
+                "user_id": user.id,
+                "nombre_negocio": nombre_negocio,
+                "email": email,
+                "whatsapp": whatsapp,
+                "direccion": direccion,
+                "direccion_mostrar": direccion_mostrar,
+                "venta_online": venta_online,
+                "ciudad": ciudad,
+                "categoria": categoria,
+                "descripcion": descripcion,
+                "plan": "gratis",
+            }
+
+            insert_res = supabase_admin.table("comercios").insert(comercio_nuevo).execute()
+
+            comercio_guardado = insert_res.data[0] if insert_res.data else comercio_nuevo
+
+            session["user_id"] = user.id
+            session["comercio"] = comercio_guardado
+            session["publicaciones"] = []
+
+            return redirect(url_for("panel"))
+
+        except Exception as e:
+            return f"Error registrando comercio: {e}", 400
 
     return render_template("registro.html")
 
 
 # LOGIN COMERCIO
-@app.route("/login")
-@app.route("/login.html")
+@app.route("/login", methods=["GET", "POST"])
+@app.route("/login.html", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
+
+        if not email or not password:
+            return "Falta email o contraseña.", 400
+
+        try:
+            auth_res = supabase_auth.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+
+            user = auth_res.user
+
+            if not user:
+                return "No se pudo iniciar sesión.", 400
+
+            comercio_res = (
+                supabase_admin
+                .table("comercios")
+                .select("*")
+                .eq("user_id", user.id)
+                .single()
+                .execute()
+            )
+
+            comercio = comercio_res.data
+
+            if not comercio:
+                return "Usuario válido, pero no se encontró comercio asociado.", 404
+
+            session["user_id"] = user.id
+            session["comercio"] = comercio
+            session["publicaciones"] = []
+
+            return redirect(url_for("panel"))
+
+        except Exception as e:
+            return f"Error iniciando sesión: {e}", 400
+
     return render_template("login.html")
 
 

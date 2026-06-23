@@ -6,4 +6,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-clicklocal-python/static/uploads/
+clicklocal-python/static/uploads/clicklocal-python/.env
+clicklocal-python/.venv/
+clicklocal-python/.env
+clicklocal-python/__pycache__/
+clicklocal-python/*.bak_*

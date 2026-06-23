@@ -40,19 +40,19 @@
         </p>
       </div>
 
-      <form class="formulario">
+      <form class="formulario" method="POST" action="/login">
 
         <div class="campo">
           <label>Email</label>
-          <input type="email" placeholder="tunegocio@email.com" />
+          <input type="email" name="email" placeholder="tunegocio@email.com" required />
         </div>
 
         <div class="campo">
           <label>Contraseña</label>
-          <input type="password" placeholder="Ingresá tu contraseña" />
+          <input type="password" name="password" placeholder="Ingresá tu contraseña" required />
         </div>
 
-        <button type="button" class="boton-principal-form">
+        <button type="submit" class="boton-principal-form">
           Ingresar
         </button>
 
