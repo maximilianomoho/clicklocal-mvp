@@ -11,3 +11,14 @@ clicklocal-python/.venv/
 clicklocal-python/.env
 clicklocal-python/__pycache__/
 clicklocal-python/*.bak_*
+
+# ClickLocal - backups locales y descartes que no deben subirse
+clicklocal-python/backups/
+clicklocal-python/backups_limpieza/
+clicklocal-python/_paneles_descartados_*/
+clicklocal-python/**/*.bak*
+clicklocal-python/**/*.backup_*
+clicklocal-python/**/backup_*
+clicklocal-python/app.py.bak*
+clicklocal-python/static/*.bak*
+clicklocal-python/templates/*.bak*
