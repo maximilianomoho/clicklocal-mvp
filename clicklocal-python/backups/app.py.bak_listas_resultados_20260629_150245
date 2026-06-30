@@ -246,77 +246,32 @@ def inicio():
     busqueda = request.args.get("q", "").strip()
 
     def normalizar_texto(valor):
-        import re
-
         texto = str(valor or "").strip().lower()
         texto = unicodedata.normalize("NFD", texto)
         texto = "".join(ch for ch in texto if unicodedata.category(ch) != "Mn")
-        texto = re.sub(r"[^a-z0-9ñ\s]", " ", texto)
         return " ".join(texto.split())
 
     busqueda_normalizada = normalizar_texto(busqueda)
 
-    PALABRAS_IGNORADAS_BUSCADOR = {
-        "a", "al", "algo", "aca", "ahi", "ante", "con", "como", "comprar",
-        "consigo", "conseguir", "cuanto", "de", "del", "donde", "el", "en",
-        "encuentro", "encontrar", "hay", "ir", "la", "las", "lo", "los",
-        "me", "mi", "para", "por", "puedo", "que", "quiero", "se", "si",
-        "sin", "sobre", "te", "tener", "tenes", "tiene", "tienen", "un",
-        "una", "unas", "unos", "venden", "vende", "ver", "y"
-    }
-
-    def extraer_palabras_clave(texto):
-        texto_normalizado = normalizar_texto(texto)
-        palabras = []
-
-        for token in texto_normalizado.split():
-            if len(token) < 2:
-                continue
-
-            if token in PALABRAS_IGNORADAS_BUSCADOR:
-                continue
-
-            if token not in palabras:
-                palabras.append(token)
-
-        return palabras
-
-    palabras_clave_busqueda = extraer_palabras_clave(busqueda)
-
-    def variantes_token(token):
-        variantes = {token}
-
-        # MVP: permite que "hamburguesas" encuentre "hamburguesa",
-        # "mates" encuentre "mate", "cierres" encuentre "cierre", etc.
-        if len(token) > 3 and token.endswith("s"):
-            variantes.add(token[:-1])
-
-        return variantes
-
-    def calcular_score_busqueda(texto, peso=1):
+    def coincide_busqueda(texto):
         if not busqueda_normalizada:
-            return 1, []
+            return True
 
         texto_normalizado = normalizar_texto(texto)
-        score = 0
-        coincidencias = []
+        tokens = [token for token in busqueda_normalizada.split() if token]
 
-        for token in palabras_clave_busqueda:
-            if any(variante in texto_normalizado for variante in variantes_token(token)):
-                score += peso
-                coincidencias.append(token)
+        for token in tokens:
+            variantes = {token}
 
-        return score, coincidencias
+            # MVP: permite que "hamburguesas" encuentre "hamburguesa",
+            # "mates" encuentre "mate", etc.
+            if len(token) > 3 and token.endswith("s"):
+                variantes.add(token[:-1])
 
-    def unir_coincidencias(*listas):
-        resultado = []
+            if not any(variante in texto_normalizado for variante in variantes):
+                return False
 
-        for lista in listas:
-            for item in lista or []:
-                if item not in resultado:
-                    resultado.append(item)
-
-        return resultado
+        return True
 
     def imagen_publica_de_publicacion(pub):
         imagenes = pub.get("imagenes") or []
@@ -379,7 +334,7 @@ def inicio():
         comercios_res = (
             supabase_admin
             .table("comercios")
-            .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,whatsapp,activo,plan")
+            .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,whatsapp,activo")
             .in_("id", list(set(comercio_ids)))
             .execute()
         )
@@ -437,32 +392,7 @@ def inicio():
             if comercio_id and imagen_publica and comercio_id not in imagen_por_comercio:
                 imagen_por_comercio[comercio_id] = imagen_publica
 
-            score_nombre, coincidencias_nombre = calcular_score_busqueda(pub.get("nombre"), peso=5)
-            score_descripcion, coincidencias_descripcion = calcular_score_busqueda(pub.get("descripcion"), peso=2)
-            score_comercio, coincidencias_comercio = calcular_score_busqueda(
-                " ".join([
-                    str(comercio_pub.get("nombre_negocio") or ""),
-                    str(comercio_pub.get("categoria") or ""),
-                    str(comercio_pub.get("ciudad") or ""),
-                ]),
-                peso=1
-            )
-
-            score_total = score_nombre + score_descripcion + score_comercio
-
-            # Bonus simple: si la frase limpia completa aparece en el título,
-            # esa publicación es más exacta que una grupal o genérica.
-            nombre_normalizado = normalizar_texto(pub.get("nombre"))
-            if busqueda_normalizada and busqueda_normalizada in nombre_normalizado:
-                score_total += 10
-
-            coincidencias = unir_coincidencias(
-                coincidencias_nombre,
-                coincidencias_descripcion,
-                coincidencias_comercio
-            )
-
-            if busqueda_normalizada and score_total <= 0:
+            if not coincide_busqueda(texto_para_buscar):
                 continue
 
             publicaciones_finales.append({
@@ -475,20 +405,7 @@ def inicio():
                 "direccion_mostrar": ubicacion_publica(comercio_pub, pub.get("direccion_mostrar")),
                 "categoria": comercio_pub.get("categoria"),
                 "created_at": pub.get("created_at"),
-                "_score_busqueda": score_total,
-                "_plan": str(comercio_pub.get("plan") or "gratis").lower(),
-                "_coincidencias": coincidencias,
             })
-
-        if busqueda_normalizada:
-            publicaciones_finales.sort(
-                key=lambda item: (
-                    item.get("_score_busqueda", 0),
-                    1 if item.get("_plan") == "premium" else 0,
-                    item.get("created_at") or ""
-                ),
-                reverse=True
-            )
 
         # ====================================================
         # 2) SEGUNDO NIVEL: LISTAS BUSCABLES
@@ -509,30 +426,13 @@ def inicio():
             listas_filtradas = []
 
             for lista in listas:
-                texto_producto = str(lista.get("producto_categoria") or "")
-                texto_atributos = str(lista.get("atributos_texto") or "")
+                texto_lista = " ".join([
+                    str(lista.get("producto_categoria") or ""),
+                    str(lista.get("atributos_texto") or ""),
+                ])
 
-                score_producto, coincidencias_producto = calcular_score_busqueda(texto_producto, peso=4)
-                score_atributos, coincidencias_atributos = calcular_score_busqueda(texto_atributos, peso=3)
-
-                score_lista = score_producto + score_atributos
-                coincidencias_lista = unir_coincidencias(coincidencias_producto, coincidencias_atributos)
-
-                if score_lista <= 0:
-                    continue
-
-                lista["_score_busqueda"] = score_lista
-                lista["_coincidencias"] = coincidencias_lista
-
-                listas_filtradas.append(lista)
-
-            listas_filtradas.sort(
-                key=lambda item: (
-                    item.get("_score_busqueda", 0),
-                    item.get("created_at") or ""
-                ),
-                reverse=True
-            )
+                if coincide_busqueda(texto_lista):
+                    listas_filtradas.append(lista)
 
             comercio_ids_listas = [
                 lista.get("comercio_id")
@@ -566,21 +466,7 @@ def inicio():
                     "ubicacion_mostrar": ubicacion_publica(comercio_lista),
                     "whatsapp_url": whatsapp_url(comercio_lista, busqueda),
                     "imagen_url": imagen_por_comercio.get(comercio_id, ""),
-                    "plan": str(comercio_lista.get("plan") or "gratis").lower(),
-                    "_score_busqueda": lista.get("_score_busqueda", 0),
-                    "_coincidencias": lista.get("_coincidencias") or [],
                 })
-
-            # Regla ClickLocal:
-            # la búsqueda manda. Premium solo desempata dentro de resultados relevantes.
-            comercios_relacionados.sort(
-                key=lambda item: (
-                    item.get("_score_busqueda", 0),
-                    1 if item.get("plan") == "premium" else 0,
-                    item.get("nombre_negocio") or ""
-                ),
-                reverse=True
-            )
 
         if busqueda_normalizada:
             busqueda_id = analytics_crear_busqueda(

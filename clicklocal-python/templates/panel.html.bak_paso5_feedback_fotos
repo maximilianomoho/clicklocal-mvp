@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel comercio | ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="header-contenedor">
+      <div class="logo-zona">
+        <div class="logo-circulo">C</div>
+
+        <div>
+          <h1 class="logo-texto">ClickLocal</h1>
+          <p class="ciudad">📍 Paraná</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="index.html" class="nav-link">Ir a la plataforma</a>
+        <a href="login.html" class="boton-secundario">Salir</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <main class="panel-main">
+
+    <section class="panel-hero">
+      <div>
+        <p class="titulo-chico">MI COMERCIO</p>
+        <h1>Hola, Deck Bazar</h1>
+        <p>Administrá tus publicaciones, listas buscables y datos del comercio.</p>
+      </div>
+
+      <div class="panel-plan">
+        <span>Plan actual</span>
+        <strong>Gratis</strong>
+      </div>
+    </section>
+
+
+    <section class="panel-layout">
+
+      <!-- COLUMNA IZQUIERDA -->
+      <aside class="panel-menu">
+        <a href="#publicacion" class="panel-menu-link activo">Cargar publicación</a>
+        <a href="#mis-publicaciones" class="panel-menu-link">Mis publicaciones</a>
+        <a href="#listas" class="panel-menu-link">Listas buscables</a>
+        <a href="#datos" class="panel-menu-link">Mis datos</a>
+        <a href="#plan" class="panel-menu-link">Mi plan</a>
+      </aside>
+
+
+      <!-- COLUMNA PRINCIPAL -->
+      <section class="panel-contenido">
+
+        <!-- CARGAR PUBLICACIÓN -->
+        <article id="publicacion" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">PUBLICACIONES</p>
+              <h2>Cargar publicación</h2>
+            </div>
+            <span class="badge">Hasta 6 fotos</span>
+          </div>
+
+          <div class="fotos-grid">
+            <button type="button" class="foto-box" data-foto-slot="0">+<span>Foto principal</span></button>
+            <button type="button" class="foto-box" data-foto-slot="1">+<span>Foto 2</span></button>
+            <button type="button" class="foto-box" data-foto-slot="2">+<span>Foto 3</span></button>
+            <button type="button" class="foto-box" data-foto-slot="3">+<span>Foto 4</span></button>
+            <button type="button" class="foto-box" data-foto-slot="4">+<span>Foto 5</span></button>
+            <button type="button" class="foto-box" data-foto-slot="5">+<span>Foto 6</span></button>
+          </div>
+
+          <form class="formulario panel-form" method="POST" action="/panel" enctype="multipart/form-data">
+            <input type="hidden" name="foto_principal" id="foto_principal" value="0">
+            <input type="file" name="foto_0" id="foto_0" accept="image/*" hidden>
+            <input type="file" name="foto_1" id="foto_1" accept="image/*" hidden>
+            <input type="file" name="foto_2" id="foto_2" accept="image/*" hidden>
+            <input type="file" name="foto_3" id="foto_3" accept="image/*" hidden>
+            <input type="file" name="foto_4" id="foto_4" accept="image/*" hidden>
+            <input type="file" name="foto_5" id="foto_5" accept="image/*" hidden>
+
+            <div class="campo">
+              <label>Nombre de la publicación *</label>
+              <input type="text" name="nombre_publicacion" placeholder="Ej: Equipo de mate imperial" />
+            </div>
+
+            <div class="campo">
+              <label>Precio</label>
+              <input type="text" name="precio" placeholder="Ej: 42000" />
+            </div>
+
+            <div class="campo">
+              <label>Descripción</label>
+              <textarea name="descripcion_publicacion" placeholder="Descripción visible en el detalle de la publicación."></textarea>
+            </div>
+
+            <label class="checkbox-linea">
+              <input type="checkbox" name="activa" checked />
+              <span>Publicación activa</span>
+            </label>
+
+            <button type="submit" class="boton-principal-form">
+              Publicar
+            </button>
+
+          </form>
+        </article>
+
+
+        <!-- MIS PUBLICACIONES -->
+        <article id="mis-publicaciones" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">VIDRIERA</p>
+              <h2>Mis publicaciones</h2>
+            </div>
+          </div>
+
+          <div class="panel-publicaciones-lista">
+
+            <div class="panel-publicacion-item">
+              <img src="img/mate1.jpg" alt="Equipo de mate" />
+
+              <div>
+                <h3>Equipo de mate imperial</h3>
+                <p class="panel-descripcion">
+                  Mate imperial con bombilla, yerbera y azucarera.
+                </p>
+                <p class="precio">$ 42.000</p>
+                <span class="estado-activo">Activa</span>
+              </div>
+
+              <div class="acciones-publicacion">
+                <button>Editar</button>
+                <button>Pausar</button>
+              </div>
+            </div>
+
+            <div class="panel-publicacion-item">
+              <img src="img/mate2.jpg" alt="Botella deportiva" />
+
+              <div>
+                <h3>Botella deportiva</h3>
+                <p class="panel-descripcion">
+                  Botella térmica para deporte y uso diario.
+                </p>
+                <p class="precio">$ 5.600</p>
+                <span class="estado-activo">Activa</span>
+              </div>
+
+              <div class="acciones-publicacion">
+                <button>Editar</button>
+                <button>Pausar</button>
+              </div>
+            </div>
+
+          </div>
+        </article>
+
+
+        <!-- LISTAS BUSCABLES -->
+        <article id="listas" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">BUSCADOR</p>
+              <h2>Listas buscables</h2>
+            </div>
+          </div>
+
+          <form class="formulario panel-form">
+            <div class="campo">
+              <label>Producto o categoría</label>
+              <input type="text" placeholder="Ej: Mate" />
+            </div>
+
+            <div class="campo">
+              <label>Atributos o variantes</label>
+              <textarea placeholder="Imperial, acero, cuero, camionero, Stanley, térmico"></textarea>
+            </div>
+
+            <button type="button" class="boton-principal-form">
+              Guardar lista buscable
+            </button>
+          </form>
+
+          <div class="lista-ejemplo">
+            <strong>Mate</strong>
+            <p>Imperial, acero, cuero, camionero, Stanley, térmico</p>
+            <button>Editar</button>
+          </div>
+        </article>
+
+
+        <!-- MIS DATOS -->
+        <article id="datos" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">COMERCIO</p>
+              <h2>Mis datos</h2>
+            </div>
+          </div>
+
+          <form class="formulario panel-form">
+            <div class="campo">
+              <label>Nombre del comercio</label>
+              <input type="text" value="Deck Bazar" />
+            </div>
+
+            <div class="campo">
+              <label>WhatsApp</label>
+              <input type="text" value="3430000000" />
+            </div>
+
+            <div class="campo">
+              <label>Dirección</label>
+              <input type="text" value="Venta Online" />
+            </div>
+
+            <div class="campo">
+              <label>Descripción breve</label>
+              <textarea>Bazar, regalos, mates y productos para el hogar.</textarea>
+            </div>
+
+            <button type="button" class="boton-principal-form">
+              Guardar cambios
+            </button>
+          </form>
+        </article>
+
+
+        <!-- MI PLAN -->
+        <article id="plan" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">PREMIUM</p>
+              <h2>Mi plan</h2>
+            </div>
+          </div>
+
+          <div class="plan-box">
+            <div>
+              <span>Plan actual</span>
+              <h3>Gratis</h3>
+              <p>Tu comercio aparece en ClickLocal. Podés cargar publicaciones y listas buscables.</p>
+            </div>
+
+            <a href="#" class="boton-whatsapp">
+              Quiero ser Premium
+            </a>
+          </div>
+        </article>
+
+      </section>
+
+    </section>
+
+  </main>
+
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const fotoPrincipalInput = document.getElementById("foto_principal");
+      const botonesFoto = document.querySelectorAll(".foto-box[data-foto-slot]");
+
+      botonesFoto.forEach(function (boton) {
+        boton.addEventListener("click", function () {
+          const slot = boton.dataset.fotoSlot;
+          const inputFoto = document.getElementById("foto_" + slot);
+
+          if (fotoPrincipalInput) {
+            fotoPrincipalInput.value = slot;
+          }
+
+          if (inputFoto) {
+            inputFoto.click();
+          }
+        });
+      });
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Demo buscador de listas - ClickLocal</title>
+
+  <link rel="stylesheet" href="/styles.css" />
+
+  <style>
+    body {
+      background: #f8fafc;
+    }
+
+    .demo-header {
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 18px 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .demo-header-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .demo-logo {
+      font-size: 24px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: -0.03em;
+    }
+
+    .demo-pill {
+      background: #ecfeff;
+      color: #0f766e;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .demo-contenedor {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 18px 60px;
+    }
+
+    .demo-hero {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #ffffff;
+      border-radius: 30px;
+      padding: 34px;
+      margin-bottom: 24px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+    }
+
+    .demo-hero h1 {
+      font-size: 42px;
+      line-height: 1.05;
+      margin: 0 0 12px;
+      letter-spacing: -0.04em;
+    }
+
+    .demo-hero p {
+      font-size: 18px;
+      line-height: 1.55;
+      color: #cbd5e1;
+      max-width: 850px;
+      margin: 0;
+    }
+
+    .demo-buscador-card {
+      background: #ffffff;
+      border-radius: 26px;
+      padding: 20px;
+      margin-bottom: 22px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+    }
+
+    .demo-buscador-form {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .demo-input-busqueda {
+      flex: 1;
+      min-width: 240px;
+      border: 2px solid #e5e7eb;
+      border-radius: 999px;
+      padding: 17px 22px;
+      font-size: 19px;
+      outline: none;
+    }
+
+    .demo-input-busqueda:focus {
+      border-color: #0ea5e9;
+    }
+
+    .demo-boton {
+      border: 0;
+      border-radius: 999px;
+      padding: 15px 22px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      background: #0f172a;
+      color: #ffffff;
+    }
+
+    .demo-boton-secundario {
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #e5e7eb;
+    }
+
+    .demo-chips {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .demo-chip {
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      border-radius: 999px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #334155;
+    }
+
+    .demo-respuesta {
+      display: none;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 28px;
+      padding: 28px;
+      margin-bottom: 22px;
+      box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    .demo-respuesta.visible {
+      display: block;
+    }
+
+    .demo-respuesta h2 {
+      font-size: 36px;
+      line-height: 1.12;
+      letter-spacing: -0.04em;
+      margin: 0 0 12px;
+      color: #0f172a;
+    }
+
+    .demo-respuesta p {
+      font-size: 18px;
+      line-height: 1.55;
+      color: #475569;
+      margin: 0;
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .local-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+    }
+
+    .local-card.premium {
+      border-color: #f59e0b;
+    }
+
+    .local-banner {
+      min-height: 98px;
+      padding: 18px;
+      background: linear-gradient(135deg, #0f172a, #334155);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .local-avatar {
+      width: 60px;
+      height: 60px;
+      border-radius: 20px;
+      background: #ffffff;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+    }
+
+    .badge-premium {
+      background: #fff7ed;
+      color: #c2410c;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .local-body {
+      padding: 20px;
+    }
+
+    .local-nombre {
+      margin: 0 0 4px;
+      font-size: 15px;
+      color: #64748b;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .local-body h3 {
+      margin: 0 0 12px;
+      color: #0f172a;
+      font-size: 25px;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+
+    .local-texto {
+      font-size: 16px;
+      color: #334155;
+      line-height: 1.5;
+      margin: 0 0 12px;
+    }
+
+    .local-detalle {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 12px 14px;
+      color: #64748b;
+      font-size: 15px;
+      line-height: 1.5;
+      margin: 0 0 14px;
+    }
+
+    .local-direccion {
+      color: #475569;
+      font-size: 15px;
+      margin: 0 0 14px;
+    }
+
+    .local-acciones {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .local-acciones a {
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 11px 14px;
+      font-weight: 900;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-ver {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .btn-wa {
+      background: #16a34a;
+      color: #ffffff;
+    }
+
+    .demo-panel {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .demo-panel h2 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      color: #0f172a;
+    }
+
+    .demo-panel p {
+      margin: 0 0 18px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    .demo-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .demo-form-grid input,
+    .demo-form-grid select {
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 13px 14px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .demo-listas-cargadas {
+      margin-top: 18px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .demo-lista-mini {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 12px 14px;
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .demo-vacio {
+      display: none;
+      background: #ffffff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 24px;
+      padding: 24px;
+      color: #64748b;
+      margin-bottom: 24px;
+      font-size: 17px;
+    }
+
+    .demo-vacio.visible {
+      display: block;
+    }
+
+    @media (max-width: 640px) {
+      .demo-hero {
+        padding: 26px;
+      }
+
+      .demo-hero h1 {
+        font-size: 32px;
+      }
+
+      .demo-respuesta h2 {
+        font-size: 28px;
+      }
+
+      .demo-respuesta p {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="demo-header">
+    <div class="demo-header-inner">
+      <div class="demo-logo">ClickLocal</div>
+      <div class="demo-pill">Demo aislada · Listas buscables</div>
+    </div>
+  </header>
+
+  <main class="demo-contenedor">
+    <section class="demo-hero">
+      <h1>Buscador de listas buscables</h1>
+      <p>
+        Esta pantalla no toca Supabase ni el buscador real. Sirve para probar cómo ClickLocal podría responder cuando encuentra comercios por listas, no por publicaciones con foto.
+      </p>
+    </section>
+
+    <section class="demo-buscador-card">
+      <form class="demo-buscador-form" id="formBusqueda">
+        <input
+          id="inputBusqueda"
+          class="demo-input-busqueda"
+          type="search"
+          placeholder="Buscá algo: papas con cheddar, mate de silicona, remera de River..."
+          autocomplete="off"
+        />
+        <button class="demo-boton" type="submit">Buscar</button>
+      </form>
+
+      <div class="demo-chips">
+        <button class="demo-chip" type="button" data-busqueda="papas con cheddar">papas con cheddar</button>
+        <button class="demo-chip" type="button" data-busqueda="mate de silicona">mate de silicona</button>
+        <button class="demo-chip" type="button" data-busqueda="remera de River">remera de River</button>
+        <button class="demo-chip" type="button" data-busqueda="auriculares">auriculares</button>
+      </div>
+    </section>
+
+    <section id="respuesta" class="demo-respuesta"></section>
+
+    <section id="vacio" class="demo-vacio"></section>
+
+    <section id="resultados" class="demo-grid"></section>
+
+    <section class="demo-panel">
+      <h2>Cargar listas de prueba</h2>
+      <p>
+        Carga manual simulada. Estructura real que estamos pensando: producto u objeto principal + atributos.
+      </p>
+
+      <form id="formLista">
+        <div class="demo-form-grid">
+          <input id="nombreComercio" placeholder="Nombre comercio" />
+          <input id="direccion" placeholder="Dirección" />
+          <input id="whatsapp" placeholder="WhatsApp" />
+          <select id="plan">
+            <option value="gratis">Gratis</option>
+            <option value="premium">Premium</option>
+          </select>
+          <input id="producto" placeholder="Producto u objeto: Papas" />
+          <input id="atributos" placeholder="Atributos: cheddar, panceta, verdeo..." />
+        </div>
+
+        <button class="demo-boton" type="submit">Agregar lista</button>
+        <button class="demo-boton demo-boton-secundario" type="button" id="btnEjemplos">Cargar ejemplos</button>
+        <button class="demo-boton demo-boton-secundario" type="button" id="btnLimpiar">Limpiar demo</button>
+      </form>
+
+      <div id="listasCargadas" class="demo-listas-cargadas"></div>
+    </section>
+  </main>
+
+  <script>
+    const frases = [
+      "Hola, lo que buscás lo podés encontrar en estos comercios",
+      "Hola, estos comercios tienen lo que estás buscando",
+      "Hola, lo que estás buscando lo vas a encontrar acá",
+      "Encontramos locales que pueden ayudarte con tu búsqueda",
+      "Estos comercios pueden tener justo lo que necesitás",
+      "Buenas noticias: hay locales para consultar por esto"
+    ];
+
+    const ejemplos = [
+      {
+        nombre: "Burger Río",
+        direccion: "Paraná Centro",
+        whatsapp: "3430000000",
+        plan: "gratis",
+        producto: "Papas",
+        atributos: "cheddar, panceta, verdeo, rústicas, barbacoa, solas"
+      },
+      {
+        nombre: "Deck Bazar",
+        direccion: "Alameda de la Federación",
+        whatsapp: "3431111111",
+        plan: "premium",
+        producto: "Mate",
+        atributos: "silicona, madera, imperial, cuero, bombilla, termo"
+      },
+      {
+        nombre: "Felicita Indumentaria",
+        direccion: "Peatonal San Martín",
+        whatsapp: "3432222222",
+        plan: "premium",
+        producto: "Remeras",
+        atributos: "River, oversize, blanca, negra, algodón"
+      },
+      {
+        nombre: "9 Positivo",
+        direccion: "Gualeguaychú y Corrientes",
+        whatsapp: "3433333333",
+        plan: "gratis",
+        producto: "Tecnología",
+        atributos: "auriculares, cargadores, cables USB, fundas, parlantes"
+      }
+    ];
+
+    let listas = JSON.parse(localStorage.getItem("demoListasBuscables") || "null") || ejemplos;
+
+    const formBusqueda = document.getElementById("formBusqueda");
+    const inputBusqueda = document.getElementById("inputBusqueda");
+    const respuesta = document.getElementById("respuesta");
+    const resultados = document.getElementById("resultados");
+    const vacio = document.getElementById("vacio");
+    const formLista = document.getElementById("formLista");
+    const listasCargadas = document.getElementById("listasCargadas");
+
+    function guardar() {
+      localStorage.setItem("demoListasBuscables", JSON.stringify(listas));
+    }
+
+    function normalizar(texto) {
+      return String(texto || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function tokensBusqueda(texto) {
+      const stopwords = new Set(["de", "del", "la", "el", "los", "las", "con", "y", "en", "para", "por", "un", "una"]);
+      return normalizar(texto)
+        .split(" ")
+        .filter(t => t && !stopwords.has(t));
+    }
+
+    function contieneToken(texto, token) {
+      const t = normalizar(texto);
+      const variantes = [token];
+
+      if (token.length > 3 && token.endsWith("s")) {
+        variantes.push(token.slice(0, -1));
+      }
+
+      if (token.length > 4 && !token.endsWith("s")) {
+        variantes.push(token + "s");
+      }
+
+      return variantes.some(v => t.includes(v));
+    }
+
+    function listaCoincide(lista, consulta) {
+      const tokens = tokensBusqueda(consulta);
+
+      if (!tokens.length) return false;
+
+      const textoLista = [
+        lista.producto,
+        lista.atributos,
+        lista.nombre
+      ].join(" ");
+
+      return tokens.every(token => contieneToken(textoLista, token));
+    }
+
+    function iniciales(nombre) {
+      return String(nombre || "CL")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(p => p[0])
+        .join("")
+        .toUpperCase();
+    }
+
+    function urlWhatsapp(numero, consulta, comercio) {
+      const limpio = String(numero || "").replace(/\D/g, "");
+      const texto = encodeURIComponent(
+        `Hola, vengo de ClickLocal Paraná. Quiero consultar por ${consulta || "un producto"} en ${comercio}.`
+      );
+
+      return `https://wa.me/54${limpio}?text=${texto}`;
+    }
+
+    function renderListasCargadas() {
+      listasCargadas.innerHTML = "";
+
+      listas.forEach(lista => {
+        const div = document.createElement("div");
+        div.className = "demo-lista-mini";
+        div.innerHTML = `
+          <strong>${lista.nombre}</strong> · ${lista.plan.toUpperCase()}<br>
+          <strong>${lista.producto}:</strong> ${lista.atributos}<br>
+          ${lista.direccion} · WhatsApp: ${lista.whatsapp}
+        `;
+        listasCargadas.appendChild(div);
+      });
+    }
+
+    function buscar(consulta) {
+      const q = consulta.trim();
+
+      respuesta.classList.remove("visible");
+      vacio.classList.remove("visible");
+      resultados.innerHTML = "";
+
+      if (!q) return;
+
+      const encontrados = listas
+        .filter(lista => listaCoincide(lista, q))
+        .sort((a, b) => {
+          if (a.plan === b.plan) return 0;
+          return a.plan === "premium" ? -1 : 1;
+        });
+
+      if (!encontrados.length) {
+        vacio.classList.add("visible");
+        vacio.innerHTML = `
+          Todavía no encontramos locales para <strong>"${q}"</strong>.
+          Esta demo sirve para probar cómo respondería ClickLocal cuando sí haya listas cargadas.
+        `;
+        return;
+      }
+
+      const frase = frases[Math.floor(Math.random() * frases.length)];
+
+      respuesta.classList.add("visible");
+      respuesta.innerHTML = `
+        <h2>${frase}</h2>
+        <p>
+          Buscaste <strong>"${q}"</strong>. Consultá disponibilidad, precio o variantes por WhatsApp.
+        </p>
+      `;
+
+      encontrados.forEach(lista => {
+        const card = document.createElement("article");
+        card.className = `local-card ${lista.plan === "premium" ? "premium" : ""}`;
+
+        card.innerHTML = `
+          <div class="local-banner">
+            <div class="local-avatar">${iniciales(lista.nombre)}</div>
+            ${lista.plan === "premium" ? `<span class="badge-premium">Premium</span>` : ""}
+          </div>
+
+          <div class="local-body">
+            <p class="local-nombre">${lista.nombre}</p>
+            <h3>${lista.producto}</h3>
+
+            <p class="local-texto">
+              Este local puede tener opciones relacionadas con <strong>${q}</strong>.
+            </p>
+
+            <p class="local-detalle">
+              También podés consultar por: ${lista.atributos}
+            </p>
+
+            <p class="local-direccion">📍 ${lista.direccion}</p>
+
+            <div class="local-acciones">
+              <a class="btn-ver" href="#">Ver local</a>
+              <a class="btn-wa" target="_blank" rel="noopener noreferrer"
+                 href="${urlWhatsapp(lista.whatsapp, q, lista.nombre)}">
+                Consultar por WhatsApp
+              </a>
+            </div>
+          </div>
+        `;
+
+        resultados.appendChild(card);
+      });
+    }
+
+    formBusqueda.addEventListener("submit", e => {
+      e.preventDefault();
+      buscar(inputBusqueda.value);
+    });
+
+    document.querySelectorAll(".demo-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        inputBusqueda.value = chip.dataset.busqueda;
+        buscar(chip.dataset.busqueda);
+      });
+    });
+
+    formLista.addEventListener("submit", e => {
+      e.preventDefault();
+
+      const nueva = {
+        nombre: document.getElementById("nombreComercio").value.trim(),
+        direccion: document.getElementById("direccion").value.trim(),
+        whatsapp: document.getElementById("whatsapp").value.trim(),
+        plan: document.getElementById("plan").value,
+        producto: document.getElementById("producto").value.trim(),
+        atributos: document.getElementById("atributos").value.trim()
+      };
+
+      if (!nueva.nombre || !nueva.producto || !nueva.atributos) {
+        alert("Cargá al menos comercio, producto y atributos.");
+        return;
+      }
+
+      listas.push(nueva);
+      guardar();
+      renderListasCargadas();
+      formLista.reset();
+    });
+
+    document.getElementById("btnEjemplos").addEventListener("click", () => {
+      listas = ejemplos;
+      guardar();
+      renderListasCargadas();
+      resultados.innerHTML = "";
+      respuesta.classList.remove("visible");
+      vacio.classList.remove("visible");
+    });
+
+    document.getElementById("btnLimpiar").addEventListener("click", () => {
+      listas = [];
+      guardar();
+      renderListasCargadas();
+      resultados.innerHTML = "";
+      respuesta.classList.remove("visible");
+      vacio.classList.remove("visible");
+    });
+
+    renderListasCargadas();
+  </script>
+</body>
+</html>

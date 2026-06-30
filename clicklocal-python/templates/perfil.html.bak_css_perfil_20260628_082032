@@ -4,16 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Deck Bazar | ClickLocal</title>
-  <link rel="stylesheet" href="/styles.css" />
-
-<style>
-  .perfil-whatsapp {
-    padding: 14px 26px;
-    font-size: 1.05rem;
-    border-radius: 999px;
-  }
-</style>
-
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
@@ -30,14 +21,8 @@
       </div>
 
       <nav class="nav">
-        {% if session.get("user_id") and session.get("comercio") %}
-          <span class="nav-link">👤 {{ session.get("comercio").get("nombre_negocio") or session.get("comercio").get("nombre") or "Mi comercio" }}</span>
-          <a href="/panel" class="boton-secundario">Mi panel</a>
-          <a href="/logout" class="boton-secundario">Cerrar sesión</a>
-        {% else %}
-          <a href="/index.html" class="nav-link">Galería pública</a>
-          <a href="/login.html" class="boton-secundario">Iniciar sesión</a>
-        {% endif %}
+        <a href="index.html" class="nav-link">Inicio</a>
+        <a href="registro.html" class="boton-secundario">Soy comercio</a>
       </nav>
     </div>
   </header>
@@ -47,7 +32,7 @@
 
     <section class="perfil-contenedor">
 
-      <a href="/index.html" class="volver-link">← Volver a la galería</a>
+      <a href="index.html" class="volver-link">← Volver a la plataforma</a>
 
       <!-- ENCABEZADO COMERCIO -->
       <section class="perfil-header-card">
@@ -67,7 +52,7 @@
             <p class="perfil-ubicacion">📍 {{ comercio.ubicacion_perfil }}</p>
           </div>
 
-          <a href="{{ comercio.whatsapp_url or '#' }}" class="boton-whatsapp perfil-whatsapp" target="_blank" rel="noopener noreferrer">
+          <a href="{{ comercio.whatsapp_url or '#' }}" class="boton-whatsapp perfil-whatsapp">
             Consultar por WhatsApp
           </a>
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quiero publicar | ClickLocal</title>
-  <link rel="stylesheet" href="/styles.css?v=blanco_maqueta_1" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 
 <body>
@@ -65,7 +65,7 @@
 
         <div class="campo">
           <label>Dirección</label>
-          <input type="text" name="direccion" placeholder="Ej: Av. Ramírez 1234" required />
+          <input type="text" name="direccion" placeholder="Ej: Av. Ramírez 1234" />
         </div>
 
         <label class="checkbox-linea">
@@ -81,7 +81,7 @@
         <div class="campo">
           <label>Rubro o categoría</label>
           <select name="categoria">
-            <option value="" selected disabled>Seleccionar categoría</option>
+            <option>Seleccionar categoría</option>
             <option>Gastronomía</option>
             <option>Indumentaria</option>
             <option>Hogar</option>
@@ -90,7 +90,6 @@
             <option>Servicios</option>
             <option>Deportes</option>
             <option>Educación y Cursos</option>
-            <option>Otros</option>
           </select>
         </div>
 

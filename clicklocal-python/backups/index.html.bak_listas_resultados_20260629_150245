@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClickLocal Paraná</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="header-contenedor">
+
+      <div class="logo-zona">
+        <div class="logo-circulo">C</div>
+
+        <div>
+          <h1 class="logo-texto">ClickLocal</h1>
+          <p class="ciudad">📍 Paraná</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        {% if session.get("user_id") and session.get("comercio") %}
+          <span class="nav-link">👤 {{ session.get("comercio").get("nombre_negocio") or session.get("comercio").get("nombre") or "Mi comercio" }}</span>
+          <a href="/panel" class="boton-secundario">Mi panel</a>
+          <a href="/logout" class="boton-secundario">Cerrar sesión</a>
+        {% else %}
+          <a href="/login.html" class="boton-secundario">Iniciar sesión</a>
+        {% endif %}
+      </nav>
+
+    </div>
+  </header>
+
+
+  <section class="hero">
+    <div class="hero-contenedor">
+
+      <p class="etiqueta-hero">La vidriera digital de tu ciudad</p>
+
+      <h2 class="titulo-hero">
+        Encontrá lo que buscás,<br />
+        cerca tuyo.
+      </h2>
+
+      <p class="subtitulo-hero">
+        Productos, comercios, emprendimientos y servicios de Paraná en un solo lugar.
+      </p>
+
+      <form class="buscador" method="GET" action="/index.html">
+        <input
+          class="input-busqueda"
+          type="text"
+          name="q"
+          value="{{ busqueda or '' }}"
+          placeholder="Buscar: mate, hamburguesa, zapatillas, electricista..."
+        />
+
+        <button class="boton-buscar" type="submit">
+          Buscar
+        </button>
+      </form>
+
+      <div class="busquedas-rapidas">
+        <a href="/index.html?q=hamburguesa">Hamburguesas</a>
+        <a href="/index.html?q=mate">Mates</a>
+        <a href="/index.html?q=zapatilla">Zapatillas</a>
+        <a href="/index.html?q=electricista">Electricista</a>
+        <a href="/index.html?q=curso">Cursos</a>
+      </div>
+
+    </div>
+  </section>
+
+
+  <main>
+
+    <!-- CATEGORÍAS -->
+    <section class="seccion categorias">
+      <div class="contenedor">
+
+        <p class="titulo-chico">CATEGORÍAS</p>
+        <h2 class="titulo-seccion">Explorá por rubro</h2>
+
+        <div class="grilla-categorias">
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">🍔</span>
+            Gastronomía
+          </a>
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">👕</span>
+            Indumentaria
+          </a>
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">🏠</span>
+            Hogar
+          </a>
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">💻</span>
+            Tecnología
+          </a>
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">💊</span>
+            Salud
+          </a>
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">🛠️</span>
+            Servicios
+          </a>
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">⚽</span>
+            Deportes
+          </a>
+
+          <a href="#" class="categoria-card">
+            <span class="categoria-icono">📚</span>
+            Educación
+          </a>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- LO MÁS VISTO -->
+    <section class="seccion">
+      <div class="contenedor">
+
+        <p class="titulo-chico">DESTACADOS</p>
+        <h2 class="titulo-seccion">
+          {% if busqueda %}
+            Resultados para "{{ busqueda }}"
+          {% else %}
+            Lo más visto en Paraná
+          {% endif %}
+        </h2>
+
+        <div class="grilla-publicaciones">
+
+          {% if publicaciones %}
+
+            {% for pub in publicaciones %}
+
+              <a href="/detalle/{{ pub.id }}" class="publicacion-card">
+
+                {% if pub.imagen_url %}
+                  <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" />
+                {% else %}
+                  <img src="/img/mate1.jpg" alt="{{ pub.nombre }}" />
+                {% endif %}
+
+                <div class="publicacion-info">
+                  <p class="nombre-comercio">{{ pub.comercio }}</p>
+                  <h3>{{ pub.nombre }}</h3>
+
+                  {% if pub.precio %}
+                    <p class="precio">$ {{ pub.precio }}</p>
+                  {% endif %}
+
+                  <p class="ubicacion">{{ pub.direccion_mostrar }}</p>
+                </div>
+              </a>
+
+            {% endfor %}
+
+          {% else %}
+
+            <div class="panel-vacio">
+              {% if busqueda and comercios_relacionados %}
+                No encontramos publicaciones exactas para "{{ busqueda }}", pero abajo hay comercios relacionados por listas buscables.
+              {% elif busqueda %}
+                No encontramos publicaciones activas para "{{ busqueda }}". Probá con otra búsqueda.
+              {% else %}
+                Todavía no hay publicaciones cargadas. Entrá como comercio y cargá la primera.
+              {% endif %}
+            </div>
+
+          {% endif %}
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RESULTADOS POR LISTAS BUSCABLES -->
+    {% if busqueda and comercios_relacionados %}
+      <section class="seccion">
+        <div class="contenedor">
+
+          <p class="titulo-chico">LISTAS BUSCABLES</p>
+          <h2 class="titulo-seccion">Comercios relacionados con "{{ busqueda }}"</h2>
+
+          <div class="grilla-publicaciones">
+
+            {% for item in comercios_relacionados %}
+
+              <div class="publicacion-card">
+
+                {% if item.imagen_url %}
+                  <img src="{{ item.imagen_url }}" alt="{{ item.nombre_negocio }}" />
+                {% else %}
+                  <img src="/img/mate1.jpg" alt="{{ item.nombre_negocio }}" />
+                {% endif %}
+
+                <div class="publicacion-info">
+                  <p class="nombre-comercio">{{ item.nombre_negocio }}</p>
+                  <h3>{{ item.producto_categoria }}</h3>
+
+                  <p class="panel-descripcion">
+                    Coincide con: {{ item.atributos_texto }}
+                  </p>
+
+                  <p class="ubicacion">{{ item.ubicacion_mostrar }}</p>
+
+                  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+                    <a href="/comercio/{{ item.comercio_id }}" class="boton-secundario">
+                      Ver comercio
+                    </a>
+
+                    {% if item.whatsapp_url %}
+                      <a href="{{ item.whatsapp_url }}" target="_blank" class="boton-secundario">
+                        WhatsApp
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+
+              </div>
+
+            {% endfor %}
+
+          </div>
+
+        </div>
+      </section>
+    {% endif %}
+    <!-- FIN RESULTADOS POR LISTAS BUSCABLES -->
+
+
+
+    <!-- PUBLICACIONES RECIENTES -->
+    <section class="seccion">
+      <div class="contenedor">
+
+        <p class="titulo-chico">RECIENTES</p>
+        <h2 class="titulo-seccion">Publicaciones recientes</h2>
+
+        <div class="grilla-publicaciones">
+
+          {% if publicaciones %}
+
+            {% for pub in publicaciones %}
+
+              <a href="/detalle/{{ pub.id }}" class="publicacion-card">
+
+                {% if pub.imagen_url %}
+                  <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" />
+                {% else %}
+                  <img src="/img/mate1.jpg" alt="{{ pub.nombre }}" />
+                {% endif %}
+
+                <div class="publicacion-info">
+                  <p class="nombre-comercio">{{ pub.comercio }}</p>
+                  <h3>{{ pub.nombre }}</h3>
+
+                  {% if pub.precio %}
+                    <p class="precio">$ {{ pub.precio }}</p>
+                  {% endif %}
+
+                  <p class="ubicacion">{{ pub.direccion_mostrar }}</p>
+                </div>
+              </a>
+
+            {% endfor %}
+
+          {% else %}
+
+            <div class="panel-vacio">
+              Todavía no hay publicaciones recientes.
+            </div>
+
+          {% endif %}
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+
+  <footer class="footer">
+    <p>ClickLocal Paraná</p>
+    <p>La forma más simple de mostrar y encontrar comercios locales.</p>
+  </footer>
+
+</body>
+</html>

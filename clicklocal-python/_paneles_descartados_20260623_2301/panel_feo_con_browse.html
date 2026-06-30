@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel comercio | ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+
+  <header class="header">
+    <div class="header-contenedor">
+      <div class="logo-zona">
+        <div class="logo-circulo">C</div>
+
+        <div>
+          <h1 class="logo-texto">ClickLocal</h1>
+          <p class="ciudad">📍 Paraná</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/" class="nav-link">Ir a la plataforma</a>
+        <a href="/login" class="boton-secundario">Salir</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <main class="panel-main">
+
+    <section class="panel-hero">
+      <div>
+        <p class="titulo-chico">MI COMERCIO</p>
+        <h1>Hola, {{ comercio.nombre_negocio }}</h1>
+        <p>Administrá tus publicaciones, listas buscables y datos del comercio.</p>
+      </div>
+
+      <div class="panel-plan">
+        <span>Plan actual</span>
+        <strong>{{ comercio.plan }}</strong>
+      </div>
+    </section>
+
+
+    <section class="panel-layout">
+
+      <aside class="panel-menu">
+        <a href="#publicacion" class="panel-menu-link activo">Cargar publicación</a>
+        <a href="#mis-publicaciones" class="panel-menu-link">Mis publicaciones</a>
+        <a href="#listas" class="panel-menu-link">Listas buscables</a>
+        <a href="#datos" class="panel-menu-link">Mis datos</a>
+        <a href="#plan" class="panel-menu-link">Mi plan</a>
+      </aside>
+
+
+      <section class="panel-contenido">
+
+        <article id="publicacion" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">PUBLICACIONES</p>
+              <h2>Cargar publicación</h2>
+            </div>
+            <span class="badge">Hasta 6 fotos</span>
+          </div>
+
+          {% if error %}
+            <div class="alerta-error">
+              {{ error }}
+            </div>
+          {% endif %}
+
+          <form class="formulario panel-form" method="POST" action="/panel" enctype="multipart/form-data">
+
+            <div class="fotos-grid">
+              <label class="foto-box">
+                <input type="file" name="fotos" accept="image/*" />
+                <input type="radio" name="foto_principal" value="0" checked hidden />
+                +<span>Foto principal</span>
+              </label>
+              <label class="foto-box">
+                <input type="file" name="fotos" accept="image/*" />
+                <input type="radio" name="foto_principal" value="1" hidden />
+                +<span>Foto 2</span>
+              </label>
+              <label class="foto-box">
+                <input type="file" name="fotos" accept="image/*" />
+                <input type="radio" name="foto_principal" value="2" hidden />
+                +<span>Foto 3</span>
+              </label>
+              <label class="foto-box">
+                <input type="file" name="fotos" accept="image/*" />
+                <input type="radio" name="foto_principal" value="3" hidden />
+                +<span>Foto 4</span>
+              </label>
+              <label class="foto-box">
+                <input type="file" name="fotos" accept="image/*" />
+                <input type="radio" name="foto_principal" value="4" hidden />
+                +<span>Foto 5</span>
+              </label>
+              <label class="foto-box">
+                <input type="file" name="fotos" accept="image/*" />
+                <input type="radio" name="foto_principal" value="5" hidden />
+                +<span>Foto 6</span>
+              </label>
+            </div>
+
+            <div class="campo">
+              <label>Nombre de la publicación *</label>
+              <input type="text" name="nombre_publicacion" placeholder="Ej: Equipo de mate imperial" />
+            </div>
+
+            <div class="campo">
+              <label>Precio</label>
+              <input type="text" name="precio" placeholder="Ej: 42000" />
+            </div>
+
+            <div class="campo">
+              <label>Descripción</label>
+              <textarea name="descripcion_publicacion" placeholder="Descripción visible en el detalle de la publicación."></textarea>
+            </div>
+
+            <label class="checkbox-linea">
+              <input type="checkbox" name="activa" checked />
+              <span>Publicación activa</span>
+            </label>
+
+            <button type="submit" class="boton-principal-form">
+              Publicar
+            </button>
+
+          </form>
+        </article>
+
+
+        <article id="mis-publicaciones" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">VIDRIERA</p>
+              <h2>Mis publicaciones</h2>
+            </div>
+          </div>
+
+          <div class="panel-publicaciones-lista">
+
+            {% if publicaciones %}
+
+              {% for pub in publicaciones %}
+
+                <div class="panel-publicacion-item">
+
+                  {% if pub.imagen_principal or pub.imagen_url %}
+                    <img src="{{ pub.imagen_principal or pub.imagen_url }}" alt="{{ pub.nombre }}" />
+                  {% else %}
+                    <div class="publicacion-thumb-placeholder">
+                      Sin foto
+                    </div>
+                  {% endif %}
+
+                  <div>
+                    <h3>{{ pub.nombre }}</h3>
+
+                    {% if pub.descripcion %}
+                      <p class="panel-descripcion">
+                        {{ pub.descripcion }}
+                      </p>
+                    {% endif %}
+
+                    {% if pub.precio %}
+                      <p class="precio">$ {{ pub.precio }}</p>
+                    {% endif %}
+
+                    {% if pub.activa %}
+                      <span class="estado-activo">Activa</span>
+                    {% else %}
+                      <span class="estado-pausado">Pausada</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="acciones-publicacion">
+                    <button>Editar</button>
+                    <button>Pausar</button>
+                  </div>
+
+                </div>
+
+              {% endfor %}
+
+            {% else %}
+
+              <div class="panel-vacio">
+                Todavía no cargaste publicaciones.
+              </div>
+
+            {% endif %}
+
+          </div>
+        </article>
+
+
+        <article id="listas" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">BUSCADOR</p>
+              <h2>Listas buscables</h2>
+            </div>
+          </div>
+
+          <form class="formulario panel-form">
+            <div class="campo">
+              <label>Producto o categoría</label>
+              <input type="text" placeholder="Ej: Mate" />
+            </div>
+
+            <div class="campo">
+              <label>Atributos o variantes</label>
+              <textarea placeholder="Imperial, acero, cuero, camionero, Stanley, térmico"></textarea>
+            </div>
+
+            <button type="button" class="boton-principal-form">
+              Guardar lista buscable
+            </button>
+          </form>
+        </article>
+
+
+        <article id="datos" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">COMERCIO</p>
+              <h2>Mis datos</h2>
+            </div>
+          </div>
+
+          <form class="formulario panel-form">
+            <div class="campo">
+              <label>Nombre del comercio</label>
+              <input type="text" value="{{ comercio.nombre_negocio }}" />
+            </div>
+
+            <div class="campo">
+              <label>WhatsApp</label>
+              <input type="text" value="{{ comercio.whatsapp }}" />
+            </div>
+
+            <div class="campo">
+              <label>Dirección</label>
+              <input type="text" value="{{ comercio.direccion_mostrar }}" />
+            </div>
+
+            <div class="campo">
+              <label>Descripción breve</label>
+              <textarea>{{ comercio.descripcion }}</textarea>
+            </div>
+
+            <button type="button" class="boton-principal-form">
+              Guardar cambios
+            </button>
+          </form>
+        </article>
+
+
+        <article id="plan" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">PREMIUM</p>
+              <h2>Mi plan</h2>
+            </div>
+          </div>
+
+          <div class="plan-box">
+            <div>
+              <span>Plan actual</span>
+              <h3>{{ comercio.plan }}</h3>
+              <p>Tu comercio aparece en ClickLocal. Podés cargar publicaciones y listas buscables.</p>
+            </div>
+
+            <a href="#" class="boton-whatsapp">
+              Quiero ser Premium
+            </a>
+          </div>
+        </article>
+
+      </section>
+
+    </section>
+
+  </main>
+
+</body>
+</html>

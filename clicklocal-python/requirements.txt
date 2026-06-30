@@ -1,5 +1,6 @@
 ﻿Flask
 supabase
 python-dotenv
+Pillow
 
 

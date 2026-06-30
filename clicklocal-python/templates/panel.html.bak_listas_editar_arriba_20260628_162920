@@ -226,42 +226,20 @@
             </div>
           {% endif %}
 
-          <form id="form-lista-principal" class="formulario panel-form" method="POST" action="/listas/guardar">
+          <form class="formulario panel-form" method="POST" action="/listas/guardar">
             <div class="campo">
               <label>Producto o categoría</label>
-              <input
-                type="text"
-                id="lista_producto_categoria"
-                name="producto_categoria"
-                placeholder="Ej: Mate"
-                required
-              />
+              <input type="text" name="producto_categoria" placeholder="Ej: Mate" required />
             </div>
 
             <div class="campo">
               <label>Atributos o variantes</label>
-              <textarea
-                id="lista_atributos_texto"
-                name="atributos_texto"
-                placeholder="Imperial, acero, cuero, camionero, Stanley, térmico"
-                required
-              ></textarea>
+              <textarea name="atributos_texto" placeholder="Imperial, acero, cuero, camionero, Stanley, térmico" required></textarea>
             </div>
 
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-              <button type="submit" id="lista-submit" class="boton-principal-form">
-                Guardar lista buscable
-              </button>
-
-              <button
-                type="button"
-                id="lista-cancelar-edicion"
-                class="boton-secundario"
-                style="display:none; border:0; cursor:pointer;"
-              >
-                Cancelar edición
-              </button>
-            </div>
+            <button type="submit" class="boton-principal-form">
+              Guardar lista buscable
+            </button>
           </form>
 
           {% if listas_buscables %}
@@ -290,10 +268,7 @@
                   >
                     <button
                       type="button"
-                      class="boton-editar-lista"
-                      data-id="{{ lista.id }}"
-                      data-producto="{{ lista.producto_categoria|default('', true)|e }}"
-                      data-atributos="{{ lista.atributos_texto|default('', true)|e }}"
+                      onclick="var f=document.getElementById('form-lista-{{ lista.id }}'); f.style.display = (f.style.display === 'none' || f.style.display === '') ? 'block' : 'none';"
                     >
                       Editar
                     </button>
@@ -308,6 +283,44 @@
                     </form>
                   </div>
                 </div>
+
+                <form
+                  id="form-lista-{{ lista.id }}"
+                  method="POST"
+                  action="{{ url_for('editar_lista_buscable', lista_id=lista.id) }}"
+                  class="formulario panel-form"
+                  style="display:none; margin-top:14px; margin-bottom:18px; padding:16px; border:1px solid #e5e7eb; border-radius:14px; background:#f9fafb;"
+                >
+                  <div class="campo">
+                    <label>Producto o categoría</label>
+                    <input
+                      type="text"
+                      name="producto_categoria"
+                      value="{{ lista.producto_categoria }}"
+                      required
+                    />
+                  </div>
+
+                  <div class="campo">
+                    <label>Atributos o variantes</label>
+                    <textarea name="atributos_texto" required>{{ lista.atributos_texto }}</textarea>
+                  </div>
+
+                  <div style="display:flex; gap:10px; align-items:center;">
+                    <button type="submit" class="boton-secundario" style="border:0; cursor:pointer;">
+                      Guardar cambios
+                    </button>
+
+                    <button
+                      type="button"
+                      class="boton-secundario"
+                      style="border:0; cursor:pointer;"
+                      onclick="document.getElementById('form-lista-{{ lista.id }}').style.display='none';"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
 
               {% endfor %}
             </div>
@@ -767,59 +780,6 @@
       pintarPrincipal(fotoPrincipalInput ? fotoPrincipalInput.value : "0");
     });
   </script>
-
-
-  <!-- JS LISTAS BUSCABLES EDITAR ARRIBA -->
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const formLista = document.getElementById("form-lista-principal");
-      const inputProducto = document.getElementById("lista_producto_categoria");
-      const inputAtributos = document.getElementById("lista_atributos_texto");
-      const botonSubmit = document.getElementById("lista-submit");
-      const botonCancelar = document.getElementById("lista-cancelar-edicion");
-
-      if (!formLista || !inputProducto || !inputAtributos || !botonSubmit) {
-        return;
-      }
-
-      const accionCrear = "/listas/guardar";
-
-      function volverModoCrear() {
-        formLista.action = accionCrear;
-        inputProducto.value = "";
-        inputAtributos.value = "";
-        botonSubmit.textContent = "Guardar lista buscable";
-
-        if (botonCancelar) {
-          botonCancelar.style.display = "none";
-        }
-      }
-
-      document.querySelectorAll(".boton-editar-lista").forEach(function (boton) {
-        boton.addEventListener("click", function () {
-          const listaId = boton.dataset.id || "";
-
-          inputProducto.value = boton.dataset.producto || "";
-          inputAtributos.value = boton.dataset.atributos || "";
-
-          formLista.action = "/listas/editar/" + listaId;
-          botonSubmit.textContent = "Guardar cambios";
-
-          if (botonCancelar) {
-            botonCancelar.style.display = "inline-block";
-          }
-
-          formLista.scrollIntoView({ behavior: "smooth", block: "start" });
-          inputProducto.focus();
-        });
-      });
-
-      if (botonCancelar) {
-        botonCancelar.addEventListener("click", volverModoCrear);
-      }
-    });
-  </script>
-  <!-- FIN JS LISTAS BUSCABLES EDITAR ARRIBA -->
 
 </body>
 </html>

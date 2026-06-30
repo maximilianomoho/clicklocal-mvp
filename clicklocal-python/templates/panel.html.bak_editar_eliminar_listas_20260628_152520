@@ -210,107 +210,33 @@
 
           {% if request.args.get('lista_error') %}
             <div style="margin-bottom:16px; padding:14px; border-radius:12px; background:#ffe5e5; color:#8a0000; font-weight:700;">
-              No pudimos procesar la lista. Completá producto/categoría y atributos.
+              No pudimos guardar la lista. Completá producto/categoría y atributos.
             </div>
           {% endif %}
 
-          {% if request.args.get('lista_editada') %}
-            <div style="margin-bottom:16px; padding:14px; border-radius:12px; background:#e8f7ee; color:#166534; font-weight:700;">
-              Lista buscable actualizada correctamente.
-            </div>
-          {% endif %}
-
-          {% if request.args.get('lista_eliminada') %}
-            <div style="margin-bottom:16px; padding:14px; border-radius:12px; background:#e8f7ee; color:#166534; font-weight:700;">
-              Lista buscable eliminada correctamente.
-            </div>
-          {% endif %}
-
-          <form id="form-lista-principal" class="formulario panel-form" method="POST" action="/listas/guardar">
+          <form class="formulario panel-form" method="POST" action="/listas/guardar">
             <div class="campo">
               <label>Producto o categoría</label>
-              <input
-                type="text"
-                id="lista_producto_categoria"
-                name="producto_categoria"
-                placeholder="Ej: Mate"
-                required
-              />
+              <input type="text" name="producto_categoria" placeholder="Ej: Mate" required />
             </div>
 
             <div class="campo">
               <label>Atributos o variantes</label>
-              <textarea
-                id="lista_atributos_texto"
-                name="atributos_texto"
-                placeholder="Imperial, acero, cuero, camionero, Stanley, térmico"
-                required
-              ></textarea>
+              <textarea name="atributos_texto" placeholder="Imperial, acero, cuero, camionero, Stanley, térmico" required></textarea>
             </div>
 
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-              <button type="submit" id="lista-submit" class="boton-principal-form">
-                Guardar lista buscable
-              </button>
-
-              <button
-                type="button"
-                id="lista-cancelar-edicion"
-                class="boton-secundario"
-                style="display:none; border:0; cursor:pointer;"
-              >
-                Cancelar edición
-              </button>
-            </div>
+            <button type="submit" class="boton-principal-form">
+              Guardar lista buscable
+            </button>
           </form>
 
           {% if listas_buscables %}
-            <div class="listas-buscables-compactas" style="margin-top:18px;">
-              {% for lista in listas_buscables %}
-
-                <div
-                  class="lista-buscable-item"
-                  style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:16px 0; border-bottom:1px solid #e5e7eb;"
-                >
-                  <div style="min-width:0;">
-                    <p style="margin:0 0 6px 0;">
-                      <strong>Producto o categoría:</strong>
-                      {{ lista.producto_categoria }}
-                    </p>
-
-                    <p class="panel-descripcion" style="margin:0;">
-                      <strong>Atributos o variantes:</strong>
-                      {{ lista.atributos_texto }}
-                    </p>
-                  </div>
-
-                  <div
-                    class="acciones-publicacion"
-                    style="display:flex; gap:10px; align-items:center; flex-shrink:0;"
-                  >
-                    <button
-                      type="button"
-                      class="boton-editar-lista"
-                      data-id="{{ lista.id }}"
-                      data-producto="{{ lista.producto_categoria|default('', true)|e }}"
-                      data-atributos="{{ lista.atributos_texto|default('', true)|e }}"
-                    >
-                      Editar
-                    </button>
-
-                    <form
-                      method="POST"
-                      action="{{ url_for('eliminar_lista_buscable', lista_id=lista.id) }}"
-                      style="margin:0;"
-                      onsubmit="return confirm('¿Seguro que querés eliminar esta lista buscable?');"
-                    >
-                      <button type="submit">Eliminar</button>
-                    </form>
-                  </div>
-                </div>
-
-              {% endfor %}
-            </div>
+            {% for lista in listas_buscables %}
+              <div class="lista-ejemplo">
+                <strong>{{ lista.producto_categoria }}</strong>
+                <p>{{ lista.atributos_texto }}</p>
+              </div>
+            {% endfor %}
           {% else %}
             <p class="panel-descripcion">
               Todavía no cargaste listas buscables.
@@ -767,59 +693,6 @@
       pintarPrincipal(fotoPrincipalInput ? fotoPrincipalInput.value : "0");
     });
   </script>
-
-
-  <!-- JS LISTAS BUSCABLES EDITAR ARRIBA -->
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const formLista = document.getElementById("form-lista-principal");
-      const inputProducto = document.getElementById("lista_producto_categoria");
-      const inputAtributos = document.getElementById("lista_atributos_texto");
-      const botonSubmit = document.getElementById("lista-submit");
-      const botonCancelar = document.getElementById("lista-cancelar-edicion");
-
-      if (!formLista || !inputProducto || !inputAtributos || !botonSubmit) {
-        return;
-      }
-
-      const accionCrear = "/listas/guardar";
-
-      function volverModoCrear() {
-        formLista.action = accionCrear;
-        inputProducto.value = "";
-        inputAtributos.value = "";
-        botonSubmit.textContent = "Guardar lista buscable";
-
-        if (botonCancelar) {
-          botonCancelar.style.display = "none";
-        }
-      }
-
-      document.querySelectorAll(".boton-editar-lista").forEach(function (boton) {
-        boton.addEventListener("click", function () {
-          const listaId = boton.dataset.id || "";
-
-          inputProducto.value = boton.dataset.producto || "";
-          inputAtributos.value = boton.dataset.atributos || "";
-
-          formLista.action = "/listas/editar/" + listaId;
-          botonSubmit.textContent = "Guardar cambios";
-
-          if (botonCancelar) {
-            botonCancelar.style.display = "inline-block";
-          }
-
-          formLista.scrollIntoView({ behavior: "smooth", block: "start" });
-          inputProducto.focus();
-        });
-      });
-
-      if (botonCancelar) {
-        botonCancelar.addEventListener("click", volverModoCrear);
-      }
-    });
-  </script>
-  <!-- FIN JS LISTAS BUSCABLES EDITAR ARRIBA -->
 
 </body>
 </html>

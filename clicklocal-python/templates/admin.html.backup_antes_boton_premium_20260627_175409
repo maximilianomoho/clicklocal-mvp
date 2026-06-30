@@ -184,23 +184,11 @@
                     <td><span class="admin-plan">{{ s.plan }}</span></td>
                     <td><span class="admin-plan">Pendiente</span></td>
                     <td>
-                      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                        {% if s.whatsapp_url %}
-                          <a class="admin-mini-link" href="{{ s.whatsapp_url }}" target="_blank">Contactar</a>
-                        {% else %}
-                          <span>Sin WhatsApp</span>
-                        {% endif %}
-
-                        {% if s.id %}
-                          <form method="POST" action="{{ url_for('admin_activar_premium', comercio_id=s.id) }}" style="margin: 0;" onsubmit="return confirm('¿Activar Premium para este comercio?');">
-                            <button type="submit" class="admin-mini-link" style="border: 0; cursor: pointer;">
-                              Activar Premium
-                            </button>
-                          </form>
-                        {% else %}
-                          <span class="admin-plan">Sin ID</span>
-                        {% endif %}
-                      </div>
+                      {% if s.whatsapp_url %}
+                        <a class="admin-mini-link" href="{{ s.whatsapp_url }}" target="_blank">Contactar</a>
+                      {% else %}
+                        Sin WhatsApp
+                      {% endif %}
                     </td>
                   </tr>
                 {% endfor %}

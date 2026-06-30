@@ -1,0 +1,554 @@
+from flask import Flask, render_template, send_from_directory, request, redirect, url_for, session
+from werkzeug.utils import secure_filename
+import os
+import uuid
+from PIL import Image
+from io import BytesIO
+import json
+import datetime
+from config.supabase_config import supabase_auth, supabase_admin
+
+app = Flask(__name__)
+
+# Clave temporal para session en desarrollo local
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "clicklocal-mvp-dev")
+
+# Carpeta donde guardamos fotos subidas en esta etapa local
+UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def comercio_default():
+    return {
+        "nombre_negocio": "Deck Bazar",
+        "email": "deckbazar@test.com",
+        "whatsapp": "3430000000",
+        "direccion": "",
+        "direccion_mostrar": "Venta Online",
+        "venta_online": True,
+        "ciudad": "Paraná",
+        "categoria": "Hogar",
+        "descripcion": "Bazar, regalos, mates y productos para el hogar.",
+        "plan": "gratis",
+    }
+
+
+# INICIO / PLATAFORMA
+@app.route("/")
+@app.route("/index.html")
+def inicio():
+    comercio = session.get("comercio") or comercio_default()
+    publicaciones = session.get("publicaciones", [])
+
+    publicaciones_activas = []
+    for pub in publicaciones:
+        if pub.get("activa"):
+            publicaciones_activas.append(pub)
+
+    return render_template(
+        "index.html",
+        comercio=comercio,
+        publicaciones=publicaciones_activas
+    )
+
+
+# REGISTRO COMERCIO
+@app.route("/registro", methods=["GET", "POST"])
+@app.route("/registro.html", methods=["GET", "POST"])
+def registro():
+    if request.method == "POST":
+        nombre_negocio = request.form.get("nombre_negocio", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        whatsapp = request.form.get("whatsapp", "").strip()
+        direccion = request.form.get("direccion", "").strip()
+        venta_online = request.form.get("venta_online") == "on"
+        ciudad = request.form.get("ciudad", "Paraná").strip()
+        categoria = request.form.get("categoria", "").strip()
+        descripcion = request.form.get("descripcion", "").strip()
+        password = request.form.get("password", "").strip()
+        repetir_password = request.form.get("repetir_password", "").strip()
+
+        if not nombre_negocio or not email or not whatsapp or not password:
+            return "Faltan datos obligatorios: nombre del negocio, email, WhatsApp o contraseña.", 400
+
+        if not categoria:
+            return "Tenés que seleccionar una categoría.", 400
+
+        if password != repetir_password:
+            return "Las contraseñas no coinciden.", 400
+
+        if len(password) < 6:
+            return "La contraseña debe tener al menos 6 caracteres.", 400
+
+        direccion_mostrar = direccion if direccion else "Venta Online"
+
+        try:
+            auth_res = supabase_admin.auth.admin.create_user({
+                "email": email,
+                "password": password,
+                "email_confirm": True
+            })
+
+            user = auth_res.user
+
+            if not user:
+                return "No se pudo crear el usuario en Supabase Auth.", 400
+
+            comercio_nuevo = {
+                "user_id": user.id,
+                "nombre_negocio": nombre_negocio,
+                "email": email,
+                "whatsapp": whatsapp,
+                "direccion": direccion,
+                "direccion_mostrar": direccion_mostrar,
+                "venta_online": venta_online,
+                "ciudad": ciudad,
+                "categoria": categoria,
+                "descripcion": descripcion,
+                "plan": "gratis",
+            }
+
+            insert_res = supabase_admin.table("comercios").insert(comercio_nuevo).execute()
+
+            comercio_guardado = insert_res.data[0] if insert_res.data else comercio_nuevo
+
+            session["user_id"] = user.id
+            session["comercio"] = comercio_guardado
+            session["publicaciones"] = []
+
+            return redirect(url_for("panel"))
+
+        except Exception as e:
+            return f"Error registrando comercio: {e}", 400
+
+    return render_template("registro.html")
+
+
+# LOGIN COMERCIO
+@app.route("/login", methods=["GET", "POST"])
+@app.route("/login.html", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
+
+        if not email or not password:
+            return "Falta email o contraseña.", 400
+
+        try:
+            auth_res = supabase_auth.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+
+            user = auth_res.user
+
+            if not user:
+                return "No se pudo iniciar sesión.", 400
+
+            comercio_res = (
+                supabase_admin
+                .table("comercios")
+                .select("*")
+                .eq("user_id", user.id)
+                .single()
+                .execute()
+            )
+
+            comercio = comercio_res.data
+
+            if not comercio:
+                return "Usuario válido, pero no se encontró comercio asociado.", 404
+
+            session["user_id"] = user.id
+            session["comercio"] = comercio
+            session["publicaciones"] = []
+
+            return redirect(url_for("panel"))
+
+        except Exception as e:
+            return f"Error iniciando sesión: {e}", 400
+
+    return render_template("login.html")
+
+
+# PANEL DEL COMERCIO
+@app.route("/panel", methods=["GET", "POST"])
+@app.route("/panel.html", methods=["GET", "POST"])
+def panel():
+    comercio = session.get("comercio") or comercio_default()
+    publicaciones = []
+
+    user_id = session.get("user_id")
+    comercio_id = comercio.get("id") or user_id
+
+    # Traer publicaciones desde Supabase si hay usuario
+    if user_id:
+        try:
+            publicaciones_res = (
+                supabase_admin
+                .table("publicaciones")
+                .select("*")
+                .eq("comercio_id", comercio_id)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            publicaciones = publicaciones_res.data or []
+        except Exception:
+            publicaciones = session.get("publicaciones", [])
+    else:
+        publicaciones = session.get("publicaciones", [])
+
+    if request.method == "POST":
+        nombre = request.form.get("nombre_publicacion", "").strip()
+        precio = request.form.get("precio", "").strip()
+        descripcion = request.form.get("descripcion_publicacion", "").strip()
+        activa = request.form.get("activa") == "on"
+        publicacion_id = request.form.get("publicacion_id", "").strip()
+        imagenes_existentes_raw = request.form.get("imagenes_existentes", "[]").strip()
+
+        if not nombre:
+            return render_template(
+                "panel.html",
+                comercio=comercio,
+                publicaciones=publicaciones,
+                error="Falta el nombre de la publicación."
+            )
+
+        # MODO EDICIÓN: actualiza datos básicos y PORTADA, sin eliminar fotos todavía
+        if publicacion_id:
+            try:
+                imagenes_existentes = json.loads(imagenes_existentes_raw) if imagenes_existentes_raw else []
+                if not isinstance(imagenes_existentes, list):
+                    imagenes_existentes = []
+            except Exception:
+                imagenes_existentes = []
+
+            imagenes_existentes = [
+                url.strip()
+                for url in imagenes_existentes
+                if isinstance(url, str) and url.strip()
+            ]
+
+            if not imagenes_existentes:
+                return render_template(
+                    "panel.html",
+                    comercio=comercio,
+                    publicaciones=publicaciones,
+                    error="La publicación debe tener al menos 1 foto."
+                )
+
+            try:
+                principal_slot = int(request.form.get("foto_principal", "0") or 0)
+            except Exception:
+                principal_slot = 0
+
+            cambios_publicacion = {
+                "nombre": nombre,
+                "precio": precio if precio else None,
+                "descripcion": descripcion,
+                "activa": activa
+            }
+
+            if imagenes_existentes:
+                if principal_slot < 0 or principal_slot >= len(imagenes_existentes):
+                    principal_slot = 0
+
+                imagen_principal_editada = imagenes_existentes[principal_slot]
+
+                cambios_publicacion["imagenes"] = imagenes_existentes
+                cambios_publicacion["imagen_principal"] = imagen_principal_editada
+                cambios_publicacion["imagen_url"] = imagen_principal_editada
+
+            try:
+                supabase_admin.table("publicaciones").update(cambios_publicacion).eq("id", publicacion_id).eq("comercio_id", comercio_id).execute()
+            except Exception as e:
+                print("\nERROR REAL AL EDITAR PUBLICACION EN SUPABASE:", flush=True)
+                print(type(e), flush=True)
+                print(e, flush=True)
+                print("DATOS QUE SE INTENTARON ACTUALIZAR:", flush=True)
+                print(cambios_publicacion, flush=True)
+
+                return render_template(
+                    "panel.html",
+                    comercio=comercio,
+                    publicaciones=publicaciones,
+                    error=f"Error editando publicación: {e}"
+                )
+
+            return redirect(url_for("panel"))
+
+        # Procesar archivos: hasta 6, conservando el casillero original
+        fotos_a_procesar = []
+
+        for slot in range(6):
+            archivo = request.files.get(f"foto_{slot}")
+            if archivo and archivo.filename:
+                fotos_a_procesar.append({
+                    "slot": slot,
+                    "archivo": archivo
+                })
+
+        if len(fotos_a_procesar) == 0:
+            return render_template(
+                "panel.html",
+                comercio=comercio,
+                publicaciones=publicaciones,
+                error="Tenés que subir al menos 1 foto."
+            )
+
+        if len(fotos_a_procesar) > 6:
+            return render_template(
+                "panel.html",
+                comercio=comercio,
+                publicaciones=publicaciones,
+                error="Máximo 6 fotos permitidas."
+            )
+
+        try:
+            principal_slot = int(request.form.get("foto_principal", "0") or 0)
+        except Exception:
+            principal_slot = 0
+
+        imagenes_urls = []
+        imagen_principal = ""
+
+        for item in fotos_a_procesar:
+            slot = item["slot"]
+            f = item["archivo"]
+
+            try:
+                f.stream.seek(0)
+                img = Image.open(f.stream)
+            except Exception:
+                try:
+                    img = Image.open(f)
+                except Exception:
+                    continue
+
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+
+            max_width = 1200
+            if img.width > max_width:
+                ratio = max_width / img.width
+                new_size = (max_width, int(img.height * ratio))
+                img = img.resize(new_size, Image.LANCZOS)
+
+            buf = BytesIO()
+            img.save(buf, format="JPEG", quality=80)
+            buf.seek(0)
+
+            nombre_final = f"{uuid.uuid4().hex}.jpg"
+            ruta_objeto = f"publicaciones/{nombre_final}"
+
+            # Subir a Supabase Storage
+            file_options = {
+                "content-type": "image/jpeg"
+            }
+
+            try:
+                supabase_admin.storage.from_("publicaciones").upload(
+                    ruta_objeto,
+                    buf.getvalue(),
+                    file_options=file_options
+                )
+            except Exception:
+                # Algunos clients aceptan file-like
+                buf.seek(0)
+                supabase_admin.storage.from_("publicaciones").upload(
+                    ruta_objeto,
+                    buf,
+                    file_options=file_options
+                )
+
+            # Obtener URL pública
+            public_url = None
+            try:
+                url_res = supabase_admin.storage.from_("publicaciones").get_public_url(ruta_objeto)
+                if isinstance(url_res, dict):
+                    public_url = url_res.get("publicURL") or url_res.get("publicUrl") or url_res.get("public_url")
+                else:
+                    public_url = url_res
+            except Exception:
+                public_url = None
+
+            if not public_url:
+                # Fallback: construir URL pública si es posible
+                try:
+                    base = supabase_admin._client.url
+                    public_url = f"{base}/storage/v1/object/public/publicaciones/{ruta_objeto}"
+                except Exception:
+                    public_url = f"/static/uploads/{nombre_final}"
+
+            imagenes_urls.append({
+                "slot": slot,
+                "url": public_url,
+                "es_principal": slot == principal_slot
+            })
+
+        if imagenes_urls:
+            principal = next((img for img in imagenes_urls if img["es_principal"]), None)
+
+            if principal:
+                imagen_principal = principal["url"]
+            else:
+                imagenes_urls[0]["es_principal"] = True
+                imagen_principal = imagenes_urls[0]["url"]
+
+        imagenes_urls = [img["url"] for img in imagenes_urls]
+
+        nueva_publicacion = {
+            "id": uuid.uuid4().hex,
+            "nombre": nombre,
+            "precio": precio,
+            "descripcion": descripcion,
+            "imagenes": imagenes_urls,
+            "imagen_principal": imagen_principal,
+            "imagen_url": imagen_principal,
+            "activa": activa,
+            "comercio_id": comercio_id,
+            "direccion_mostrar": comercio.get("direccion_mostrar"),
+            "created_at": datetime.datetime.utcnow().isoformat()
+        }
+
+        try:
+            insert_res = supabase_admin.table("publicaciones").insert(nueva_publicacion).execute()
+        except Exception as e:
+            print("\nERROR REAL AL INSERTAR PUBLICACION EN SUPABASE:", flush=True)
+            print(type(e), flush=True)
+            print(e, flush=True)
+            print("DATOS QUE SE INTENTARON INSERTAR:", flush=True)
+            print(nueva_publicacion, flush=True)
+            return render_template(
+                "panel.html",
+                comercio=comercio,
+                publicaciones=publicaciones,
+                error=f"Error guardando publicación: {e}"
+            )
+
+        # Refrescar listado desde DB
+        try:
+            publicaciones_res = (
+                supabase_admin
+                .table("publicaciones")
+                .select("*")
+                .eq("comercio_id", comercio_id)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            publicaciones = publicaciones_res.data or []
+            session["publicaciones"] = publicaciones
+            session.modified = True
+        except Exception:
+            pass
+
+        return redirect(url_for("panel"))
+
+    return render_template(
+        "panel.html",
+        comercio=comercio,
+        publicaciones=publicaciones
+    )
+
+
+
+# ELIMINAR PUBLICACIÓN COMPLETA
+@app.route("/publicacion/eliminar/<publicacion_id>", methods=["POST"])
+def eliminar_publicacion(publicacion_id):
+    comercio = session.get("comercio") or comercio_default()
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id") or user_id
+
+    try:
+        # Seguridad: sólo permite borrar publicaciones del comercio logueado
+        existente_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select("id")
+            .eq("id", publicacion_id)
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+
+        if not existente_res.data:
+            print("Intento de borrar publicación inexistente o de otro comercio:", publicacion_id, flush=True)
+            return redirect(url_for("panel"))
+
+        supabase_admin.table("publicaciones").delete().eq("id", publicacion_id).eq("comercio_id", comercio_id).execute()
+
+    except Exception as e:
+        print("\nERROR REAL AL ELIMINAR PUBLICACION EN SUPABASE:", flush=True)
+        print(type(e), flush=True)
+        print(e, flush=True)
+
+    return redirect(url_for("panel"))
+
+
+# DETALLE DE PUBLICACIÓN
+@app.route("/detalle")
+@app.route("/detalle.html")
+def detalle_sin_id():
+    publicaciones = session.get("publicaciones", [])
+
+    if publicaciones:
+        primera_publicacion = publicaciones[0]
+        return redirect(url_for("detalle", publicacion_id=primera_publicacion["id"]))
+
+    return redirect(url_for("inicio"))
+
+
+@app.route("/detalle/<publicacion_id>")
+def detalle(publicacion_id):
+    comercio = session.get("comercio") or comercio_default()
+    publicaciones = session.get("publicaciones", [])
+
+    publicacion_encontrada = None
+
+    for pub in publicaciones:
+        if pub.get("id") == publicacion_id:
+            publicacion_encontrada = pub
+            break
+
+    if not publicacion_encontrada:
+        return redirect(url_for("inicio"))
+
+    return render_template(
+        "detalle.html",
+        comercio=comercio,
+        publicacion=publicacion_encontrada
+    )
+
+
+# PERFIL PÚBLICO DEL COMERCIO
+@app.route("/perfil")
+@app.route("/perfil.html")
+def perfil():
+    return render_template("perfil.html")
+
+
+# PANEL DE CONTROL ADMIN
+@app.route("/admin")
+@app.route("/admin.html")
+def admin():
+    return render_template("admin.html")
+
+
+# CSS
+@app.route("/styles.css")
+def styles():
+    return send_from_directory("static", "styles.css")
+
+
+# IMÁGENES DE LA MAQUETA
+@app.route("/img/<path:filename>")
+def imagenes(filename):
+    return send_from_directory("static/img", filename)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

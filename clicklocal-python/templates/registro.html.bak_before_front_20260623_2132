@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quiero publicar | ClickLocal</title>
-  <link rel="stylesheet" href="/styles.css?v=blanco_maqueta_1" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 
 <body>
@@ -21,8 +21,8 @@
       </div>
 
       <nav class="nav">
-        <a href="index.html" class="nav-link">Inicio</a>
-        <a href="login.html" class="boton-secundario">Iniciar sesión</a>
+        <a href="/" class="nav-link">Inicio</a>
+        <a href="/login" class="boton-secundario">Iniciar sesión</a>
       </nav>
     </div>
   </header>
@@ -44,8 +44,8 @@
         <div class="alerta-error">
           {{ error }}
         </div>
-
       {% endif %}
+
       <form class="formulario" method="POST" action="/registro">
 
         <div class="campo">
@@ -65,7 +65,7 @@
 
         <div class="campo">
           <label>Dirección</label>
-          <input type="text" name="direccion" placeholder="Ej: Av. Ramírez 1234" required />
+          <input type="text" name="direccion" placeholder="Ej: Av. Ramírez 1234" />
         </div>
 
         <label class="checkbox-linea">
@@ -81,16 +81,15 @@
         <div class="campo">
           <label>Rubro o categoría</label>
           <select name="categoria">
-            <option value="" selected disabled>Seleccionar categoría</option>
-            <option>Gastronomía</option>
-            <option>Indumentaria</option>
-            <option>Hogar</option>
-            <option>Tecnología</option>
-            <option>Salud</option>
-            <option>Servicios</option>
-            <option>Deportes</option>
-            <option>Educación y Cursos</option>
-            <option>Otros</option>
+            <option value="">Seleccionar categoría</option>
+            <option value="Gastronomía">Gastronomía</option>
+            <option value="Indumentaria">Indumentaria</option>
+            <option value="Hogar">Hogar</option>
+            <option value="Tecnología">Tecnología</option>
+            <option value="Salud">Salud</option>
+            <option value="Servicios">Servicios</option>
+            <option value="Deportes">Deportes</option>
+            <option value="Educación y Cursos">Educación y Cursos</option>
           </select>
         </div>
 
@@ -117,7 +116,7 @@
 
         <p class="auth-ayuda">
           ¿Ya tenés cuenta?
-          <a href="login.html">Iniciar sesión</a>
+          <a href="/login">Iniciar sesión</a>
         </p>
 
       </form>

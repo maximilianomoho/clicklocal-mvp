@@ -220,175 +220,6 @@
   }
 </style>
 
-
-<style>
-  /* Ajuste visual buscador/listas - demo aprobada */
-  .busquedas-rapidas {
-    display: none !important;
-  }
-
-  .hero-respuesta-buscador {
-    max-width: 900px;
-    margin: 26px auto 0;
-    padding: 22px 26px;
-    border-radius: 26px;
-    background: rgba(255, 255, 255, 0.20);
-    color: #ffffff;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
-  }
-
-  .hero-respuesta-buscador h2 {
-    margin: 0 0 10px;
-    font-size: 32px;
-    line-height: 1.15;
-    letter-spacing: -0.03em;
-    color: #ffffff;
-  }
-
-  .hero-respuesta-buscador p {
-    margin: 0;
-    font-size: 17px;
-    line-height: 1.5;
-    color: #ffffff;
-  }
-
-  .seccion-locales-compactos {
-    padding-top: 14px;
-  }
-
-  .locales-compactos-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
-    gap: 14px;
-  }
-
-  .local-compacto-card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 20px;
-    padding: 14px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-    min-height: 178px;
-  }
-
-  .local-compacto-premium {
-    border-color: #f59e0b;
-  }
-
-  .local-compacto-top {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    position: relative;
-  }
-
-  .local-compacto-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 13px;
-    background: #0f172a;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 900;
-    font-size: 13px;
-    flex-shrink: 0;
-  }
-
-  .local-compacto-info {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .local-compacto-nombre {
-    margin: 0 0 3px;
-    color: #64748b;
-    font-size: 11px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-
-  .local-compacto-info h3 {
-    margin: 0;
-    color: #0f172a;
-    font-size: 17px;
-    line-height: 1.15;
-  }
-
-  .local-compacto-badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: #fff7ed;
-    color: #c2410c;
-    border-radius: 999px;
-    padding: 5px 8px;
-    font-size: 10px;
-    font-weight: 900;
-  }
-
-  .local-compacto-texto {
-    margin: 12px 0 8px;
-    color: #334155;
-    font-size: 13px;
-    line-height: 1.4;
-  }
-
-  .local-compacto-ubicacion {
-    margin: 0 0 12px;
-    color: #64748b;
-    font-size: 12px;
-    line-height: 1.35;
-  }
-
-  .local-compacto-acciones {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .local-compacto-acciones a {
-    text-decoration: none;
-    border-radius: 999px;
-    padding: 8px 10px;
-    font-size: 12px;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  .local-compacto-link {
-    background: #f1f5f9;
-    color: #0f172a;
-  }
-
-  .local-compacto-whatsapp {
-    background: #16a34a;
-    color: #ffffff;
-  }
-
-  @media (max-width: 640px) {
-    .hero-respuesta-buscador {
-      margin-top: 20px;
-      padding: 20px;
-    }
-
-    .hero-respuesta-buscador h2 {
-      font-size: 24px;
-    }
-
-    .hero-respuesta-buscador p {
-      font-size: 15px;
-    }
-
-    .locales-compactos-grid {
-      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-    }
-  }
-</style>
-
 </head>
 
 <body>
@@ -447,48 +278,7 @@
         </button>
       </form>
 
-      
-        <!-- RESPUESTA AMIGABLE DEL BUSCADOR EN HERO -->
-        {% if busqueda %}
-          {% set frases_buscador = [
-            'Hola, lo que buscás lo podés encontrar en estos comercios',
-            'Hola, estos comercios tienen lo que estás buscando',
-            'Hola, lo que estás buscando lo vas a encontrar acá',
-            'Estos comercios pueden tener justo lo que necesitás',
-            'Encontramos locales que pueden ayudarte con tu búsqueda'
-          ] %}
-
-          <div class="hero-respuesta-buscador">
-            {% if publicaciones or comercios_relacionados %}
-              <h2>{{ frases_buscador | random }}</h2>
-
-              {% if publicaciones and comercios_relacionados %}
-                <p>
-                  Buscaste <strong>"{{ busqueda }}"</strong>.
-                  Primero te mostramos publicaciones con foto y después locales que también aparecen por listas.
-                  Consultá disponibilidad, precio o variantes por WhatsApp.
-                </p>
-              {% elif publicaciones %}
-                <p>
-                  Buscaste <strong>"{{ busqueda }}"</strong>.
-                  Encontramos publicaciones relacionadas cerca tuyo.
-                </p>
-              {% elif comercios_relacionados %}
-                <p>
-                  Buscaste <strong>"{{ busqueda }}"</strong>.
-                  Encontramos locales para consultar disponibilidad, precio o variantes por WhatsApp.
-                </p>
-              {% endif %}
-
-            {% else %}
-              <h2>Hola, todavía no encontramos locales para "{{ busqueda }}"</h2>
-              <p>Probá con otra búsqueda o con menos palabras.</p>
-            {% endif %}
-          </div>
-        {% endif %}
-        <!-- FIN RESPUESTA AMIGABLE DEL BUSCADOR EN HERO -->
-
-        <div class="busquedas-rapidas">
+      <div class="busquedas-rapidas">
         <a href="/index.html?q=hamburguesa">Hamburguesas</a>
         <a href="/index.html?q=mate">Mates</a>
         <a href="/index.html?q=zapatilla">Zapatillas</a>
@@ -502,7 +292,7 @@
 
   <main>
 
-    {% if not busqueda %}\n    <!-- CATEGORÍAS -->
+    <!-- CATEGORÍAS -->
     <section class="seccion categorias">
       <div class="contenedor">
 
@@ -557,7 +347,7 @@
     </section>
 
 
-    {% endif %}\n\n    <!-- LO MÁS VISTO -->
+    <!-- LO MÁS VISTO -->
     <section class="seccion">
       <div class="contenedor">
 
@@ -602,7 +392,7 @@
 
             <div class="panel-vacio">
               {% if busqueda and comercios_relacionados %}
-                También encontramos locales que pueden tener "{{ busqueda }}". Mirá las opciones disponibles más abajo.
+                Encontramos locales que pueden ayudarte con "{{ busqueda }}". Mirá las opciones disponibles más abajo.
               {% elif busqueda %}
                 Por ahora no encontramos locales ni publicaciones para "{{ busqueda }}". Probá con otra búsqueda.
               {% else %}
@@ -617,56 +407,80 @@
       </div>
     </section>
 
-    <!-- LOCALES COMPACTOS POR LISTAS BUSCABLES -->
+    <!-- LOCALES ENCONTRADOS POR LISTAS BUSCABLES -->
     {% if busqueda and comercios_relacionados %}
-      <section class="seccion seccion-locales-compactos">
+      <section class="seccion seccion-locales-buscador">
         <div class="contenedor">
 
-          <p class="titulo-chico">LOCALES ENCONTRADOS</p>
+          {% set frases_buscador = [
+            'Hola, lo que buscás lo podés encontrar en estos comercios',
+            'Hola, estos locales tienen opciones relacionadas con lo que estás buscando',
+            'Hola, lo que estás buscando lo vas a encontrar acá',
+            'Buenas noticias: hay comercios para consultar por esto',
+            'Encontramos locales que pueden ayudarte con tu búsqueda',
+            'Estos comercios tienen productos relacionados con lo que buscás',
+            'Tu búsqueda tiene opciones disponibles en estos locales',
+            'Mirá estos comercios: pueden tener justo lo que necesitás',
+            'Estos locales aparecen porque tienen opciones relacionadas',
+            'Acá tenés comercios para consultar por tu búsqueda',
+            'Hay locales que pueden responder por este producto',
+            'Estos comercios pueden tener lo que estás buscando',
+            'Encontramos opciones locales para tu búsqueda',
+            'Podés consultar por este producto en estos comercios',
+            'Estos locales tienen productos o variantes relacionadas'
+          ] %}
 
-          {% if publicaciones %}
-            <h2 class="titulo-seccion">También pueden tener "{{ busqueda }}"</h2>
-          {% else %}
-            <h2 class="titulo-seccion">Locales que pueden tener "{{ busqueda }}"</h2>
-          {% endif %}
+          <div class="bloque-respuesta-locales">
+            <p class="titulo-chico">LOCALES ENCONTRADOS</p>
+            <h2 class="titulo-seccion buscador-frase-principal">{{ frases_buscador | random }}</h2>
+            <p class="buscador-frase-secundaria">
+              Buscaste <strong>"{{ busqueda }}"</strong>. Consultá disponibilidad, precio o variantes directamente por WhatsApp.
+            </p>
+          </div>
 
-          <div class="locales-compactos-grid">
+          <div class="locales-lista-grid">
 
             {% for item in comercios_relacionados %}
 
-              <div class="local-compacto-card {% if item.plan == 'premium' %}local-compacto-premium{% endif %}">
+              <div class="local-card-buscador {% if item.plan == 'premium' %}local-card-premium{% endif %}">
 
-                <div class="local-compacto-top">
-                  <div class="local-compacto-avatar">
+                <div class="local-banner-buscador">
+                  <div class="local-iniciales-buscador">
                     {{ item.nombre_negocio[:2].upper() }}
                   </div>
 
-                  <div class="local-compacto-info">
-                    <p class="local-compacto-nombre">{{ item.nombre_negocio }}</p>
-                    <h3>{{ item.producto_categoria }}</h3>
-                  </div>
-
                   {% if item.plan == 'premium' %}
-                    <span class="local-compacto-badge">Premium</span>
+                    <span class="local-badge-premium">Premium</span>
                   {% endif %}
                 </div>
 
-                <p class="local-compacto-texto">
-                  Puede tener opciones relacionadas con <strong>{{ busqueda }}</strong>.
-                </p>
+                <div class="local-card-body">
+                  <p class="nombre-comercio">{{ item.nombre_negocio }}</p>
+                  <h3>{{ item.producto_categoria }}</h3>
 
-                <p class="local-compacto-ubicacion">📍 {{ item.ubicacion_mostrar }}</p>
+                  <p class="local-texto-principal">
+                    Este local tiene productos relacionados con <strong>{{ busqueda }}</strong>.
+                  </p>
 
-                <div class="local-compacto-acciones">
-                  <a href="/comercio/{{ item.comercio_id }}" class="local-compacto-link">
-                    Ver local
-                  </a>
-
-                  {% if item.whatsapp_url %}
-                    <a href="{{ item.whatsapp_url }}" target="_blank" rel="noopener noreferrer" class="local-compacto-whatsapp">
-                      WhatsApp
-                    </a>
+                  {% if item.atributos_texto %}
+                    <p class="local-texto-secundario">
+                      También podés consultar por: {{ item.atributos_texto }}
+                    </p>
                   {% endif %}
+
+                  <p class="ubicacion">{{ item.ubicacion_mostrar }}</p>
+
+                  <div class="local-acciones-buscador">
+                    <a href="/comercio/{{ item.comercio_id }}" class="boton-secundario">
+                      Ver local
+                    </a>
+
+                    {% if item.whatsapp_url %}
+                      <a href="{{ item.whatsapp_url }}" target="_blank" rel="noopener noreferrer" class="boton-secundario">
+                        Consultar por WhatsApp
+                      </a>
+                    {% endif %}
+                  </div>
                 </div>
 
               </div>
@@ -678,8 +492,7 @@
         </div>
       </section>
     {% endif %}
-    <!-- FIN LOCALES COMPACTOS POR LISTAS BUSCABLES -->
-
+    <!-- FIN LOCALES ENCONTRADOS POR LISTAS BUSCABLES -->
 
 
 

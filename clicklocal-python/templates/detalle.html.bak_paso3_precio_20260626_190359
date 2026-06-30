@@ -21,14 +21,8 @@
       </div>
 
       <nav class="nav">
-        {% if session.get("user_id") and session.get("comercio") %}
-          <span class="nav-link">👤 {{ session.get("comercio").get("nombre_negocio") or session.get("comercio").get("nombre") or "Mi comercio" }}</span>
-          <a href="/panel" class="boton-secundario">Mi panel</a>
-          <a href="/logout" class="boton-secundario">Cerrar sesión</a>
-        {% else %}
-          <a href="/index.html" class="nav-link">Galería pública</a>
-          <a href="/login.html" class="boton-secundario">Iniciar sesión</a>
-        {% endif %}
+        <a href="/" class="nav-link">Inicio</a>
+        <a href="/registro" class="boton-secundario">Soy comercio</a>
       </nav>
     </div>
   </header>
@@ -38,7 +32,7 @@
 
     <div class="detalle-contenedor">
 
-      <a href="/" class="volver-link">← Volver a la galería</a>
+      <a href="/" class="volver-link">← Volver a la plataforma</a>
 
       <section class="detalle-layout detalle-layout-simple">
 
@@ -99,7 +93,7 @@
           <h1 class="detalle-titulo">{{ publicacion.nombre }}</h1>
 
           {% if publicacion.precio %}
-            <p class="detalle-precio">$ {{ "{:,.0f}".format(publicacion.precio|float).replace(",", ".") }}</p>
+            <p class="detalle-precio">$ {{ publicacion.precio }}</p>
           {% endif %}
 
           {% if publicacion.descripcion %}
@@ -115,22 +109,17 @@
           </div>
 
           <div class="detalle-botones">
-            {% if comercio.whatsapp_url %}
-              <a
-                href="{{ comercio.whatsapp_url }}"
-                class="boton-whatsapp"
-                target="_blank"
-                rel="noopener"
-              >
-                Consultar por WhatsApp
-              </a>
-            {% endif %}
+            <a
+              href="https://wa.me/54{{ comercio.whatsapp }}?text=Hola,%20vi%20esta%20publicación%20en%20ClickLocal%20y%20quiero%20consultar%20por:%20{{ publicacion.nombre }}"
+              class="boton-whatsapp"
+              target="_blank"
+            >
+              Consultar por WhatsApp
+            </a>
 
-            {% if comercio.id %}
-              <a href="{{ url_for('perfil_comercio', comercio_id=comercio.id) }}" class="boton-ver-comercio">
-                Ver comercio
-              </a>
-            {% endif %}
+            <a href="/perfil" class="boton-ver-comercio">
+              Ver comercio
+            </a>
           </div>
 
         </aside>

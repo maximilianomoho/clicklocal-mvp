@@ -21,14 +21,8 @@
       </div>
 
       <nav class="nav">
-        {% if session.get("user_id") and session.get("comercio") %}
-          <span class="nav-link">👤 {{ session.get("comercio").get("nombre_negocio") or session.get("comercio").get("nombre") or "Mi comercio" }}</span>
-          <a href="/panel" class="boton-secundario">Mi panel</a>
-          <a href="/logout" class="boton-secundario">Cerrar sesión</a>
-        {% else %}
-          <a href="/index.html" class="nav-link">Galería pública</a>
-          <a href="/login.html" class="boton-secundario">Iniciar sesión</a>
-        {% endif %}
+        <a href="/" class="nav-link">Inicio</a>
+        <a href="/registro" class="boton-secundario">Soy comercio</a>
       </nav>
     </div>
   </header>
@@ -38,7 +32,7 @@
 
     <div class="detalle-contenedor">
 
-      <a href="/" class="volver-link">← Volver a la galería</a>
+      <a href="/" class="volver-link">← Volver a la plataforma</a>
 
       <section class="detalle-layout detalle-layout-simple">
 
@@ -126,11 +120,9 @@
               </a>
             {% endif %}
 
-            {% if comercio.id %}
-              <a href="{{ url_for('perfil_comercio', comercio_id=comercio.id) }}" class="boton-ver-comercio">
-                Ver comercio
-              </a>
-            {% endif %}
+            <a href="/perfil" class="boton-ver-comercio">
+              Ver comercio
+            </a>
           </div>
 
         </aside>

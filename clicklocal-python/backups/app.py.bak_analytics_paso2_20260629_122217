@@ -33,204 +33,6 @@ def comercio_default():
     }
 
 
-
-
-# ============================================================
-# ANALYTICS MVP
-# ============================================================
-
-def normalizar_texto_analytics(valor):
-    import unicodedata
-
-    texto = str(valor or "").strip().lower()
-    texto = unicodedata.normalize("NFD", texto)
-    texto = "".join(ch for ch in texto if unicodedata.category(ch) != "Mn")
-    return " ".join(texto.split())
-
-
-def uuid_o_none(valor):
-    if not valor:
-        return None
-
-    try:
-        from uuid import UUID
-        return str(UUID(str(valor)))
-    except (ValueError, TypeError, AttributeError):
-        return None
-
-
-def limpiar_numero_whatsapp(numero_raw):
-    numero = "".join(ch for ch in str(numero_raw or "") if ch.isdigit())
-
-    if numero.startswith("00"):
-        numero = numero[2:]
-
-    while numero.startswith("0"):
-        numero = numero[1:]
-
-    if numero and not numero.startswith("54"):
-        numero = f"54{numero}"
-
-    return numero
-
-
-def construir_url_whatsapp(numero_raw, mensaje):
-    from urllib.parse import quote
-
-    numero = limpiar_numero_whatsapp(numero_raw)
-
-    if not numero:
-        return ""
-
-    return f"https://wa.me/{numero}?text={quote(mensaje)}"
-
-
-def analytics_crear_busqueda(
-    consulta,
-    total_publicaciones=0,
-    total_listas=0,
-    ciudad="Paraná",
-    origen="buscador_home"
-):
-    consulta_limpia = str(consulta or "").strip()
-
-    if not consulta_limpia:
-        return None
-
-    total_publicaciones = int(total_publicaciones or 0)
-    total_listas = int(total_listas or 0)
-    total_resultados = total_publicaciones + total_listas
-
-    nueva_busqueda = {
-        "consulta": consulta_limpia,
-        "consulta_normalizada": normalizar_texto_analytics(consulta_limpia),
-        "ciudad": ciudad,
-        "origen": origen,
-        "total_resultados_publicaciones": total_publicaciones,
-        "total_resultados_listas": total_listas,
-        "total_resultados": total_resultados,
-        "tuvo_resultados": total_resultados > 0,
-    }
-
-    try:
-        res = supabase_admin.table("busquedas_publicas").insert(nueva_busqueda).execute()
-        filas = res.data or []
-
-        if filas and filas[0].get("id"):
-            return filas[0].get("id")
-
-    except Exception as e:
-        print("ERROR analytics_crear_busqueda:", e, flush=True)
-
-    return None
-
-
-def analytics_registrar_evento(
-    tipo_evento,
-    comercio_id=None,
-    publicacion_id=None,
-    lista_buscable_id=None,
-    busqueda_id=None,
-    consulta_origen=None,
-    origen="web",
-    metadata=None
-):
-    if not tipo_evento:
-        return False
-
-    evento = {
-        "tipo_evento": tipo_evento,
-        "comercio_id": uuid_o_none(comercio_id),
-        "publicacion_id": uuid_o_none(publicacion_id),
-        "lista_buscable_id": uuid_o_none(lista_buscable_id),
-        "busqueda_id": uuid_o_none(busqueda_id),
-        "consulta_origen": str(consulta_origen or "").strip() or None,
-        "consulta_normalizada": normalizar_texto_analytics(consulta_origen),
-        "origen": origen,
-        "metadata": metadata or {},
-    }
-
-    try:
-        supabase_admin.table("eventos_analytics").insert(evento).execute()
-        return True
-
-    except Exception as e:
-        print("ERROR analytics_registrar_evento:", e, flush=True)
-        return False
-
-
-@app.route("/analytics/whatsapp/<comercio_id>")
-def analytics_whatsapp(comercio_id):
-    comercio_id = uuid_o_none(comercio_id)
-
-    if not comercio_id:
-        return redirect(url_for("inicio"))
-
-    ultima_busqueda = session.get("ultima_busqueda_publica") or {}
-
-    publicacion_id = uuid_o_none(request.args.get("publicacion_id"))
-    lista_buscable_id = uuid_o_none(request.args.get("lista_buscable_id"))
-    busqueda_id = uuid_o_none(request.args.get("busqueda_id") or ultima_busqueda.get("busqueda_id"))
-
-    consulta_origen = (
-        request.args.get("consulta")
-        or ultima_busqueda.get("consulta")
-        or ""
-    ).strip()
-
-    origen = (request.args.get("origen") or "click_whatsapp").strip()
-
-    try:
-        comercio_res = (
-            supabase_admin
-            .table("comercios")
-            .select("id,nombre_negocio,whatsapp,activo")
-            .eq("id", comercio_id)
-            .limit(1)
-            .execute()
-        )
-
-        comercios = comercio_res.data or []
-
-        if not comercios:
-            return redirect(url_for("inicio"))
-
-        comercio = comercios[0]
-
-        if comercio.get("activo") is False:
-            return redirect(url_for("inicio"))
-
-        nombre_negocio = comercio.get("nombre_negocio") or "Comercio local"
-
-        analytics_registrar_evento(
-            "click_whatsapp",
-            comercio_id=comercio_id,
-            publicacion_id=publicacion_id,
-            lista_buscable_id=lista_buscable_id,
-            busqueda_id=busqueda_id,
-            consulta_origen=consulta_origen,
-            origen=origen,
-            metadata={
-                "nombre_negocio": nombre_negocio,
-            }
-        )
-
-        mensaje = (
-            "Hola, vengo de ClickLocal Paraná. "
-            f"Quiero consultar por: {consulta_origen or nombre_negocio}."
-        )
-
-        whatsapp_final = construir_url_whatsapp(comercio.get("whatsapp"), mensaje)
-
-        if whatsapp_final:
-            return redirect(whatsapp_final)
-
-    except Exception as e:
-        print("ERROR analytics_whatsapp:", e, flush=True)
-
-    return redirect(url_for("inicio"))
-
-
 # INICIO / PLATAFORMA
 @app.route("/")
 @app.route("/index.html")
@@ -241,82 +43,36 @@ def inicio():
     comercio = session.get("comercio") or comercio_default()
     publicaciones_finales = []
     comercios_relacionados = []
-    busqueda_id = None
 
     busqueda = request.args.get("q", "").strip()
 
     def normalizar_texto(valor):
-        import re
-
         texto = str(valor or "").strip().lower()
         texto = unicodedata.normalize("NFD", texto)
         texto = "".join(ch for ch in texto if unicodedata.category(ch) != "Mn")
-        texto = re.sub(r"[^a-z0-9ñ\s]", " ", texto)
         return " ".join(texto.split())
 
     busqueda_normalizada = normalizar_texto(busqueda)
 
-    PALABRAS_IGNORADAS_BUSCADOR = {
-        "a", "al", "algo", "aca", "ahi", "ante", "con", "como", "comprar",
-        "consigo", "conseguir", "cuanto", "de", "del", "donde", "el", "en",
-        "encuentro", "encontrar", "hay", "ir", "la", "las", "lo", "los",
-        "me", "mi", "para", "por", "puedo", "que", "quiero", "se", "si",
-        "sin", "sobre", "te", "tener", "tenes", "tiene", "tienen", "un",
-        "una", "unas", "unos", "venden", "vende", "ver", "y"
-    }
-
-    def extraer_palabras_clave(texto):
-        texto_normalizado = normalizar_texto(texto)
-        palabras = []
-
-        for token in texto_normalizado.split():
-            if len(token) < 2:
-                continue
-
-            if token in PALABRAS_IGNORADAS_BUSCADOR:
-                continue
-
-            if token not in palabras:
-                palabras.append(token)
-
-        return palabras
-
-    palabras_clave_busqueda = extraer_palabras_clave(busqueda)
-
-    def variantes_token(token):
-        variantes = {token}
-
-        # MVP: permite que "hamburguesas" encuentre "hamburguesa",
-        # "mates" encuentre "mate", "cierres" encuentre "cierre", etc.
-        if len(token) > 3 and token.endswith("s"):
-            variantes.add(token[:-1])
-
-        return variantes
-
-    def calcular_score_busqueda(texto, peso=1):
+    def coincide_busqueda(texto):
         if not busqueda_normalizada:
-            return 1, []
+            return True
 
         texto_normalizado = normalizar_texto(texto)
-        score = 0
-        coincidencias = []
+        tokens = [token for token in busqueda_normalizada.split() if token]
 
-        for token in palabras_clave_busqueda:
-            if any(variante in texto_normalizado for variante in variantes_token(token)):
-                score += peso
-                coincidencias.append(token)
+        for token in tokens:
+            variantes = {token}
 
-        return score, coincidencias
+            # MVP: permite que "hamburguesas" encuentre "hamburguesa",
+            # "mates" encuentre "mate", etc.
+            if len(token) > 3 and token.endswith("s"):
+                variantes.add(token[:-1])
 
-    def unir_coincidencias(*listas):
-        resultado = []
+            if not any(variante in texto_normalizado for variante in variantes):
+                return False
 
-        for lista in listas:
-            for item in lista or []:
-                if item not in resultado:
-                    resultado.append(item)
-
-        return resultado
+        return True
 
     def imagen_publica_de_publicacion(pub):
         imagenes = pub.get("imagenes") or []
@@ -352,20 +108,28 @@ def inicio():
 
         return "Consultar ubicación"
 
-    def whatsapp_url(comercio_data, consulta, busqueda_id=None, lista_buscable_id=None):
-        comercio_id = comercio_data.get("id")
+    def whatsapp_url(comercio_data, consulta):
+        whatsapp_raw = str(comercio_data.get("whatsapp") or "")
+        numero = "".join(ch for ch in whatsapp_raw if ch.isdigit())
 
-        if not comercio_id:
+        if numero.startswith("00"):
+            numero = numero[2:]
+
+        while numero.startswith("0"):
+            numero = numero[1:]
+
+        if numero and not numero.startswith("54"):
+            numero = f"54{numero}"
+
+        if not numero:
             return ""
 
-        return url_for(
-            "analytics_whatsapp",
-            comercio_id=comercio_id,
-            busqueda_id=busqueda_id or "",
-            lista_buscable_id=lista_buscable_id or "",
-            consulta=consulta or "",
-            origen="buscador_lista"
+        mensaje = (
+            "Hola, vengo de ClickLocal Paraná. "
+            f"Quiero consultar por: {consulta or 'un producto'}."
         )
+
+        return f"https://wa.me/{numero}?text={quote(mensaje)}"
 
     def cargar_comercios_por_id(comercio_ids):
         comercio_ids = [
@@ -379,7 +143,7 @@ def inicio():
         comercios_res = (
             supabase_admin
             .table("comercios")
-            .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,whatsapp,activo,plan")
+            .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,whatsapp,activo")
             .in_("id", list(set(comercio_ids)))
             .execute()
         )
@@ -437,32 +201,7 @@ def inicio():
             if comercio_id and imagen_publica and comercio_id not in imagen_por_comercio:
                 imagen_por_comercio[comercio_id] = imagen_publica
 
-            score_nombre, coincidencias_nombre = calcular_score_busqueda(pub.get("nombre"), peso=5)
-            score_descripcion, coincidencias_descripcion = calcular_score_busqueda(pub.get("descripcion"), peso=2)
-            score_comercio, coincidencias_comercio = calcular_score_busqueda(
-                " ".join([
-                    str(comercio_pub.get("nombre_negocio") or ""),
-                    str(comercio_pub.get("categoria") or ""),
-                    str(comercio_pub.get("ciudad") or ""),
-                ]),
-                peso=1
-            )
-
-            score_total = score_nombre + score_descripcion + score_comercio
-
-            # Bonus simple: si la frase limpia completa aparece en el título,
-            # esa publicación es más exacta que una grupal o genérica.
-            nombre_normalizado = normalizar_texto(pub.get("nombre"))
-            if busqueda_normalizada and busqueda_normalizada in nombre_normalizado:
-                score_total += 10
-
-            coincidencias = unir_coincidencias(
-                coincidencias_nombre,
-                coincidencias_descripcion,
-                coincidencias_comercio
-            )
-
-            if busqueda_normalizada and score_total <= 0:
+            if not coincide_busqueda(texto_para_buscar):
                 continue
 
             publicaciones_finales.append({
@@ -475,20 +214,7 @@ def inicio():
                 "direccion_mostrar": ubicacion_publica(comercio_pub, pub.get("direccion_mostrar")),
                 "categoria": comercio_pub.get("categoria"),
                 "created_at": pub.get("created_at"),
-                "_score_busqueda": score_total,
-                "_plan": str(comercio_pub.get("plan") or "gratis").lower(),
-                "_coincidencias": coincidencias,
             })
-
-        if busqueda_normalizada:
-            publicaciones_finales.sort(
-                key=lambda item: (
-                    item.get("_score_busqueda", 0),
-                    1 if item.get("_plan") == "premium" else 0,
-                    item.get("created_at") or ""
-                ),
-                reverse=True
-            )
 
         # ====================================================
         # 2) SEGUNDO NIVEL: LISTAS BUSCABLES
@@ -509,30 +235,13 @@ def inicio():
             listas_filtradas = []
 
             for lista in listas:
-                texto_producto = str(lista.get("producto_categoria") or "")
-                texto_atributos = str(lista.get("atributos_texto") or "")
+                texto_lista = " ".join([
+                    str(lista.get("producto_categoria") or ""),
+                    str(lista.get("atributos_texto") or ""),
+                ])
 
-                score_producto, coincidencias_producto = calcular_score_busqueda(texto_producto, peso=4)
-                score_atributos, coincidencias_atributos = calcular_score_busqueda(texto_atributos, peso=3)
-
-                score_lista = score_producto + score_atributos
-                coincidencias_lista = unir_coincidencias(coincidencias_producto, coincidencias_atributos)
-
-                if score_lista <= 0:
-                    continue
-
-                lista["_score_busqueda"] = score_lista
-                lista["_coincidencias"] = coincidencias_lista
-
-                listas_filtradas.append(lista)
-
-            listas_filtradas.sort(
-                key=lambda item: (
-                    item.get("_score_busqueda", 0),
-                    item.get("created_at") or ""
-                ),
-                reverse=True
-            )
+                if coincide_busqueda(texto_lista):
+                    listas_filtradas.append(lista)
 
             comercio_ids_listas = [
                 lista.get("comercio_id")
@@ -559,51 +268,13 @@ def inicio():
 
                 comercios_relacionados.append({
                     "comercio_id": comercio_id,
-                    "lista_buscable_id": lista.get("id"),
                     "nombre_negocio": comercio_lista.get("nombre_negocio") or "Comercio local",
                     "producto_categoria": lista.get("producto_categoria") or "Producto relacionado",
                     "atributos_texto": lista.get("atributos_texto") or "",
                     "ubicacion_mostrar": ubicacion_publica(comercio_lista),
                     "whatsapp_url": whatsapp_url(comercio_lista, busqueda),
                     "imagen_url": imagen_por_comercio.get(comercio_id, ""),
-                    "plan": str(comercio_lista.get("plan") or "gratis").lower(),
-                    "_score_busqueda": lista.get("_score_busqueda", 0),
-                    "_coincidencias": lista.get("_coincidencias") or [],
                 })
-
-            # Regla ClickLocal:
-            # la búsqueda manda. Premium solo desempata dentro de resultados relevantes.
-            comercios_relacionados.sort(
-                key=lambda item: (
-                    item.get("_score_busqueda", 0),
-                    1 if item.get("plan") == "premium" else 0,
-                    item.get("nombre_negocio") or ""
-                ),
-                reverse=True
-            )
-
-        if busqueda_normalizada:
-            busqueda_id = analytics_crear_busqueda(
-                consulta=busqueda,
-                total_publicaciones=len(publicaciones_finales),
-                total_listas=len(comercios_relacionados),
-                ciudad="Paraná",
-                origen="buscador_home"
-            )
-
-            if busqueda_id:
-                session["ultima_busqueda_publica"] = {
-                    "busqueda_id": busqueda_id,
-                    "consulta": busqueda,
-                }
-
-                for item in comercios_relacionados:
-                    item["whatsapp_url"] = whatsapp_url(
-                        {"id": item.get("comercio_id")},
-                        busqueda,
-                        busqueda_id=busqueda_id,
-                        lista_buscable_id=item.get("lista_buscable_id")
-                    )
 
     except Exception as e:
         print("ERROR cargando galería pública / buscador:", e, flush=True)
@@ -1431,9 +1102,6 @@ def detalle_sin_id():
 @app.route("/detalle/<publicacion_id>")
 def detalle(publicacion_id):
     comercio = comercio_default()
-    ultima_busqueda_publica = session.get("ultima_busqueda_publica") or {}
-    busqueda_id_origen = uuid_o_none(ultima_busqueda_publica.get("busqueda_id"))
-    consulta_origen = str(ultima_busqueda_publica.get("consulta") or "").strip()
 
     from uuid import UUID
 
@@ -1518,30 +1186,10 @@ def detalle(publicacion_id):
             f"Quiero consultar por: {publicacion_encontrada.get('nombre') or 'esta publicación'}"
         )
 
-        if whatsapp_numero and comercio_id:
-            comercio["whatsapp_url"] = url_for(
-                "analytics_whatsapp",
-                comercio_id=comercio_id,
-                publicacion_id=publicacion_id,
-                busqueda_id=busqueda_id_origen or "",
-                consulta=publicacion_encontrada.get("nombre") or consulta_origen or "",
-                origen="detalle_publicacion"
-            )
+        if whatsapp_numero:
+            comercio["whatsapp_url"] = f"https://wa.me/{whatsapp_numero}?text={quote(mensaje_whatsapp)}"
         else:
             comercio["whatsapp_url"] = ""
-
-        if comercio_id:
-            analytics_registrar_evento(
-                "visita_publicacion",
-                comercio_id=comercio_id,
-                publicacion_id=publicacion_id,
-                busqueda_id=busqueda_id_origen,
-                consulta_origen=consulta_origen,
-                origen="detalle_publicacion",
-                metadata={
-                    "publicacion_nombre": publicacion_encontrada.get("nombre"),
-                }
-            )
 
     except Exception as e:
         print("ERROR cargando detalle de publicación:", e, flush=True)
@@ -1560,14 +1208,6 @@ def detalle(publicacion_id):
 def perfil_comercio(comercio_id):
     from uuid import UUID
     from urllib.parse import quote
-
-    ultima_busqueda_publica = session.get("ultima_busqueda_publica") or {}
-    busqueda_id_origen = uuid_o_none(ultima_busqueda_publica.get("busqueda_id"))
-    consulta_origen = str(ultima_busqueda_publica.get("consulta") or "").strip()
-
-    ultima_busqueda_publica = session.get("ultima_busqueda_publica") or {}
-    busqueda_id_origen = uuid_o_none(ultima_busqueda_publica.get("busqueda_id"))
-    consulta_origen = str(ultima_busqueda_publica.get("consulta") or "").strip()
 
     try:
         UUID(str(comercio_id))
@@ -1632,26 +1272,9 @@ def perfil_comercio(comercio_id):
         )
 
         if whatsapp_numero:
-            comercio["whatsapp_url"] = url_for(
-                "analytics_whatsapp",
-                comercio_id=comercio_id,
-                busqueda_id=busqueda_id_origen or "",
-                consulta=consulta_origen or nombre_negocio,
-                origen="perfil_comercio"
-            )
+            comercio["whatsapp_url"] = f"https://wa.me/{whatsapp_numero}?text={quote(mensaje_whatsapp)}"
         else:
             comercio["whatsapp_url"] = ""
-
-        analytics_registrar_evento(
-            "visita_comercio",
-            comercio_id=comercio_id,
-            busqueda_id=busqueda_id_origen,
-            consulta_origen=consulta_origen,
-            origen="perfil_comercio",
-            metadata={
-                "nombre_negocio": nombre_negocio,
-            }
-        )
 
         publicaciones_res = (
             supabase_admin
