@@ -60,6 +60,17 @@ def uuid_o_none(valor):
 
 
 def limpiar_numero_whatsapp(numero_raw):
+    """
+    Normaliza números para WhatsApp Argentina.
+
+    Casos esperados:
+    - 3434150049      -> 5493434150049
+    - 03434150049     -> 5493434150049
+    - 543434150049    -> 5493434150049
+    - 5493434150049   -> 5493434150049
+
+    Nota: para celulares argentinos WhatsApp requiere 54 + 9 + característica + número.
+    """
     numero = "".join(ch for ch in str(numero_raw or "") if ch.isdigit())
 
     if numero.startswith("00"):
@@ -68,10 +79,19 @@ def limpiar_numero_whatsapp(numero_raw):
     while numero.startswith("0"):
         numero = numero[1:]
 
-    if numero and not numero.startswith("54"):
-        numero = f"54{numero}"
+    if not numero:
+        return ""
 
-    return numero
+    if numero.startswith("549"):
+        return numero
+
+    if numero.startswith("54"):
+        resto = numero[2:]
+        if resto.startswith("9"):
+            return numero
+        return f"549{resto}"
+
+    return f"549{numero}"
 
 
 def construir_url_whatsapp(numero_raw, mensaje):
@@ -1501,17 +1521,7 @@ def detalle(publicacion_id):
 
         from urllib.parse import quote
 
-        whatsapp_raw = str(comercio.get("whatsapp") or "")
-        whatsapp_numero = "".join(ch for ch in whatsapp_raw if ch.isdigit())
-
-        if whatsapp_numero.startswith("00"):
-            whatsapp_numero = whatsapp_numero[2:]
-
-        while whatsapp_numero.startswith("0"):
-            whatsapp_numero = whatsapp_numero[1:]
-
-        if whatsapp_numero and not whatsapp_numero.startswith("54"):
-            whatsapp_numero = f"54{whatsapp_numero}"
+        whatsapp_numero = limpiar_numero_whatsapp(comercio.get("whatsapp"))
 
         mensaje_whatsapp = (
             "Hola, vengo de ClickLocal Paraná. "
@@ -1614,17 +1624,7 @@ def perfil_comercio(comercio_id):
         else:
             comercio["ubicacion_perfil"] = direccion_base
 
-        whatsapp_raw = str(comercio.get("whatsapp") or "")
-        whatsapp_numero = "".join(ch for ch in whatsapp_raw if ch.isdigit())
-
-        if whatsapp_numero.startswith("00"):
-            whatsapp_numero = whatsapp_numero[2:]
-
-        while whatsapp_numero.startswith("0"):
-            whatsapp_numero = whatsapp_numero[1:]
-
-        if whatsapp_numero and not whatsapp_numero.startswith("54"):
-            whatsapp_numero = f"54{whatsapp_numero}"
+        whatsapp_numero = limpiar_numero_whatsapp(comercio.get("whatsapp"))
 
         mensaje_whatsapp = (
             "Hola, vengo de ClickLocal Paraná. "
@@ -1892,14 +1892,17 @@ def admin():
         solicitud_premium = bool(c.get("solicitud_premium"))
 
         whatsapp = c.get("whatsapp") or "-"
-        whatsapp_limpio = "".join(ch for ch in str(whatsapp) if ch.isdigit())
+        whatsapp_numero = limpiar_numero_whatsapp(whatsapp)
 
         comercios.append({
             "id": comercio_id,
             "nombre": c.get("nombre_negocio") or c.get("nombre") or "Sin nombre",
             "email": c.get("email") or "-",
             "whatsapp": whatsapp,
-            "whatsapp_url": f"https://wa.me/{whatsapp_limpio}" if whatsapp_limpio else None,
+            "whatsapp_url": construir_url_whatsapp(
+                whatsapp,
+                "Hola, vengo de ClickLocal Paraná. Quiero consultar por ClickLocal."
+            ) if whatsapp_numero else None,
             "ciudad": c.get("ciudad") or "Paraná",
             "categoria": c.get("categoria") or c.get("rubro") or "-",
             "plan": plan,
