@@ -86,7 +86,7 @@
             <button type="button" class="foto-box" data-foto-slot="5">+<span>Principal</span></button>
           </div>
 
-          <form class="formulario panel-form" method="POST" action="/panel" enctype="multipart/form-data">
+          <form id="form-publicacion" class="formulario panel-form" method="POST" action="/panel" enctype="multipart/form-data">
             <input type="hidden" name="foto_principal" id="foto_principal" value="0">
             <input type="hidden" name="publicacion_id" id="publicacion_id" value="">
             <input type="hidden" name="imagenes_existentes" id="imagenes_existentes" value="[]">
@@ -117,9 +117,13 @@
               <span>Publicación activa</span>
             </label>
 
-            <button type="submit" class="boton-principal-form">
+            <button type="submit" id="publicacion-submit" class="boton-principal-form">
               Publicar
             </button>
+
+            <p id="publicacion-loading" style="display:none; margin-top:10px; font-weight:700; color:#006aa6;">
+              Cargando publicación, no cierres esta ventana...
+            </p>
 
           </form>
         </article>
@@ -771,6 +775,21 @@
           }
         });
       });
+
+      const formPublicacion = document.getElementById("form-publicacion");
+      const botonPublicacionSubmit = document.getElementById("publicacion-submit");
+      const mensajeCargaPublicacion = document.getElementById("publicacion-loading");
+
+      if (formPublicacion && botonPublicacionSubmit) {
+        formPublicacion.addEventListener("submit", function () {
+          botonPublicacionSubmit.disabled = true;
+          botonPublicacionSubmit.textContent = "Cargando...";
+
+          if (mensajeCargaPublicacion) {
+            mensajeCargaPublicacion.style.display = "block";
+          }
+        });
+      }
 
       pintarPrincipal(fotoPrincipalInput ? fotoPrincipalInput.value : "0");
     });
