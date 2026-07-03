@@ -25,6 +25,12 @@ UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory(app.static_folder, "sw.js", mimetype="application/javascript")
+
+
+
 def procesar_imagen_clicklocal(f, contexto="foto"):
     """
     Motor central de procesamiento de fotos de ClickLocal.
