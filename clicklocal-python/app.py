@@ -2,8 +2,15 @@ from flask import Flask, render_template, send_from_directory, request, redirect
 from werkzeug.utils import secure_filename
 import os
 import uuid
-from PIL import Image
+from PIL import Image, ImageOps
 from io import BytesIO
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    print("ClickLocal fotos: soporte HEIC/HEIF activo", flush=True)
+except Exception as e:
+    print("ClickLocal fotos: soporte HEIC/HEIF no disponible:", e, flush=True)
+
 import json
 import datetime
 from config.supabase_config import supabase_auth, supabase_admin
@@ -16,6 +23,63 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "clicklocal-mvp-dev")
 # Carpeta donde guardamos fotos subidas en esta etapa local
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def procesar_imagen_clicklocal(f, contexto="foto"):
+    """
+    Motor central de procesamiento de fotos de ClickLocal.
+    Recibe una imagen de celular/cámara y devuelve un JPG optimizado.
+    """
+    nombre = getattr(f, "filename", "") or ""
+    content_type = getattr(f, "content_type", "") or ""
+    mimetype = getattr(f, "mimetype", "") or ""
+
+    try:
+        f.stream.seek(0)
+        img = Image.open(f.stream)
+    except Exception as e_stream:
+        try:
+            img = Image.open(f)
+        except Exception as e_file:
+            print("\nERROR ABRIENDO FOTO CLICKLOCAL:", flush=True)
+            print(f"contexto={contexto}", flush=True)
+            print(f"archivo={nombre} content_type={content_type} mimetype={mimetype}", flush=True)
+            print("stream:", type(e_stream), e_stream, flush=True)
+            print("file:", type(e_file), e_file, flush=True)
+            raise
+
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception as e:
+        print("AVISO FOTO CLICKLOCAL: no se pudo corregir EXIF:", e, flush=True)
+
+    formato_original = getattr(img, "format", "") or ""
+    modo_original = getattr(img, "mode", "") or ""
+    ancho_original = getattr(img, "width", 0)
+    alto_original = getattr(img, "height", 0)
+
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+
+    max_width = 1200
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_size = (max_width, int(img.height * ratio))
+        img = img.resize(new_size, Image.LANCZOS)
+
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=80, optimize=True)
+    buf.seek(0)
+
+    print(
+        f"FOTO CLICKLOCAL OK | contexto={contexto} | archivo={nombre} | "
+        f"tipo={content_type} | formato={formato_original} | modo={modo_original} | "
+        f"original={ancho_original}x{alto_original} | final={img.width}x{img.height} | "
+        f"bytes_final={len(buf.getvalue())}",
+        flush=True
+    )
+
+    return buf
 
 
 def comercio_default():
@@ -889,31 +953,16 @@ def panel():
 
             urls_nuevas_por_slot = {}
 
+            fotos_nuevas_edicion_procesadas = 0
             for item in fotos_nuevas_edicion:
                 slot = item["slot"]
                 f = item["archivo"]
 
                 try:
-                    f.stream.seek(0)
-                    img = Image.open(f.stream)
+                    buf = procesar_imagen_clicklocal(f, contexto="edicion")
                 except Exception:
-                    try:
-                        img = Image.open(f)
-                    except Exception:
-                        continue
-
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
-
-                max_width = 1200
-                if img.width > max_width:
-                    ratio = max_width / img.width
-                    new_size = (max_width, int(img.height * ratio))
-                    img = img.resize(new_size, Image.LANCZOS)
-
-                buf = BytesIO()
-                img.save(buf, format="JPEG", quality=80)
-                buf.seek(0)
+                    continue
+                fotos_nuevas_edicion_procesadas += 1
 
                 nombre_final = f"{uuid.uuid4().hex}.jpg"
                 ruta_objeto = f"publicaciones/{nombre_final}"
@@ -945,6 +994,15 @@ def panel():
 
                 if public_url:
                     urls_nuevas_por_slot[slot] = public_url
+
+            if fotos_nuevas_edicion and fotos_nuevas_edicion_procesadas == 0:
+                return render_template(
+                    "panel.html",
+                    publicaciones=publicaciones,
+                    listas_buscables=locals().get("listas_buscables", []),
+                    comercio=locals().get("comercio"),
+                    error="No se pudo procesar una de las fotos. Probá con una imagen JPG, PNG, WEBP o una captura de pantalla."
+                )
 
             imagenes_por_slot = {}
 
@@ -1037,31 +1095,16 @@ def panel():
         imagenes_urls = []
         imagen_principal = ""
 
+        fotos_carga_procesadas = 0
         for item in fotos_a_procesar:
             slot = item["slot"]
             f = item["archivo"]
 
             try:
-                f.stream.seek(0)
-                img = Image.open(f.stream)
+                buf = procesar_imagen_clicklocal(f, contexto="carga_nueva")
             except Exception:
-                try:
-                    img = Image.open(f)
-                except Exception:
-                    continue
-
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-
-            max_width = 1200
-            if img.width > max_width:
-                ratio = max_width / img.width
-                new_size = (max_width, int(img.height * ratio))
-                img = img.resize(new_size, Image.LANCZOS)
-
-            buf = BytesIO()
-            img.save(buf, format="JPEG", quality=80)
-            buf.seek(0)
+                continue
+            fotos_carga_procesadas += 1
 
             nombre_final = f"{uuid.uuid4().hex}.jpg"
             ruta_objeto = f"publicaciones/{nombre_final}"
@@ -1110,6 +1153,15 @@ def panel():
                 "url": public_url,
                 "es_principal": slot == principal_slot
             })
+
+        if fotos_a_procesar and fotos_carga_procesadas == 0:
+            return render_template(
+                "panel.html",
+                publicaciones=publicaciones,
+                listas_buscables=locals().get("listas_buscables", []),
+                comercio=locals().get("comercio"),
+                error="No se pudo procesar una de las fotos. Probá con una imagen JPG, PNG, WEBP o una captura de pantalla."
+            )
 
         if imagenes_urls:
             principal = next((img for img in imagenes_urls if img["es_principal"]), None)
