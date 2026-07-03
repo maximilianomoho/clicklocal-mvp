@@ -110,12 +110,22 @@
         <div class="form-doble">
           <div class="campo">
             <label>Contraseña *</label>
-            <input type="password" name="password" placeholder="Mínimo 6 caracteres" />
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="registro-password" type="password" name="password" placeholder="Mínimo 6 caracteres" style="flex:1; min-width:0;" />
+              <button type="button" data-password-toggle data-target="registro-password" aria-label="Mostrar contraseña" style="padding:10px 12px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer;">
+                👁
+              </button>
+            </div>
           </div>
 
           <div class="campo">
             <label>Repetir contraseña *</label>
-            <input type="password" name="repetir_password" placeholder="Repetir contraseña" />
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="registro-repetir-password" type="password" name="repetir_password" placeholder="Repetir contraseña" style="flex:1; min-width:0;" />
+              <button type="button" data-password-toggle data-target="registro-repetir-password" aria-label="Mostrar contraseña" style="padding:10px 12px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer;">
+                👁
+              </button>
+            </div>
           </div>
         </div>
 
@@ -133,6 +143,26 @@
     </section>
 
   </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      document.querySelectorAll("[data-password-toggle]").forEach(function (boton) {
+        boton.addEventListener("click", function () {
+          const targetId = boton.getAttribute("data-target");
+          const input = document.getElementById(targetId);
+
+          if (!input) {
+            return;
+          }
+
+          const estaVisible = input.type === "text";
+          input.type = estaVisible ? "password" : "text";
+          boton.textContent = estaVisible ? "👁" : "🙈";
+          boton.setAttribute("aria-label", estaVisible ? "Mostrar contraseña" : "Ocultar contraseña");
+        });
+      });
+    });
+  </script>
 
 </body>
 </html>

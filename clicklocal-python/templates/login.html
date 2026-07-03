@@ -56,7 +56,12 @@
 
         <div class="campo">
           <label>Contraseña</label>
-          <input type="password" name="password" placeholder="Ingresá tu contraseña" required />
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input id="login-password" type="password" name="password" placeholder="Ingresá tu contraseña" required style="flex:1; min-width:0;" />
+            <button type="button" data-password-toggle data-target="login-password" aria-label="Mostrar contraseña" style="padding:10px 12px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer;">
+              👁
+            </button>
+          </div>
         </div>
 
         <button type="submit" class="boton-principal-form">
@@ -77,6 +82,26 @@
     </section>
 
   </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      document.querySelectorAll("[data-password-toggle]").forEach(function (boton) {
+        boton.addEventListener("click", function () {
+          const targetId = boton.getAttribute("data-target");
+          const input = document.getElementById(targetId);
+
+          if (!input) {
+            return;
+          }
+
+          const estaVisible = input.type === "text";
+          input.type = estaVisible ? "password" : "text";
+          boton.textContent = estaVisible ? "👁" : "🙈";
+          boton.setAttribute("aria-label", estaVisible ? "Mostrar contraseña" : "Ocultar contraseña");
+        });
+      });
+    });
+  </script>
 
 </body>
 </html>
