@@ -158,10 +158,7 @@
                     <p class="panel-descripcion">
                       {{ pub.descripcion or "Sin descripción." }}
                     </p>
-
-                    {% if pub.precio %}
-                      <p class="precio">{{ pub.precio|precio_arg }}</p>
-                    {% endif %}
+                    <p class="precio">{{ pub.precio|precio_arg }}</p>
 
                     {% if pub.activa %}
                       <span class="estado-activo">Activa</span>

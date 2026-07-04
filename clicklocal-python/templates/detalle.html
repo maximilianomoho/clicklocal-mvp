@@ -105,10 +105,7 @@
           <p class="detalle-ciudad">📍 {{ comercio.ciudad }}</p>
 
           <h1 class="detalle-titulo">{{ publicacion.nombre }}</h1>
-
-          {% if publicacion.precio %}
-            <p class="detalle-precio">{{ publicacion.precio|precio_arg }}</p>
-          {% endif %}
+          <p class="detalle-precio">{{ publicacion.precio|precio_arg }}</p>
 
           {% if publicacion.descripcion %}
             <p class="detalle-descripcion">
