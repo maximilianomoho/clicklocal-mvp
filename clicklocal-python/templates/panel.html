@@ -104,7 +104,7 @@
 
             <div class="campo">
               <label>Precio</label>
-              <input type="text" name="precio" placeholder="Ej: 42000" />
+              <input type="text" name="precio" placeholder="Ej: $ 42.000 o 42000" />
             </div>
 
             <div class="campo">
@@ -160,7 +160,7 @@
                     </p>
 
                     {% if pub.precio %}
-                      <p class="precio">$ {{ pub.precio|int }}</p>
+                      <p class="precio">{{ pub.precio|precio_arg }}</p>
                     {% endif %}
 
                     {% if pub.activa %}

@@ -107,7 +107,7 @@
           <h1 class="detalle-titulo">{{ publicacion.nombre }}</h1>
 
           {% if publicacion.precio %}
-            <p class="detalle-precio">$ {{ "{:,.0f}".format(publicacion.precio|float).replace(",", ".") }}</p>
+            <p class="detalle-precio">{{ publicacion.precio|precio_arg }}</p>
           {% endif %}
 
           {% if publicacion.descripcion %}

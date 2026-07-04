@@ -1,6 +1,7 @@
 from flask import Flask, render_template, send_from_directory, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
 import os
+from decimal import Decimal, InvalidOperation
 import uuid
 from PIL import Image, ImageOps
 from io import BytesIO
@@ -15,7 +16,109 @@ import json
 import datetime
 from config.supabase_config import supabase_auth, supabase_admin
 
+
+def normalizar_precio(valor):
+    """
+    Acepta precios escritos por humanos:
+    3500, 3.500, $3500, $ 3.500, 3500,50, $ 3.500,50.
+    Devuelve int/float limpio para guardar en Supabase, o None.
+    """
+    if valor is None:
+        return None
+
+    texto = str(valor).strip()
+    if not texto:
+        return None
+
+    texto = (
+        texto.replace("$", "")
+        .replace("ARS", "")
+        .replace("ars", "")
+        .replace(" ", "")
+        .strip()
+    )
+
+    limpio = "".join(ch for ch in texto if ch.isdigit() or ch in ".,")
+    if not limpio or not any(ch.isdigit() for ch in limpio):
+        return None
+
+    # Si tiene punto y coma, el último separador se toma como decimal.
+    if "," in limpio and "." in limpio:
+        ultima_coma = limpio.rfind(",")
+        ultimo_punto = limpio.rfind(".")
+
+        if ultima_coma > ultimo_punto:
+            entero = limpio[:ultima_coma].replace(".", "").replace(",", "")
+            decimal = limpio[ultima_coma + 1:]
+        else:
+            entero = limpio[:ultimo_punto].replace(".", "").replace(",", "")
+            decimal = limpio[ultimo_punto + 1:]
+
+        numero_texto = f"{entero}.{decimal}" if decimal else entero
+
+    elif "," in limpio:
+        partes = limpio.split(",")
+
+        # En Argentina, la coma suele ser decimal: 3500,50
+        if len(partes) == 2 and 1 <= len(partes[1]) <= 2:
+            entero = partes[0].replace(".", "").replace(",", "")
+            decimal = partes[1]
+            numero_texto = f"{entero}.{decimal}"
+        else:
+            numero_texto = limpio.replace(",", "").replace(".", "")
+
+    elif "." in limpio:
+        partes = limpio.split(".")
+
+        # 42.000 => miles. 3500.50 => decimal.
+        if len(partes) == 2 and 1 <= len(partes[1]) <= 2 and len(partes[0]) > 1:
+            numero_texto = f"{partes[0].replace(',', '')}.{partes[1]}"
+        else:
+            numero_texto = limpio.replace(".", "").replace(",", "")
+
+    else:
+        numero_texto = limpio
+
+    try:
+        numero = Decimal(numero_texto)
+    except InvalidOperation:
+        return None
+
+    if numero < 0:
+        return None
+
+    if numero == numero.to_integral_value():
+        return int(numero)
+
+    return float(numero.quantize(Decimal("0.01")))
+
+
+def formatear_precio(valor):
+    """
+    Muestra el precio con formato argentino.
+    Ej: 3500 -> $ 3.500
+    Ej: 3500.5 -> $ 3.500,50
+    """
+    if valor is None or valor == "":
+        return "Consultar precio"
+
+    try:
+        numero = Decimal(str(valor))
+    except InvalidOperation:
+        return "Consultar precio"
+
+    if numero == numero.to_integral_value():
+        entero = int(numero)
+        return "$ " + f"{entero:,}".replace(",", ".")
+
+    entero, decimal = f"{numero:.2f}".split(".")
+    entero_formateado = f"{int(entero):,}".replace(",", ".")
+    return f"$ {entero_formateado},{decimal}"
+
+
 app = Flask(__name__)
+app.jinja_env.filters["precio_arg"] = formatear_precio
+
 
 # Clave temporal para session en desarrollo local
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clicklocal-mvp-dev")
@@ -904,7 +1007,7 @@ def panel():
 
     if request.method == "POST":
         nombre = request.form.get("nombre_publicacion", "").strip()
-        precio = request.form.get("precio", "").strip()
+        precio = normalizar_precio(request.form.get("precio", ""))
         descripcion = request.form.get("descripcion_publicacion", "").strip()
         activa = request.form.get("activa") == "on"
         publicacion_id = request.form.get("publicacion_id", "").strip()
@@ -1037,7 +1140,7 @@ def panel():
 
             cambios_publicacion = {
                 "nombre": nombre,
-                "precio": precio if precio else None,
+                "precio": precio,
                 "descripcion": descripcion,
                 "activa": activa,
                 "imagenes": imagenes_finales,
@@ -1740,16 +1843,7 @@ def perfil_comercio(comercio_id):
 
             publicacion["imagen_url"] = imagen_publica
 
-            precio = publicacion.get("precio")
-
-            if precio is None or precio == "":
-                publicacion["precio_mostrar"] = "Consultar precio"
-            else:
-                try:
-                    precio_numero = int(float(precio))
-                    publicacion["precio_mostrar"] = "$ " + f"{precio_numero:,}".replace(",", ".")
-                except (ValueError, TypeError):
-                    publicacion["precio_mostrar"] = "Consultar precio"
+            publicacion["precio_mostrar"] = formatear_precio(publicacion.get("precio"))
 
             publicacion["ubicacion_mostrar"] = (
                 publicacion.get("direccion_mostrar")
