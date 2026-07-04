@@ -88,7 +88,38 @@
         font-size: 28px;
       }
     }
-  </style>
+  
+  /* Ajuste tabla admin comercios */
+  .admin-main {
+    width: min(96vw, 1500px);
+    max-width: 1500px;
+  }
+
+  .admin-card {
+    overflow: visible;
+  }
+
+  .admin-tabla-contenedor {
+    overflow-x: auto;
+  }
+
+  .admin-tabla {
+    min-width: 1180px;
+  }
+
+  .admin-scroll-top {
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 16px;
+    margin: 8px 0 4px;
+  }
+
+  .admin-scroll-top-inner {
+    height: 1px;
+    width: 1180px;
+  }
+
+</style>
 </head>
 
 <body>
@@ -236,7 +267,11 @@
         </div>
 
         {% if comercios %}
-          <div class="admin-tabla-contenedor">
+          <div class="admin-scroll-top" data-scroll-top="comercios">
+            <div class="admin-scroll-top-inner"></div>
+          </div>
+
+          <div class="admin-tabla-contenedor" data-scroll-main="comercios">
             <table class="admin-tabla">
               <thead>
                 <tr>
@@ -249,12 +284,16 @@
                   <th>Publicaciones</th>
                   <th>Activas</th>
                   <th>Perfil</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
 
               <tbody>
-                {% for c in comercios %}
-                  <tr>
+                {% for c in comercios|sort(attribute='activo') %}
+                  {% set publicaciones_total = c.publicaciones_total|default(0)|int %}
+                  {% set publicaciones_activas = c.publicaciones_activas|default(0)|int %}
+
+                  <tr{% if not c.activo %} style="background: #fff1f2;"{% elif c.necesita_restaurar %} style="background: #fff7ed;"{% endif %}>
                     <td><strong>{{ c.nombre }}</strong></td>
                     <td>{{ c.email }}</td>
                     <td>{{ c.whatsapp }}</td>
@@ -266,6 +305,45 @@
                     <td>
                       {% if c.perfil_url %}
                         <a class="admin-mini-link" href="{{ c.perfil_url }}" target="_blank">Ver</a>
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if c.id %}
+                        {% if c.activo %}
+                          <form method="POST" action="{{ url_for('admin_bloquear_comercio', comercio_id=c.id) }}" style="margin: 0;" onsubmit="return confirm('¿Bloquear este comercio y ocultar su contenido?');">
+                            <button type="submit" class="admin-mini-link" style="border: 0; cursor: pointer; background: #fee2e2; color: #991b1b;">
+                              Bloquear
+                            </button>
+                          </form>
+                        {% else %}
+                          <form method="POST" action="{{ url_for('admin_reactivar_comercio', comercio_id=c.id) }}" style="margin: 0;" onsubmit="return confirm('¿Desbloquear este comercio?');">
+                            <button type="submit" class="admin-mini-link" style="border: 0; cursor: pointer; background: #dcfce7; color: #166534;">
+                              Desbloquear
+                            </button>
+                          </form>
+                        {% endif %}
+
+                        {% if publicaciones_total <= 0 %}
+                          <span class="admin-plan" style="display: inline-block; margin-top: 6px; background: #f3f4f6; color: #6b7280;">
+                            Sin contenido
+                          </span>
+                        {% elif not c.activo %}
+                          <span class="admin-plan" style="display: inline-block; margin-top: 6px; background: #fee2e2; color: #991b1b;">
+                            Contenido invisible
+                          </span>
+                        {% elif c.necesita_restaurar or publicaciones_activas <= 0 %}
+                          <form method="POST" action="{{ url_for('admin_restaurar_contenido_comercio', comercio_id=c.id) }}" style="margin: 6px 0 0 0;" onsubmit="return confirm('¿Hacer visible el contenido de este comercio?');">
+                            <button type="submit" class="admin-mini-link" style="border: 0; cursor: pointer; background: #fed7aa; color: #9a3412;">
+                              Hacer visible
+                            </button>
+                          </form>
+                        {% else %}
+                          <span class="admin-plan" style="display: inline-block; margin-top: 6px; background: #dcfce7; color: #166534;">
+                            Contenido visible
+                          </span>
+                        {% endif %}
                       {% else %}
                         -
                       {% endif %}
@@ -286,6 +364,42 @@
     </section>
 
   </main>
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".admin-scroll-top[data-scroll-top]").forEach(function (topScroll) {
+      const key = topScroll.dataset.scrollTop;
+      const mainScroll = document.querySelector('.admin-tabla-contenedor[data-scroll-main="' + key + '"]');
+      const inner = topScroll.querySelector(".admin-scroll-top-inner");
+
+      if (!mainScroll || !inner) return;
+
+      function ajustarAncho() {
+        inner.style.width = mainScroll.scrollWidth + "px";
+      }
+
+      ajustarAncho();
+      window.addEventListener("resize", ajustarAncho);
+
+      let sincronizando = false;
+
+      topScroll.addEventListener("scroll", function () {
+        if (sincronizando) return;
+        sincronizando = true;
+        mainScroll.scrollLeft = topScroll.scrollLeft;
+        sincronizando = false;
+      });
+
+      mainScroll.addEventListener("scroll", function () {
+        if (sincronizando) return;
+        sincronizando = true;
+        topScroll.scrollLeft = mainScroll.scrollLeft;
+        sincronizando = false;
+      });
+    });
+  });
+</script>
 
 </body>
 </html>

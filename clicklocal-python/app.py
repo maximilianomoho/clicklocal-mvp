@@ -582,7 +582,7 @@ def inicio():
         return {
             com.get("id"): com
             for com in comercios
-            if com.get("id")
+            if com.get("id") and com.get("activo") is not False
         }
 
     try:
@@ -616,6 +616,9 @@ def inicio():
         for pub in publicaciones:
             comercio_id = pub.get("comercio_id")
             comercio_pub = comercios_por_id.get(comercio_id, {})
+
+            if not comercio_pub or comercio_pub.get("activo") is False:
+                continue
 
             texto_para_buscar = " ".join([
                 str(pub.get("nombre") or ""),
@@ -920,6 +923,9 @@ def login():
             if not comercio:
                 return "Usuario válido, pero no se encontró comercio asociado.", 404
 
+            if comercio.get("activo") is False:
+                return "Esta cuenta fue bloqueada por administración.", 403
+
             session["user_id"] = user.id
             session["comercio"] = comercio
             session["publicaciones"] = []
@@ -936,10 +942,13 @@ def login():
 @app.route("/panel", methods=["GET", "POST"])
 @app.route("/panel.html", methods=["GET", "POST"])
 def panel():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect(url_for("login"))
+
     comercio = session.get("comercio") or comercio_default()
     publicaciones = []
-
-    user_id = session.get("user_id")
     comercio_id = comercio.get("id") or user_id
 
     # Refrescar datos reales del comercio desde Supabase.
@@ -962,6 +971,12 @@ def panel():
                 comercio_id = comercio.get("id") or comercio.get("user_id") or comercio_id
         except Exception:
             pass
+
+    if user_id and comercio.get("activo") is False:
+        session.pop("user_id", None)
+        session.pop("comercio", None)
+        session.pop("publicaciones", None)
+        return "Esta cuenta fue bloqueada por administración.", 403
 
     plan_actual = str(comercio.get("plan") or "gratis").strip().lower()
 
@@ -2020,6 +2035,7 @@ def admin():
         return True
 
     publicaciones_por_comercio = {}
+    publicaciones_restaurables_por_comercio = {}
     publicaciones_activas_por_comercio = {}
 
     for pub in publicaciones_raw:
@@ -2027,6 +2043,9 @@ def admin():
 
         if comercio_id:
             publicaciones_por_comercio[comercio_id] = publicaciones_por_comercio.get(comercio_id, 0) + 1
+
+            if pub.get("eliminada") is not True:
+                publicaciones_restaurables_por_comercio[comercio_id] = publicaciones_restaurables_por_comercio.get(comercio_id, 0) + 1
 
             if es_publicacion_activa(pub):
                 publicaciones_activas_por_comercio[comercio_id] = publicaciones_activas_por_comercio.get(comercio_id, 0) + 1
@@ -2046,6 +2065,22 @@ def admin():
         whatsapp = c.get("whatsapp") or "-"
         whatsapp_numero = limpiar_numero_whatsapp(whatsapp)
 
+        cuenta_habilitada = c.get("activo") is not False
+        publicaciones_total = publicaciones_por_comercio.get(comercio_id, 0)
+        publicaciones_restaurables = publicaciones_restaurables_por_comercio.get(comercio_id, 0)
+        publicaciones_activas = publicaciones_activas_por_comercio.get(comercio_id, 0)
+
+        necesita_restaurar = (
+            cuenta_habilitada
+            and publicaciones_restaurables > 0
+            and publicaciones_activas == 0
+        )
+
+        contenido_restaurado = (
+            cuenta_habilitada
+            and publicaciones_activas > 0
+        )
+
         comercios.append({
             "id": comercio_id,
             "nombre": c.get("nombre_negocio") or c.get("nombre") or "Sin nombre",
@@ -2060,11 +2095,23 @@ def admin():
             "plan": plan,
             "estado_plan": estado_plan,
             "solicitud_premium": solicitud_premium,
+            "activo": cuenta_habilitada,
+            "estado_cuenta": "Habilitada" if cuenta_habilitada else "Bloqueada",
+            "necesita_restaurar": necesita_restaurar,
+            "contenido_restaurado": contenido_restaurado,
+            "publicaciones_restaurables": publicaciones_restaurables,
             "created_at": c.get("created_at") or "-",
-            "publicaciones_total": publicaciones_por_comercio.get(comercio_id, 0),
-            "publicaciones_activas": publicaciones_activas_por_comercio.get(comercio_id, 0),
+            "publicaciones_total": publicaciones_total,
+            "publicaciones_activas": publicaciones_activas,
             "perfil_url": url_for("perfil_comercio", comercio_id=comercio_id) if comercio_id else None,
         })
+
+    comercios.sort(
+        key=lambda c: (
+            0 if c.get("necesita_restaurar") else 1 if not c.get("activo") else 2,
+            str(c.get("nombre") or "").lower()
+        )
+    )
 
     solicitudes_premium = [
         c for c in comercios
@@ -2081,12 +2128,18 @@ def admin():
         if c["plan"] == "premium"
     )
 
+    total_bloqueados = sum(
+        1 for c in comercios
+        if not c.get("activo")
+    )
+
     resumen = {
         "total_comercios": len(comercios),
         "total_premium": total_premium,
         "total_publicaciones": len(publicaciones_raw),
         "total_publicaciones_activas": total_publicaciones_activas,
         "total_solicitudes_premium": len(solicitudes_premium),
+        "total_bloqueados": total_bloqueados,
     }
 
     return render_template(
@@ -2124,6 +2177,112 @@ def admin_activar_premium(comercio_id):
         print(type(e), flush=True)
         print(e, flush=True)
         return redirect(url_for("admin", premium_error="1"))
+
+
+
+@app.route("/admin/bloquear-comercio/<comercio_id>", methods=["POST"])
+@admin_requerido
+def admin_bloquear_comercio(comercio_id):
+    """
+    Bloqueo de emergencia:
+    - desactiva el comercio
+    - oculta sus publicaciones
+    - oculta sus listas buscables
+    No borra datos ni imágenes.
+    """
+    try:
+        supabase_admin.table("comercios").update({
+            "activo": False
+        }).eq("id", comercio_id).execute()
+
+        supabase_admin.table("publicaciones").update({
+            "activa": False
+        }).eq("comercio_id", comercio_id).execute()
+
+        try:
+            supabase_admin.table("listas_buscables").update({
+                "activa": False
+            }).eq("comercio_id", comercio_id).execute()
+        except Exception as e:
+            print("AVISO: no se pudieron desactivar listas_buscables:", e, flush=True)
+
+        return redirect(url_for("admin", comercio_bloqueado="1"))
+
+    except Exception as e:
+        print("\nERROR BLOQUEANDO COMERCIO:", flush=True)
+        print(type(e), flush=True)
+        print(e, flush=True)
+        return redirect(url_for("admin", bloqueo_error="1"))
+
+
+@app.route("/admin/reactivar-comercio/<comercio_id>", methods=["POST"])
+@admin_requerido
+def admin_reactivar_comercio(comercio_id):
+    """
+    Reactiva la cuenta del comercio.
+    Por seguridad NO reactiva automáticamente publicaciones/listas,
+    porque podrían haber sido el motivo del bloqueo.
+    """
+    try:
+        supabase_admin.table("comercios").update({
+            "activo": True
+        }).eq("id", comercio_id).execute()
+
+        return redirect(url_for("admin", comercio_reactivado="1"))
+
+    except Exception as e:
+        print("\nERROR REACTIVANDO COMERCIO:", flush=True)
+        print(type(e), flush=True)
+        print(e, flush=True)
+        return redirect(url_for("admin", reactivar_error="1"))
+
+
+
+@app.route("/admin/restaurar-contenido/<comercio_id>", methods=["POST"])
+@admin_requerido
+def admin_restaurar_contenido_comercio(comercio_id):
+    """
+    Restaura contenido de un comercio:
+    - reactiva publicaciones no eliminadas
+    - reactiva listas buscables
+    No desbloquea la cuenta.
+    """
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,nombre_negocio,activo")
+            .eq("id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+
+        comercio_data = comercio_res.data or []
+
+        if not comercio_data:
+            return redirect(url_for("admin", restaurar_contenido_error="1"))
+
+        if comercio_data[0].get("activo") is False:
+            return redirect(url_for("admin", restaurar_bloqueado="1"))
+
+        supabase_admin.table("publicaciones").update({
+            "activa": True
+        }).eq("comercio_id", comercio_id).eq("eliminada", False).execute()
+
+        try:
+            supabase_admin.table("listas_buscables").update({
+                "activa": True
+            }).eq("comercio_id", comercio_id).execute()
+        except Exception as e:
+            print("AVISO: no se pudieron restaurar listas_buscables:", e, flush=True)
+
+        return redirect(url_for("admin", contenido_restaurado="1"))
+
+    except Exception as e:
+        print("\nERROR RESTAURANDO CONTENIDO:", flush=True)
+        print(type(e), flush=True)
+        print(e, flush=True)
+        return redirect(url_for("admin", restaurar_contenido_error="1"))
 
 
 
