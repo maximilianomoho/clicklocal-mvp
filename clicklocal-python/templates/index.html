@@ -744,5 +744,47 @@
   </footer>
 
   <script src="/static/pwa.js"></script>
+
+<!-- CLICKLOCAL: loading WhatsApp anti doble click -->
+<style>
+  .whatsapp-cargando {
+    opacity: 0.75;
+    cursor: wait;
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const botonesWhatsapp = document.querySelectorAll(
+      "a.boton-whatsapp, a.local-compacto-whatsapp, a[href*='analytics/whatsapp']"
+    );
+
+    botonesWhatsapp.forEach(function (boton) {
+      boton.addEventListener("click", function (event) {
+        if (boton.dataset.whatsappCargando === "1") {
+          event.preventDefault();
+          return;
+        }
+
+        boton.dataset.whatsappCargando = "1";
+        boton.dataset.textoOriginalWhatsapp = boton.textContent.trim();
+
+        boton.textContent = "Abriendo WhatsApp...";
+        boton.setAttribute("aria-busy", "true");
+        boton.classList.add("whatsapp-cargando");
+
+        setTimeout(function () {
+          boton.dataset.whatsappCargando = "0";
+          boton.textContent = boton.dataset.textoOriginalWhatsapp || "WhatsApp";
+          boton.removeAttribute("aria-busy");
+          boton.classList.remove("whatsapp-cargando");
+        }, 6000);
+      });
+    });
+  });
+</script>
+<!-- FIN CLICKLOCAL: loading WhatsApp anti doble click -->
+
 </body>
 </html>
