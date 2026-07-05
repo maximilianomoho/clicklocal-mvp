@@ -2305,5 +2305,657 @@ def imagenes(filename):
     return send_from_directory("static/img", filename)
 
 
+
+# ============================================================
+# ANALYTICS ADMIN V1
+# Lee datos desde Supabase:
+# - busquedas_publicas
+# - eventos_analytics
+# ============================================================
+
+@app.route("/admin/analytics")
+@app.route("/admin/analytics.html")
+@admin_requerido
+def admin_analytics():
+    from flask import request, render_template_string
+    from collections import Counter
+    from datetime import datetime, timedelta, timezone
+
+    def _safe_select(tabla, limit=1000):
+        """
+        Lectura defensiva: intenta ordenar por created_at.
+        Si falla por alguna columna/permiso, intenta lectura simple.
+        """
+        try:
+            res = (
+                supabase_admin
+                .table(tabla)
+                .select("*")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return res.data or [], None
+        except Exception as e1:
+            try:
+                res = (
+                    supabase_admin
+                    .table(tabla)
+                    .select("*")
+                    .limit(limit)
+                    .execute()
+                )
+                return res.data or [], None
+            except Exception as e2:
+                return [], f"{tabla}: {e2}"
+
+    def _parse_fecha(valor):
+        if not valor:
+            return None
+        try:
+            texto = str(valor).replace("Z", "+00:00")
+            fecha = datetime.fromisoformat(texto)
+            if fecha.tzinfo is None:
+                fecha = fecha.replace(tzinfo=timezone.utc)
+            return fecha
+        except Exception:
+            return None
+
+    def _filtrar_por_dias(registros, dias):
+        if dias is None:
+            return registros
+
+        desde = datetime.now(timezone.utc) - timedelta(days=dias)
+        filtrados = []
+
+        for r in registros:
+            fecha = _parse_fecha(r.get("created_at"))
+            if fecha and fecha >= desde:
+                filtrados.append(r)
+
+        return filtrados
+
+    def _consulta_busqueda(b):
+        return (
+            b.get("consulta")
+            or b.get("q")
+            or b.get("busqueda")
+            or b.get("texto")
+            or ""
+        ).strip()
+
+    def _tipo_evento(e):
+        return (
+            e.get("tipo_evento")
+            or e.get("evento")
+            or e.get("tipo")
+            or ""
+        ).strip().lower()
+
+    def _es_whatsapp(e):
+        tipo = _tipo_evento(e)
+        return "whatsapp" in tipo or "wa_" in tipo
+
+    def _es_telefono(e):
+        tipo = _tipo_evento(e)
+        return "telefono" in tipo or "phone" in tipo or "llamada" in tipo
+
+    def _es_vista(e):
+        tipo = _tipo_evento(e)
+        return "vista" in tipo or "view" in tipo or "perfil" in tipo or "publicacion" in tipo
+
+    def _cantidad_resultados(b):
+        for key in ("cantidad_resultados", "total_resultados", "resultados_count", "resultados"):
+            valor = b.get(key)
+            if valor is None:
+                continue
+            try:
+                return int(valor)
+            except Exception:
+                continue
+        return None
+
+    def _es_sin_resultados(b):
+        for key in ("sin_resultados", "sin_resultado"):
+            if b.get(key) is True:
+                return True
+
+        cantidad = _cantidad_resultados(b)
+        return cantidad == 0
+
+    def _nombre_comercio(comercios_por_id, comercio_id):
+        if not comercio_id:
+            return "Comercio sin identificar"
+
+        comercio = comercios_por_id.get(str(comercio_id))
+        if not comercio:
+            return "Comercio sin identificar"
+
+        return (
+            comercio.get("nombre_negocio")
+            or comercio.get("nombre")
+            or comercio.get("razon_social")
+            or "Comercio sin nombre"
+        )
+
+    dias_raw = request.args.get("dias", "30")
+
+    if dias_raw == "todos":
+        dias = None
+        periodo_label = "Todo el historial disponible"
+    else:
+        try:
+            dias = int(dias_raw)
+        except Exception:
+            dias = 30
+            dias_raw = "30"
+        periodo_label = f"Últimos {dias} días"
+
+    busquedas, err_busquedas = _safe_select("busquedas_publicas", limit=1500)
+    eventos, err_eventos = _safe_select("eventos_analytics", limit=3000)
+    comercios, err_comercios = _safe_select("comercios", limit=3000)
+
+    errores = [e for e in [err_busquedas, err_eventos, err_comercios] if e]
+
+    busquedas = _filtrar_por_dias(busquedas, dias)
+    eventos = _filtrar_por_dias(eventos, dias)
+
+    comercios_por_id = {
+        str(c.get("id")): c
+        for c in comercios
+        if c.get("id")
+    }
+
+    busquedas_por_id = {
+        str(b.get("id")): b
+        for b in busquedas
+        if b.get("id")
+    }
+
+    total_busquedas = len(busquedas)
+    total_eventos = len(eventos)
+
+    eventos_whatsapp = [e for e in eventos if _es_whatsapp(e)]
+    eventos_telefono = [e for e in eventos if _es_telefono(e)]
+    eventos_vista = [e for e in eventos if _es_vista(e)]
+
+    top_busquedas_counter = Counter()
+    top_sin_resultados_counter = Counter()
+
+    for b in busquedas:
+        consulta = _consulta_busqueda(b)
+        if consulta:
+            top_busquedas_counter[consulta] += 1
+
+            if _es_sin_resultados(b):
+                top_sin_resultados_counter[consulta] += 1
+
+    eventos_por_tipo_counter = Counter()
+    clicks_por_comercio_counter = Counter()
+    whatsapp_por_consulta_counter = Counter()
+
+    for e in eventos:
+        tipo = _tipo_evento(e) or "sin_tipo"
+        eventos_por_tipo_counter[tipo] += 1
+
+        if _es_whatsapp(e) or _es_telefono(e):
+            comercio_id = e.get("comercio_id")
+            nombre = _nombre_comercio(comercios_por_id, comercio_id)
+            clicks_por_comercio_counter[nombre] += 1
+
+        if _es_whatsapp(e):
+            consulta_origen = (
+                e.get("consulta_origen")
+                or e.get("consulta")
+                or e.get("query")
+                or ""
+            )
+
+            if not consulta_origen and e.get("busqueda_id"):
+                b = busquedas_por_id.get(str(e.get("busqueda_id")))
+                if b:
+                    consulta_origen = _consulta_busqueda(b)
+
+            consulta_origen = str(consulta_origen).strip()
+
+            if consulta_origen:
+                whatsapp_por_consulta_counter[consulta_origen] += 1
+
+    def _top(counter, limite=15):
+        return [
+            {"nombre": nombre, "cantidad": cantidad}
+            for nombre, cantidad in counter.most_common(limite)
+        ]
+
+    ctr_whatsapp = 0
+    if total_busquedas:
+        ctr_whatsapp = round((len(eventos_whatsapp) / total_busquedas) * 100, 1)
+
+    stats = {
+        "total_busquedas": total_busquedas,
+        "total_eventos": total_eventos,
+        "total_whatsapp": len(eventos_whatsapp),
+        "total_telefono": len(eventos_telefono),
+        "total_vistas": len(eventos_vista),
+        "ctr_whatsapp": ctr_whatsapp,
+    }
+
+    top_busquedas = _top(top_busquedas_counter, 20)
+    top_sin_resultados = _top(top_sin_resultados_counter, 20)
+    eventos_por_tipo = _top(eventos_por_tipo_counter, 20)
+    clicks_por_comercio = _top(clicks_por_comercio_counter, 20)
+    whatsapp_por_consulta = _top(whatsapp_por_consulta_counter, 20)
+
+    eventos_recientes = []
+    for e in eventos[:40]:
+        eventos_recientes.append({
+            "fecha": e.get("created_at", ""),
+            "tipo": _tipo_evento(e) or "sin_tipo",
+            "comercio": _nombre_comercio(comercios_por_id, e.get("comercio_id")),
+            "consulta": (
+                e.get("consulta_origen")
+                or e.get("consulta")
+                or e.get("query")
+                or ""
+            ),
+        })
+
+    template = """
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Analytics admin V1 - ClickLocal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f6f7fb;
+      color: #222;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+    }
+
+    .muted {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: #fff;
+      color: #222;
+      text-decoration: none;
+      border: 1px solid #ddd;
+      font-size: 14px;
+    }
+
+    .btn.active {
+      background: #ff7a00;
+      color: white;
+      border-color: #ff7a00;
+      font-weight: bold;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      border: 1px solid #eee;
+    }
+
+    .card .num {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .card .label {
+      color: #666;
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      border: 1px solid #eee;
+      overflow: hidden;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+    }
+
+    th {
+      color: #555;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .empty {
+      color: #777;
+      padding: 10px 0;
+      font-size: 14px;
+    }
+
+    .warn {
+      background: #fff7e6;
+      border: 1px solid #ffd58a;
+      color: #5c3b00;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 14px 0;
+      font-size: 14px;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 900px) {
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Analytics admin V1</h1>
+        <div class="muted">{{ periodo_label }} · ClickLocal Paraná</div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="{{ url_for('admin') }}">← Volver al admin</a>
+        <a class="btn {% if dias_raw == '7' %}active{% endif %}" href="{{ url_for('admin_analytics', dias=7) }}">7 días</a>
+        <a class="btn {% if dias_raw == '30' %}active{% endif %}" href="{{ url_for('admin_analytics', dias=30) }}">30 días</a>
+        <a class="btn {% if dias_raw == '90' %}active{% endif %}" href="{{ url_for('admin_analytics', dias=90) }}">90 días</a>
+        <a class="btn {% if dias_raw == 'todos' %}active{% endif %}" href="{{ url_for('admin_analytics', dias='todos') }}">Todo</a>
+      </div>
+    </div>
+
+    {% if errores %}
+      <div class="warn">
+        <strong>Atención:</strong> hubo problemas leyendo alguna tabla.
+        {% for error in errores %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="cards">
+      <div class="card">
+        <div class="num">{{ stats.total_busquedas }}</div>
+        <div class="label">Búsquedas públicas</div>
+      </div>
+
+      <div class="card">
+        <div class="num">{{ stats.total_eventos }}</div>
+        <div class="label">Eventos registrados</div>
+      </div>
+
+      <div class="card">
+        <div class="num">{{ stats.total_whatsapp }}</div>
+        <div class="label">Clicks WhatsApp</div>
+      </div>
+
+      <div class="card">
+        <div class="num">{{ stats.total_telefono }}</div>
+        <div class="label">Clicks teléfono</div>
+      </div>
+
+      <div class="card">
+        <div class="num">{{ stats.total_vistas }}</div>
+        <div class="label">Vistas / aperturas</div>
+      </div>
+
+      <div class="card">
+        <div class="num">{{ stats.ctr_whatsapp }}%</div>
+        <div class="label">WhatsApp / búsquedas</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Búsquedas más repetidas</h2>
+        {% if top_busquedas %}
+          <table>
+            <thead>
+              <tr>
+                <th>Búsqueda</th>
+                <th>Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in top_busquedas %}
+                <tr>
+                  <td>{{ item.nombre }}</td>
+                  <td>{{ item.cantidad }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">Todavía no hay búsquedas para este período.</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>Búsquedas sin resultados</h2>
+        {% if top_sin_resultados %}
+          <table>
+            <thead>
+              <tr>
+                <th>Búsqueda</th>
+                <th>Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in top_sin_resultados %}
+                <tr>
+                  <td>{{ item.nombre }}</td>
+                  <td>{{ item.cantidad }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">No hay búsquedas sin resultados detectadas en este período.</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>Clicks por comercio</h2>
+        {% if clicks_por_comercio %}
+          <table>
+            <thead>
+              <tr>
+                <th>Comercio</th>
+                <th>Clicks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in clicks_por_comercio %}
+                <tr>
+                  <td>{{ item.nombre }}</td>
+                  <td>{{ item.cantidad }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">Todavía no hay clicks asociados a comercios.</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>WhatsApp por búsqueda de origen</h2>
+        {% if whatsapp_por_consulta %}
+          <table>
+            <thead>
+              <tr>
+                <th>Consulta de origen</th>
+                <th>Clicks WhatsApp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in whatsapp_por_consulta %}
+                <tr>
+                  <td>{{ item.nombre }}</td>
+                  <td>{{ item.cantidad }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">Todavía no hay atribución de WhatsApp por búsqueda.</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>Eventos por tipo</h2>
+        {% if eventos_por_tipo %}
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in eventos_por_tipo %}
+                <tr>
+                  <td>{{ item.nombre }}</td>
+                  <td>{{ item.cantidad }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">Todavía no hay eventos registrados.</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>Eventos recientes</h2>
+        {% if eventos_recientes %}
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Comercio</th>
+                <th>Consulta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in eventos_recientes %}
+                <tr>
+                  <td>{{ item.fecha }}</td>
+                  <td>{{ item.tipo }}</td>
+                  <td>{{ item.comercio }}</td>
+                  <td>{{ item.consulta }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">No hay eventos recientes para mostrar.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+    return render_template_string(
+        template,
+        periodo_label=periodo_label,
+        dias_raw=dias_raw,
+        errores=errores,
+        stats=stats,
+        top_busquedas=top_busquedas,
+        top_sin_resultados=top_sin_resultados,
+        eventos_por_tipo=eventos_por_tipo,
+        clicks_por_comercio=clicks_por_comercio,
+        whatsapp_por_consulta=whatsapp_por_consulta,
+        eventos_recientes=eventos_recientes,
+    )
+
 if __name__ == "__main__":
     app.run(debug=True)
