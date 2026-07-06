@@ -815,6 +815,12 @@ def inicio():
     )
 
 
+
+@app.route("/cartelera-demo")
+def cartelera_demo():
+    return render_template("cartelera_demo.html")
+
+
 # REGISTRO COMERCIO
 @app.route("/registro", methods=["GET", "POST"])
 @app.route("/registro.html", methods=["GET", "POST"])
