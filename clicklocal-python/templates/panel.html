@@ -349,8 +349,190 @@
 
           <p class="panel-descripcion">
             Este es el panel propio para comercios de Cine y Teatro.
-            En este paso se muestran las carteleras ya cargadas; la carga, edición, pausa y eliminación van en pasos separados.
+            En este paso ya podés cargar una nueva cartelera con datos, precios, promociones y funciones. Las fotos van en un paso separado.
           </p>
+
+          {% if request.args.get("cartelera_ok") %}
+            <p class="panel-descripcion" style="padding:10px 12px; border-radius:12px; background:#eaf8ee; color:#176b35;">
+              Cartelera cargada correctamente.
+            </p>
+          {% endif %}
+
+          {% if request.args.get("cartelera_error") == "titulo" %}
+            <p class="panel-descripcion" style="padding:10px 12px; border-radius:12px; background:#fff1f1; color:#8a1f1f;">
+              Para cargar una cartelera, el título es obligatorio.
+            </p>
+          {% elif request.args.get("cartelera_error") == "precio" %}
+            <p class="panel-descripcion" style="padding:10px 12px; border-radius:12px; background:#fff1f1; color:#8a1f1f;">
+              El precio general no tiene un formato válido. Podés usar, por ejemplo, 6000 o $ 6.000.
+            </p>
+          {% elif request.args.get("cartelera_error") == "guardar" %}
+            <p class="panel-descripcion" style="padding:10px 12px; border-radius:12px; background:#fff1f1; color:#8a1f1f;">
+              No se pudo guardar la cartelera. Revisá los datos e intentá nuevamente.
+            </p>
+          {% endif %}
+
+          <form method="post" action="{{ url_for('crear_cartelera_panel') }}" style="margin-top:22px;">
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:24px; padding:24px; box-shadow:0 18px 40px rgba(15,23,42,0.06);">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px;">
+                <div>
+                  <p class="titulo-chico" style="margin-bottom:4px;">NUEVA CARTELERA</p>
+                  <h3 style="margin:0;">Datos principales</h3>
+                </div>
+                <span class="badge">Sin fotos todavía</span>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:18px;">
+                <label style="display:block; font-weight:700;">
+                  Título de película u obra *
+                  <input type="text" name="cartelera_titulo" placeholder="Ej: Los Locos Addams" required style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px;">
+                </label>
+
+                <label style="display:block; font-weight:700;">
+                  Género
+                  <input type="text" name="cartelera_genero" placeholder="Ej: Comedia musical" style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px;">
+                </label>
+
+                <label style="display:block; font-weight:700;">
+                  Clasificación
+                  <input type="text" name="cartelera_clasificacion" placeholder="Ej: ATP / +13 / +16" style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px;">
+                </label>
+
+                <label style="display:block; font-weight:700;">
+                  Dirección visible
+                  <input type="text" name="cartelera_direccion_mostrar" value="{{ comercio.direccion_mostrar or comercio.direccion or '' }}" style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px;">
+                </label>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:18px; margin-top:18px;">
+                <label style="display:block; font-weight:700;">
+                  Precio general
+                  <input type="text" name="cartelera_precio_general" placeholder="Ej: $ 6.000" style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px;">
+                </label>
+
+                <label style="display:block; font-weight:700;">
+                  Otros precios
+                  <input type="text" name="cartelera_precios_detalle" placeholder="Ej: Menores $4500. Jubilados $4000." style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px;">
+                </label>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px; margin-top:18px;">
+                <label style="display:block; font-weight:700;">
+                  Sinopsis o descripción
+                  <textarea name="cartelera_descripcion" rows="4" placeholder="Breve descripción de la película, obra o espectáculo." style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px; resize:vertical;"></textarea>
+                </label>
+
+                <label style="display:block; font-weight:700;">
+                  Promociones generales
+                  <textarea name="cartelera_promociones" rows="4" placeholder="Ej: Miércoles 2x1. Promo estudiantes." style="width:100%; margin-top:8px; padding:13px 15px; border:1px solid #d1d5db; border-radius:16px; resize:vertical;"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:24px; padding:24px; margin-top:22px; box-shadow:0 18px 40px rgba(15,23,42,0.06);">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px;">
+                <div>
+                  <p class="titulo-chico" style="margin-bottom:4px;">FUNCIONES</p>
+                  <h3 style="margin:0;">Horarios por día</h3>
+                  <p class="panel-descripcion" style="margin-top:6px;">
+                    Escribí varios horarios separados por coma. Ejemplo: 18:30, 21:00.
+                  </p>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:16px;">
+                <div style="border:1px solid #e5e7eb; border-radius:18px; padding:16px; background:#f9fafb;">
+                  <h4 style="margin:0 0 12px;">Lunes</h4>
+                  <label style="display:block; font-weight:700;">
+                    Horarios
+                    <input type="text" name="cartelera_lunes_horarios" placeholder="18:30, 21:00" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                  <label style="display:block; font-weight:700; margin-top:12px;">
+                    Promo del día
+                    <input type="text" name="cartelera_lunes_promo" placeholder="Ej: Lunes 2x1" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                </div>
+
+                <div style="border:1px solid #e5e7eb; border-radius:18px; padding:16px; background:#f9fafb;">
+                  <h4 style="margin:0 0 12px;">Martes</h4>
+                  <label style="display:block; font-weight:700;">
+                    Horarios
+                    <input type="text" name="cartelera_martes_horarios" placeholder="18:30, 21:00" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                  <label style="display:block; font-weight:700; margin-top:12px;">
+                    Promo del día
+                    <input type="text" name="cartelera_martes_promo" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                </div>
+
+                <div style="border:1px solid #e5e7eb; border-radius:18px; padding:16px; background:#f9fafb;">
+                  <h4 style="margin:0 0 12px;">Miércoles</h4>
+                  <label style="display:block; font-weight:700;">
+                    Horarios
+                    <input type="text" name="cartelera_miercoles_horarios" placeholder="18:30, 21:00" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                  <label style="display:block; font-weight:700; margin-top:12px;">
+                    Promo del día
+                    <input type="text" name="cartelera_miercoles_promo" placeholder="Ej: Miércoles 2x1" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                </div>
+
+                <div style="border:1px solid #e5e7eb; border-radius:18px; padding:16px; background:#f9fafb;">
+                  <h4 style="margin:0 0 12px;">Jueves</h4>
+                  <label style="display:block; font-weight:700;">
+                    Horarios
+                    <input type="text" name="cartelera_jueves_horarios" placeholder="18:30, 21:00" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                  <label style="display:block; font-weight:700; margin-top:12px;">
+                    Promo del día
+                    <input type="text" name="cartelera_jueves_promo" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                </div>
+
+                <div style="border:1px solid #e5e7eb; border-radius:18px; padding:16px; background:#f9fafb;">
+                  <h4 style="margin:0 0 12px;">Viernes</h4>
+                  <label style="display:block; font-weight:700;">
+                    Horarios
+                    <input type="text" name="cartelera_viernes_horarios" placeholder="18:30, 21:00" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                  <label style="display:block; font-weight:700; margin-top:12px;">
+                    Promo del día
+                    <input type="text" name="cartelera_viernes_promo" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                </div>
+
+                <div style="border:1px solid #e5e7eb; border-radius:18px; padding:16px; background:#f9fafb;">
+                  <h4 style="margin:0 0 12px;">Sábado</h4>
+                  <label style="display:block; font-weight:700;">
+                    Horarios
+                    <input type="text" name="cartelera_sabado_horarios" placeholder="18:30, 21:00" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                  <label style="display:block; font-weight:700; margin-top:12px;">
+                    Promo del día
+                    <input type="text" name="cartelera_sabado_promo" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                </div>
+
+                <div style="border:1px solid #e5e7eb; border-radius:18px; padding:16px; background:#f9fafb;">
+                  <h4 style="margin:0 0 12px;">Domingo</h4>
+                  <label style="display:block; font-weight:700;">
+                    Horarios
+                    <input type="text" name="cartelera_domingo_horarios" placeholder="18:30, 21:00" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                  <label style="display:block; font-weight:700; margin-top:12px;">
+                    Promo del día
+                    <input type="text" name="cartelera_domingo_promo" style="width:100%; margin-top:8px; padding:12px 14px; border:1px solid #d1d5db; border-radius:14px;">
+                  </label>
+                </div>
+              </div>
+
+              <button type="submit" style="width:100%; margin-top:22px; padding:15px 18px; border:0; border-radius:18px; background:#111827; color:white; font-weight:800; font-size:16px; cursor:pointer;">
+                Guardar cartelera
+              </button>
+            </div>
+          </form>
+
+          <hr style="margin:26px 0;">
 
           {% if carteleras %}
             <div class="panel-publicaciones-lista">

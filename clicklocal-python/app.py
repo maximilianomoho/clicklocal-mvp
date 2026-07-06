@@ -1456,6 +1456,129 @@ def panel():
     )
 
 
+@app.route("/panel/cartelera/crear", methods=["POST"])
+def crear_cartelera_panel():
+    user_id = session.get("user_id")
+    comercio = session.get("comercio") or {}
+    comercio_id = comercio.get("id")
+
+    if not user_id or not comercio_id:
+        return redirect(url_for("login"))
+
+    es_cine_teatro = (comercio.get("categoria") or "").strip().lower() == "cine y teatro"
+
+    if not es_cine_teatro:
+        return redirect(url_for("panel"))
+
+    def texto_form(nombre):
+        return (request.form.get(nombre) or "").strip()
+
+    def precio_a_float(valor):
+        texto = (valor or "").strip()
+
+        if not texto:
+            return None
+
+        texto = (
+            texto
+            .replace("$", "")
+            .replace(" ", "")
+            .replace("\xa0", "")
+        )
+
+        if "," in texto:
+            texto = texto.replace(".", "").replace(",", ".")
+        else:
+            partes = texto.split(".")
+            if len(partes) > 1 and all(len(p) == 3 for p in partes[1:]):
+                texto = "".join(partes)
+
+        try:
+            return float(texto)
+        except Exception:
+            raise ValueError("precio_general_invalido")
+
+    titulo = texto_form("cartelera_titulo")
+
+    if not titulo:
+        return redirect(url_for("panel", cartelera_error="titulo"))
+
+    try:
+        precio_general = precio_a_float(texto_form("cartelera_precio_general"))
+    except ValueError:
+        return redirect(url_for("panel", cartelera_error="precio"))
+
+    ahora = datetime.datetime.utcnow().isoformat()
+    cartelera_id = str(uuid.uuid4())
+
+    nueva_cartelera = {
+        "id": cartelera_id,
+        "comercio_id": comercio_id,
+        "titulo": titulo,
+        "imagen_url": None,
+        "descripcion": texto_form("cartelera_descripcion") or None,
+        "genero": texto_form("cartelera_genero") or None,
+        "clasificacion": texto_form("cartelera_clasificacion") or None,
+        "direccion_mostrar": texto_form("cartelera_direccion_mostrar") or comercio.get("direccion_mostrar") or comercio.get("direccion"),
+        "activa": True,
+        "precio_general": precio_general,
+        "precios_detalle": texto_form("cartelera_precios_detalle") or None,
+        "promociones": texto_form("cartelera_promociones") or None,
+        "created_at": ahora,
+        "updated_at": ahora,
+    }
+
+    dias = [
+        (1, "lunes"),
+        (2, "martes"),
+        (3, "miercoles"),
+        (4, "jueves"),
+        (5, "viernes"),
+        (6, "sabado"),
+        (7, "domingo"),
+    ]
+
+    funciones = []
+
+    for numero_dia, clave_dia in dias:
+        horarios_texto = texto_form(f"cartelera_{clave_dia}_horarios")
+        promo = texto_form(f"cartelera_{clave_dia}_promo")
+
+        horarios = [
+            h.strip()
+            for h in horarios_texto.replace(";", ",").split(",")
+            if h.strip()
+        ]
+
+        if horarios or promo:
+            funciones.append({
+                "id": str(uuid.uuid4()),
+                "cartelera_id": cartelera_id,
+                "dia_semana": numero_dia,
+                "horarios": horarios,
+                "promo": promo or None,
+                "activa": True,
+                "created_at": ahora,
+                "updated_at": ahora,
+            })
+
+    try:
+        supabase_admin.table("carteleras").insert(nueva_cartelera).execute()
+
+        if funciones:
+            supabase_admin.table("cartelera_funciones").insert(funciones).execute()
+
+    except Exception as e:
+        print("\nERROR GUARDANDO CARTELERA EN PANEL:", flush=True)
+        print(type(e), flush=True)
+        print(e, flush=True)
+        print("DATOS CARTELERA:", nueva_cartelera, flush=True)
+        print("FUNCIONES:", funciones, flush=True)
+        return redirect(url_for("panel", cartelera_error="guardar"))
+
+    return redirect(url_for("panel", cartelera_ok="1"))
+
+
 
 
 
