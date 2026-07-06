@@ -337,28 +337,30 @@
             </div>
           </div>
 
-          <form class="formulario panel-form">
+          <form class="formulario panel-form" method="POST" action="{{ url_for('panel') }}">
+            <input type="hidden" name="accion" value="actualizar_mis_datos">
+
             <div class="campo">
               <label>Nombre del comercio</label>
-              <input type="text" value="{{ (comercio.nombre_negocio or comercio.nombre or '')|e }}" />
+              <input type="text" name="nombre_negocio" value="{{ (comercio.nombre_negocio or comercio.nombre or '')|e }}" required />
             </div>
 
             <div class="campo">
               <label>WhatsApp</label>
-              <input type="text" value="{{ (comercio.whatsapp or '')|e }}" />
+              <input type="text" name="whatsapp" value="{{ (comercio.whatsapp or '')|e }}" required />
             </div>
 
             <div class="campo">
               <label>Dirección</label>
-              <input type="text" value="{{ comercio.direccion or comercio.direccion_mostrar or '' }}" />
+              <input type="text" name="direccion" value="{{ comercio.direccion or comercio.direccion_mostrar or '' }}" required />
             </div>
 
             <div class="campo">
               <label>Descripción breve</label>
-              <textarea>Bazar, regalos, mates y productos para el hogar.</textarea>
+              <textarea name="descripcion">{{ comercio.descripcion or '' }}</textarea>
             </div>
 
-            <button type="button" class="boton-principal-form">
+            <button type="submit" class="boton-principal-form">
               Guardar cambios
             </button>
           </form>

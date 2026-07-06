@@ -984,6 +984,43 @@ def panel():
         session.pop("publicaciones", None)
         return "Esta cuenta fue bloqueada por administración.", 403
 
+    if request.method == "POST" and request.form.get("accion") == "actualizar_mis_datos":
+        nombre_negocio = request.form.get("nombre_negocio", "").strip()
+        whatsapp = request.form.get("whatsapp", "").strip()
+        direccion = request.form.get("direccion", "").strip()
+        descripcion = request.form.get("descripcion", "").strip()
+
+        if not nombre_negocio or not whatsapp or not direccion:
+            return "Faltan datos obligatorios: nombre del comercio, WhatsApp o dirección.", 400
+
+        whatsapp_limpio = limpiar_numero_whatsapp(whatsapp)
+
+        if not whatsapp_limpio:
+            return "El WhatsApp no es válido. Ingresá solo números, por ejemplo 3430000000.", 400
+
+        datos_actualizados = {
+            "nombre_negocio": nombre_negocio,
+            "whatsapp": whatsapp_limpio,
+            "direccion": direccion,
+            "direccion_mostrar": direccion,
+            "descripcion": descripcion,
+        }
+
+        try:
+            supabase_admin.table("comercios").update(datos_actualizados).eq("id", comercio_id).execute()
+
+            # Mantener sincronizada la dirección visible de las publicaciones existentes.
+            # Si el comercio corrige su dirección, la galería pública no debe seguir mostrando la vieja.
+            supabase_admin.table("publicaciones").update({
+                "direccion_mostrar": direccion
+            }).eq("comercio_id", comercio_id).execute()
+
+            comercio.update(datos_actualizados)
+            session["comercio"] = comercio
+            return redirect(url_for("panel", datos_actualizados="1"))
+        except Exception as e:
+            return f"Error actualizando datos del comercio: {e}", 400
+
     plan_actual = str(comercio.get("plan") or "gratis").strip().lower()
 
     if plan_actual != "premium":
