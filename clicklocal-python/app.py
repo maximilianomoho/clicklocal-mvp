@@ -1388,11 +1388,71 @@ def panel():
 
         return redirect(url_for("panel"))
 
+    # ============================================================
+    # CARTELERA - SOLO PARA COMERCIOS CINE Y TEATRO
+    # Paso 5B: lectura para mostrar en panel, sin guardar todavía.
+    # ============================================================
+    es_cine_teatro = (comercio.get("categoria") or "").strip().lower() == "cine y teatro"
+    carteleras = []
+
+    if es_cine_teatro:
+        dias_cartelera = {
+            1: "Lunes",
+            2: "Martes",
+            3: "Miércoles",
+            4: "Jueves",
+            5: "Viernes",
+            6: "Sábado",
+            7: "Domingo",
+        }
+
+        try:
+            carteleras_res = (
+                supabase_admin
+                .table("carteleras")
+                .select("*")
+                .eq("comercio_id", comercio_id)
+                .order("created_at", desc=True)
+                .execute()
+            )
+
+            carteleras = carteleras_res.data or []
+
+            for cartelera in carteleras:
+                funciones_res = (
+                    supabase_admin
+                    .table("cartelera_funciones")
+                    .select("*")
+                    .eq("cartelera_id", cartelera.get("id"))
+                    .eq("activa", True)
+                    .order("dia_semana")
+                    .execute()
+                )
+
+                funciones = funciones_res.data or []
+
+                for funcion in funciones:
+                    dia = funcion.get("dia_semana")
+                    funcion["dia_nombre"] = dias_cartelera.get(dia, f"Día {dia}")
+
+                    horarios = funcion.get("horarios") or []
+                    if isinstance(horarios, str):
+                        horarios = [horarios]
+                    funcion["horarios"] = horarios
+
+                cartelera["funciones"] = funciones
+
+        except Exception as e:
+            print("\nERROR CARGANDO CARTELERAS EN PANEL:", e, flush=True)
+            carteleras = []
+
     return render_template(
         "panel.html",
         comercio=comercio,
         publicaciones=publicaciones,
-        listas_buscables=listas_buscables
+        listas_buscables=listas_buscables,
+        es_cine_teatro=es_cine_teatro,
+        carteleras=carteleras
     )
 
 

@@ -57,9 +57,13 @@
 
       <!-- COLUMNA IZQUIERDA -->
       <aside class="panel-menu">
+        {% if es_cine_teatro %}
+        <a href="#cartelera" class="panel-menu-link activo">Cartelera</a>
+        {% else %}
         <a href="#publicacion" class="panel-menu-link activo">Cargar publicación</a>
         <a href="#mis-publicaciones" class="panel-menu-link">Mis publicaciones</a>
         <a href="#listas" class="panel-menu-link">Listas buscables</a>
+        {% endif %}
         <a href="#datos" class="panel-menu-link">Mis datos</a>
         <a href="#plan" class="panel-menu-link">Mi plan</a>
       </aside>
@@ -69,6 +73,7 @@
       <section class="panel-contenido">
 
         <!-- CARGAR PUBLICACIÓN -->
+        {% if not es_cine_teatro %}
         <article id="publicacion" class="panel-card">
           <div class="panel-card-header">
             <div>
@@ -326,6 +331,134 @@
             </p>
           {% endif %}
         </article>
+
+
+
+        {% endif %}
+
+        {% if es_cine_teatro %}
+        <!-- CARTELERA -->
+        <article id="cartelera" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">CINE Y TEATRO</p>
+              <h2>Cartelera</h2>
+            </div>
+            <span class="badge">Funciones</span>
+          </div>
+
+          <p class="panel-descripcion">
+            Este es el panel propio para comercios de Cine y Teatro.
+            En este paso se muestran las carteleras ya cargadas; la carga, edición, pausa y eliminación van en pasos separados.
+          </p>
+
+          {% if carteleras %}
+            <div class="panel-publicaciones-lista">
+              {% for item in carteleras %}
+                <div class="panel-publicacion-item">
+                  {% if item.imagen_url %}
+                    <img src="{{ item.imagen_url }}" alt="{{ item.titulo }}" />
+                  {% else %}
+                    <img src="img/mate1.jpg" alt="{{ item.titulo }}" />
+                  {% endif %}
+
+                  <div>
+                    <h3>{{ item.titulo }}</h3>
+
+                    <p class="panel-descripcion">
+                      {{ item.descripcion or "Sin descripción." }}
+                    </p>
+
+                    {% if item.genero or item.clasificacion %}
+                      <p class="panel-descripcion" style="margin-top:6px;">
+                        {% if item.genero %}
+                          <strong>Género:</strong> {{ item.genero }}
+                        {% endif %}
+                        {% if item.clasificacion %}
+                          {% if item.genero %} · {% endif %}
+                          <strong>Clasificación:</strong> {{ item.clasificacion }}
+                        {% endif %}
+                      </p>
+                    {% endif %}
+
+                    {% if item.direccion_mostrar %}
+                      <p class="panel-descripcion" style="margin-top:6px;">
+                        <strong>Dirección:</strong> {{ item.direccion_mostrar }}
+                      </p>
+                    {% endif %}
+
+                    <p class="precio" style="margin-top:8px;">
+                      {% if item.precio_general is not none %}
+                        Entrada general: {{ item.precio_general|precio_arg }}
+                      {% else %}
+                        Precio general sin cargar
+                      {% endif %}
+                    </p>
+
+                    {% if item.precios_detalle %}
+                      <p class="panel-descripcion">
+                        <strong>Otros precios:</strong> {{ item.precios_detalle }}
+                      </p>
+                    {% endif %}
+
+                    {% if item.promociones %}
+                      <p class="panel-descripcion">
+                        <strong>Promociones:</strong> {{ item.promociones }}
+                      </p>
+                    {% endif %}
+
+                    <div style="margin-top:10px;">
+                      <strong>Funciones:</strong>
+
+                      {% if item.funciones %}
+                        <ul style="margin:8px 0 0 18px; padding:0;">
+                          {% for funcion in item.funciones %}
+                            <li style="margin-bottom:6px;">
+                              <strong>{{ funcion.dia_nombre }}:</strong>
+                              {% if funcion.horarios %}
+                                {{ funcion.horarios|join(", ") }}
+                              {% else %}
+                                Sin horarios cargados
+                              {% endif %}
+
+                              {% if funcion.promo %}
+                                · {{ funcion.promo }}
+                              {% endif %}
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      {% else %}
+                        <p class="panel-descripcion" style="margin-top:6px;">
+                          Todavía no hay funciones cargadas para esta cartelera.
+                        </p>
+                      {% endif %}
+                    </div>
+
+                    {% if item.activa %}
+                      <span class="estado-activo" style="margin-top:10px;">Activa</span>
+                    {% else %}
+                      <span class="estado-activo" style="margin-top:10px;">Pausada</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="acciones-publicacion">
+                    <button type="button" disabled title="Lo agregamos en el próximo paso">
+                      Editar
+                    </button>
+                    <button type="button" disabled title="Lo agregamos en el próximo paso">
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="panel-descripcion">
+              Todavía no cargaste carteleras.
+            </p>
+          {% endif %}
+        </article>
+        {% endif %}
 
 
         <!-- MIS DATOS -->
