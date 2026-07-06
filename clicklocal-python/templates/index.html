@@ -584,7 +584,10 @@
 
             {% for pub in publicaciones %}
 
-              <a href="/detalle/{{ pub.id }}" class="publicacion-card">
+              <a href="/detalle/{{ pub.id }}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %}">
+                {% if pub.categoria == 'Cine y Teatro' %}
+                <div class="cartelera-header">CARTELERA</div>
+                {% endif %}
 
                 {% if pub.imagen_url %}
                   <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" />
@@ -703,7 +706,10 @@
 
             {% for pub in publicaciones %}
 
-              <a href="/detalle/{{ pub.id }}" class="publicacion-card">
+              <a href="/detalle/{{ pub.id }}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %}">
+                {% if pub.categoria == 'Cine y Teatro' %}
+                <div class="cartelera-header">CARTELERA</div>
+                {% endif %}
 
                 {% if pub.imagen_url %}
                   <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" />
