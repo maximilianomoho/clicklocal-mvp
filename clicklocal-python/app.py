@@ -1511,11 +1511,112 @@ def crear_cartelera_panel():
     ahora = datetime.datetime.utcnow().isoformat()
     cartelera_id = str(uuid.uuid4())
 
+    # Fotos de cartelera: hasta 6 imágenes.
+    # Usamos el bucket existente "publicaciones", carpeta "carteleras/",
+    # para no tocar políticas de Storage.
+    try:
+        foto_principal_slot = int(request.form.get("cartelera_foto_principal") or 1)
+    except Exception:
+        foto_principal_slot = 1
+
+    if foto_principal_slot < 1 or foto_principal_slot > 6:
+        foto_principal_slot = 1
+
+    fotos_a_procesar = []
+
+    for slot in range(1, 7):
+        archivo = request.files.get(f"cartelera_foto_{slot}")
+
+        if archivo and getattr(archivo, "filename", "").strip():
+            fotos_a_procesar.append({
+                "slot": slot,
+                "archivo": archivo
+            })
+
+    imagenes_procesadas = []
+    fotos_procesadas = 0
+
+    for item in fotos_a_procesar:
+        slot = item["slot"]
+        archivo = item["archivo"]
+
+        try:
+            buf = procesar_imagen_clicklocal(archivo, contexto="cartelera")
+        except Exception:
+            continue
+
+        fotos_procesadas += 1
+
+        nombre_final = f"{uuid.uuid4().hex}.jpg"
+        ruta_objeto = f"carteleras/{nombre_final}"
+
+        file_options = {
+            "content-type": "image/jpeg"
+        }
+
+        try:
+            supabase_admin.storage.from_("publicaciones").upload(
+                ruta_objeto,
+                buf.getvalue(),
+                file_options=file_options
+            )
+        except Exception:
+            buf.seek(0)
+            supabase_admin.storage.from_("publicaciones").upload(
+                ruta_objeto,
+                buf,
+                file_options=file_options
+            )
+
+        public_url = None
+
+        try:
+            url_res = supabase_admin.storage.from_("publicaciones").get_public_url(ruta_objeto)
+
+            if isinstance(url_res, dict):
+                public_url = url_res.get("publicURL") or url_res.get("publicUrl") or url_res.get("public_url")
+            else:
+                public_url = url_res
+        except Exception:
+            public_url = None
+
+        if not public_url:
+            try:
+                base = supabase_admin._client.url
+                public_url = f"{base}/storage/v1/object/public/publicaciones/{ruta_objeto}"
+            except Exception:
+                public_url = f"/static/uploads/{nombre_final}"
+
+        imagenes_procesadas.append({
+            "slot": slot,
+            "url": public_url
+        })
+
+    if fotos_a_procesar and fotos_procesadas == 0:
+        return redirect(url_for("panel", cartelera_error="fotos"))
+
+    imagen_principal = ""
+
+    if imagenes_procesadas:
+        principal = next(
+            (img for img in imagenes_procesadas if img["slot"] == foto_principal_slot),
+            None
+        )
+
+        if principal:
+            imagen_principal = principal["url"]
+        else:
+            imagen_principal = imagenes_procesadas[0]["url"]
+
+    imagenes_urls = [img["url"] for img in imagenes_procesadas]
+
     nueva_cartelera = {
         "id": cartelera_id,
         "comercio_id": comercio_id,
         "titulo": titulo,
-        "imagen_url": None,
+        "imagen_url": imagen_principal or None,
+        "imagenes": imagenes_urls,
+        "imagen_principal": imagen_principal or None,
         "descripcion": texto_form("cartelera_descripcion") or None,
         "genero": texto_form("cartelera_genero") or None,
         "clasificacion": texto_form("cartelera_clasificacion") or None,

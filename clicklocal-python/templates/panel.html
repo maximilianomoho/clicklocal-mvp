@@ -366,20 +366,47 @@
             <p class="panel-descripcion" style="padding:10px 12px; border-radius:12px; background:#fff1f1; color:#8a1f1f;">
               El precio general no tiene un formato válido. Podés usar, por ejemplo, 6000 o $ 6.000.
             </p>
+          {% elif request.args.get("cartelera_error") == "fotos" %}
+            <p class="panel-descripcion" style="padding:10px 12px; border-radius:12px; background:#fff1f1; color:#8a1f1f;">
+              No se pudieron procesar las fotos. Probá con imágenes JPG, PNG, WEBP, HEIC o capturas de pantalla.
+            </p>
           {% elif request.args.get("cartelera_error") == "guardar" %}
             <p class="panel-descripcion" style="padding:10px 12px; border-radius:12px; background:#fff1f1; color:#8a1f1f;">
               No se pudo guardar la cartelera. Revisá los datos e intentá nuevamente.
             </p>
           {% endif %}
 
-          <form method="post" action="{{ url_for('crear_cartelera_panel') }}" style="margin-top:22px;">
+          <form method="post" action="{{ url_for('crear_cartelera_panel') }}" enctype="multipart/form-data" style="margin-top:22px;">
             <div style="background:#ffffff; border:1px solid #e5e7eb; border-radius:24px; padding:24px; box-shadow:0 18px 40px rgba(15,23,42,0.06);">
               <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px;">
                 <div>
                   <p class="titulo-chico" style="margin-bottom:4px;">NUEVA CARTELERA</p>
                   <h3 style="margin:0;">Datos principales</h3>
                 </div>
-                <span class="badge">Sin fotos todavía</span>
+                <span class="badge">Hasta 6 fotos</span>
+              </div>
+
+              <div style="border:1px dashed #cbd5e1; border-radius:20px; padding:18px; margin-bottom:22px; background:#f8fafc;">
+                <h4 style="margin:0;">Fotos de la cartelera</h4>
+                <p class="panel-descripcion" style="margin-top:6px;">
+                  Podés subir hasta 6 fotos. Marcá cuál querés usar como principal.
+                </p>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px; margin-top:14px;">
+                  {% for n in range(1, 7) %}
+                    <div style="background:white; border:1px solid #e5e7eb; border-radius:16px; padding:14px;">
+                      <label style="display:block; font-weight:700;">
+                        Foto {{ n }}
+                        <input type="file" name="cartelera_foto_{{ n }}" accept="image/*,.heic,.heif" style="width:100%; margin-top:8px;">
+                      </label>
+
+                      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-weight:600;">
+                        <input type="radio" name="cartelera_foto_principal" value="{{ n }}" {% if n == 1 %}checked{% endif %}>
+                        Usar como principal
+                      </label>
+                    </div>
+                  {% endfor %}
+                </div>
               </div>
 
               <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:18px;">
