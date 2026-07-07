@@ -1623,3 +1623,10 @@ img {
     height: 252px;
   }
 }
+
+/* AJUSTE MOBILE: cartelera no debe estirar la fila */
+@media (max-width: 800px) {
+  .publicacion-card-cartelera img {
+    height: 136px;
+  }
+}
