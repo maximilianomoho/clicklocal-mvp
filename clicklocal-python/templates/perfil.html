@@ -93,6 +93,84 @@
       </section>
 
 
+      {% if carteleras %}
+      <!-- CARTELERA DEL COMERCIO -->
+      <section class="perfil-bloque">
+        <div class="perfil-bloque-header">
+          <div>
+            <p class="titulo-chico">CARTELERA</p>
+            <h2>Cartelera de {{ comercio.nombre_negocio }}</h2>
+          </div>
+        </div>
+
+        <div class="grilla-publicaciones perfil-grilla">
+
+          {% for cartelera in carteleras %}
+          <article class="publicacion-card">
+            {% if cartelera.imagen_url %}
+              <img src="{{ cartelera.imagen_url }}" alt="{{ cartelera.titulo }}" />
+            {% else %}
+              <img src="/img/mate1.jpg" alt="{{ cartelera.titulo }}" />
+            {% endif %}
+
+            <div class="publicacion-info">
+              <p class="nombre-comercio">{{ comercio.nombre_negocio }}</p>
+              <h3>{{ cartelera.titulo }}</h3>
+
+              {% if cartelera.precio_mostrar %}
+                <p class="precio">Entrada general: {{ cartelera.precio_mostrar }}</p>
+              {% endif %}
+
+              {% if cartelera.descripcion %}
+                <p>{{ cartelera.descripcion }}</p>
+              {% endif %}
+
+              {% if cartelera.genero %}
+                <p><strong>Género:</strong> {{ cartelera.genero }}</p>
+              {% endif %}
+
+              {% if cartelera.clasificacion %}
+                <p><strong>Clasificación:</strong> {{ cartelera.clasificacion }}</p>
+              {% endif %}
+
+              <p class="ubicacion">📍 {{ cartelera.ubicacion_mostrar }}</p>
+
+              {% if cartelera.precios_detalle %}
+                <p><strong>Otros precios:</strong> {{ cartelera.precios_detalle }}</p>
+              {% endif %}
+
+              {% if cartelera.promociones %}
+                <p><strong>Promociones:</strong> {{ cartelera.promociones }}</p>
+              {% endif %}
+
+              {% if cartelera.funciones %}
+                <h4>Funciones</h4>
+
+                {% for funcion in cartelera.funciones %}
+                  <p>
+                    <strong>{{ funcion.dia_nombre }}:</strong>
+                    {% if funcion.horarios_texto %}
+                      {{ funcion.horarios_texto }}
+                    {% else %}
+                      Consultar horario
+                    {% endif %}
+                  </p>
+
+                  {% if funcion.promo %}
+                    <p><em>{{ funcion.promo }}</em></p>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            </div>
+          </article>
+          {% endfor %}
+
+        </div>
+      </section>
+      {% endif %}
+
+
+      {% if comercio.categoria != "Cine y Teatro" %}
       <!-- PUBLICACIONES -->
       <section class="perfil-bloque">
         <div class="perfil-bloque-header">
@@ -153,6 +231,8 @@
 
         </div>
       </section>
+
+      {% endif %}
 
     </section>
 

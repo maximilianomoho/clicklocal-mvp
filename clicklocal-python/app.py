@@ -525,6 +525,20 @@ def inicio():
             or ""
         )
 
+    def imagen_publica_de_cartelera(item):
+        imagenes = item.get("imagenes") or []
+        primera_imagen = ""
+
+        if isinstance(imagenes, list) and imagenes:
+            primera_imagen = imagenes[0]
+
+        return (
+            item.get("imagen_principal")
+            or item.get("imagen_url")
+            or primera_imagen
+            or ""
+        )
+
     def ubicacion_publica(comercio_data, direccion_publicacion=None):
         direccion_base = (
             direccion_publicacion
@@ -663,6 +677,8 @@ def inicio():
 
             publicaciones_finales.append({
                 "id": pub.get("id"),
+                "comercio_id": comercio_id,
+                "tipo": "publicacion",
                 "nombre": pub.get("nombre"),
                 "precio": pub.get("precio"),
                 "descripcion": pub.get("descripcion"),
@@ -676,6 +692,103 @@ def inicio():
                 "_coincidencias": coincidencias,
             })
 
+        # ====================================================
+        # 1B) TIPO CARTELERA PUBLICA: CARTELERAS ACTIVAS
+        # ====================================================
+        carteleras_res = (
+            supabase_admin
+            .table("carteleras")
+            .select("id,comercio_id,titulo,descripcion,genero,clasificacion,direccion_mostrar,precio_general,precios_detalle,promociones,imagen_url,imagenes,imagen_principal,activa,created_at")
+            .eq("activa", True)
+            .order("created_at", desc=True)
+            .limit(limite)
+            .execute()
+        )
+
+        carteleras_publicas = carteleras_res.data or []
+
+        comercio_ids_carteleras = [
+            item.get("comercio_id")
+            for item in carteleras_publicas
+            if item.get("comercio_id")
+        ]
+
+        comercios_carteleras_por_id = cargar_comercios_por_id(comercio_ids_carteleras)
+
+        for item in carteleras_publicas:
+            comercio_id = item.get("comercio_id")
+            comercio_cartelera = comercios_carteleras_por_id.get(comercio_id, {})
+
+            if not comercio_cartelera or comercio_cartelera.get("activo") is False:
+                continue
+
+            texto_para_buscar = " ".join([
+                str(item.get("titulo") or ""),
+                str(item.get("descripcion") or ""),
+                str(item.get("genero") or ""),
+                str(item.get("clasificacion") or ""),
+                str(item.get("promociones") or ""),
+                str(comercio_cartelera.get("nombre_negocio") or ""),
+                str(comercio_cartelera.get("categoria") or ""),
+                str(comercio_cartelera.get("ciudad") or ""),
+            ])
+
+            score_titulo, coincidencias_titulo = calcular_score_busqueda(item.get("titulo"), peso=5)
+            score_descripcion, coincidencias_descripcion = calcular_score_busqueda(
+                " ".join([
+                    str(item.get("descripcion") or ""),
+                    str(item.get("genero") or ""),
+                    str(item.get("clasificacion") or ""),
+                    str(item.get("promociones") or ""),
+                ]),
+                peso=2
+            )
+            score_comercio, coincidencias_comercio = calcular_score_busqueda(
+                " ".join([
+                    str(comercio_cartelera.get("nombre_negocio") or ""),
+                    str(comercio_cartelera.get("categoria") or ""),
+                    str(comercio_cartelera.get("ciudad") or ""),
+                ]),
+                peso=1
+            )
+
+            score_total = score_titulo + score_descripcion + score_comercio
+
+            titulo_normalizado = normalizar_texto(item.get("titulo"))
+            if busqueda_normalizada and busqueda_normalizada in titulo_normalizado:
+                score_total += 10
+
+            coincidencias = unir_coincidencias(
+                coincidencias_titulo,
+                coincidencias_descripcion,
+                coincidencias_comercio
+            )
+
+            if busqueda_normalizada and score_total <= 0:
+                continue
+
+            imagen_publica = imagen_publica_de_cartelera(item)
+
+            if comercio_id and imagen_publica and comercio_id not in imagen_por_comercio:
+                imagen_por_comercio[comercio_id] = imagen_publica
+
+            publicaciones_finales.append({
+                "id": item.get("id"),
+                "comercio_id": comercio_id,
+                "tipo": "cartelera",
+                "nombre": item.get("titulo"),
+                "precio": item.get("precio_general"),
+                "descripcion": item.get("descripcion"),
+                "imagen_url": imagen_publica,
+                "comercio": comercio_cartelera.get("nombre_negocio", "Comercio local"),
+                "direccion_mostrar": ubicacion_publica(comercio_cartelera, item.get("direccion_mostrar")),
+                "categoria": comercio_cartelera.get("categoria") or "Cine y Teatro",
+                "created_at": item.get("created_at"),
+                "_score_busqueda": score_total,
+                "_plan": str(comercio_cartelera.get("plan") or "gratis").lower(),
+                "_coincidencias": coincidencias,
+            })
+
         if busqueda_normalizada:
             publicaciones_finales.sort(
                 key=lambda item: (
@@ -683,6 +796,11 @@ def inicio():
                     1 if item.get("_plan") == "premium" else 0,
                     item.get("created_at") or ""
                 ),
+                reverse=True
+            )
+        else:
+            publicaciones_finales.sort(
+                key=lambda item: item.get("created_at") or "",
                 reverse=True
             )
 
@@ -2193,6 +2311,90 @@ def perfil_comercio(comercio_id):
                 or "Consultar ubicación"
             )
 
+        # ====================================================
+        # CARTELERA PUBLICA DEL COMERCIO
+        # ====================================================
+        carteleras = []
+        dias_cartelera = {
+            1: "Lunes",
+            2: "Martes",
+            3: "Miércoles",
+            4: "Jueves",
+            5: "Viernes",
+            6: "Sábado",
+            7: "Domingo",
+        }
+
+        carteleras_res = (
+            supabase_admin
+            .table("carteleras")
+            .select("id,titulo,descripcion,genero,clasificacion,direccion_mostrar,precio_general,precios_detalle,promociones,imagen_url,imagenes,imagen_principal,activa,created_at")
+            .eq("comercio_id", comercio_id)
+            .eq("activa", True)
+            .order("created_at", desc=True)
+            .execute()
+        )
+
+        carteleras = carteleras_res.data or []
+
+        cartelera_ids = [
+            item.get("id")
+            for item in carteleras
+            if item.get("id")
+        ]
+
+        funciones_por_cartelera = {}
+
+        if cartelera_ids:
+            funciones_res = (
+                supabase_admin
+                .table("cartelera_funciones")
+                .select("id,cartelera_id,dia_semana,horarios,promo,activa")
+                .in_("cartelera_id", cartelera_ids)
+                .eq("activa", True)
+                .order("dia_semana", desc=False)
+                .execute()
+            )
+
+            for funcion in funciones_res.data or []:
+                cartelera_id_funcion = funcion.get("cartelera_id")
+                dia = funcion.get("dia_semana")
+                horarios = funcion.get("horarios") or []
+
+                if not isinstance(horarios, list):
+                    horarios = []
+
+                funcion["dia_nombre"] = dias_cartelera.get(dia, f"Día {dia}")
+                funcion["horarios_texto"] = ", ".join(
+                    str(h).strip() for h in horarios if str(h).strip()
+                )
+
+                funciones_por_cartelera.setdefault(cartelera_id_funcion, []).append(funcion)
+
+        for cartelera in carteleras:
+            imagenes = cartelera.get("imagenes") or []
+            primera_imagen = ""
+
+            if isinstance(imagenes, list) and imagenes:
+                primera_imagen = imagenes[0]
+
+            cartelera["imagen_url"] = (
+                cartelera.get("imagen_principal")
+                or cartelera.get("imagen_url")
+                or primera_imagen
+                or ""
+            )
+
+            cartelera["precio_mostrar"] = formatear_precio(cartelera.get("precio_general"))
+
+            cartelera["ubicacion_mostrar"] = (
+                cartelera.get("direccion_mostrar")
+                or comercio.get("ubicacion_perfil")
+                or "Consultar ubicación"
+            )
+
+            cartelera["funciones"] = funciones_por_cartelera.get(cartelera.get("id"), [])
+
     except Exception as e:
         print("ERROR cargando perfil de comercio:", e, flush=True)
         return redirect(url_for("inicio"))
@@ -2200,7 +2402,8 @@ def perfil_comercio(comercio_id):
     return render_template(
         "perfil.html",
         comercio=comercio,
-        publicaciones=publicaciones
+        publicaciones=publicaciones,
+        carteleras=carteleras
     )
 
 
