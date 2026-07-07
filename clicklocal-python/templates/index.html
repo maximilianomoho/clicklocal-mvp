@@ -101,6 +101,130 @@
     flex-wrap: wrap;
     margin-top: 14px;
   }
+
+/* Categorías con scroll horizontal */
+.categorias-scroll-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.categorias-scroll {
+  display: flex !important;
+  grid-template-columns: none !important;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 12px 4px 18px;
+  scrollbar-width: none;
+}
+
+.categorias-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.categorias-scroll .categoria-card {
+  flex: 0 0 170px;
+  width: 170px;
+  height: 52px;
+  border-radius: 999px;
+  background: #ff7a00;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(0,0,0,.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flecha-categorias {
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 999px;
+  background: #ff7a00;
+  color: white;
+  font-size: 25px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(0,0,0,.22);
+}
+
+@media (max-width: 600px) {
+  .categorias-scroll-wrap {
+    gap: 6px;
+  }
+
+  .flecha-categorias {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    font-size: 22px;
+  }
+
+  .categorias-scroll .categoria-card {
+    flex: 0 0 150px;
+    width: 150px;
+    height: 50px;
+  }
+}
+
+
+/* Ajuste final categorías: igual a demo, sin iconos */
+.categorias-scroll-wrap {
+  max-width: 900px;
+  margin: 24px 0 0 0;
+}
+
+.categorias-scroll .categoria-card {
+  flex: 0 0 170px !important;
+  width: 170px !important;
+  min-width: 170px !important;
+  height: 52px !important;
+  padding: 0 !important;
+
+  border-radius: 999px !important;
+  background: #ff7a00 !important;
+  color: #fff !important;
+
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  box-shadow: 0 6px 14px rgba(0,0,0,.18) !important;
+}
+
+.flecha-categorias {
+  flex: 0 0 48px !important;
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 26px !important;
+}
+
+@media (max-width: 600px) {
+  .categorias-scroll .categoria-card {
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    min-width: 150px !important;
+    height: 50px !important;
+    font-size: 15px !important;
+  }
+}
+
 </style>
 
 
@@ -517,47 +641,55 @@
         <p class="titulo-chico">CATEGORÍAS</p>
         <h2 class="titulo-seccion">Explorá por rubro</h2>
 
-        <div class="grilla-categorias">
+        <div class="categorias-scroll-wrap">
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">🍔</span>
-            Gastronomía
-          </a>
+          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(-1)">←</button>
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">👕</span>
-            Indumentaria
-          </a>
+          <div class="grilla-categorias categorias-scroll" id="categoriasHome">
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">🏠</span>
-            Hogar
-          </a>
+            <a href="/index.html?q=gastronomía" class="categoria-card">
+              Gastronomía
+            </a>
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">💻</span>
-            Tecnología
-          </a>
+            <a href="/index.html?q=alimentos" class="categoria-card">
+              Alimentos
+            </a>
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">💊</span>
-            Salud
-          </a>
+            <a href="/index.html?q=indumentaria" class="categoria-card">
+              Indumentaria
+            </a>
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">🛠️</span>
-            Servicios
-          </a>
+            <a href="/index.html?q=cine teatro" class="categoria-card">
+              Cine y Teatro
+            </a>
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">⚽</span>
-            Deportes
-          </a>
+            <a href="/index.html?q=hogar" class="categoria-card">
+              Hogar
+            </a>
 
-          <a href="#" class="categoria-card">
-            <span class="categoria-icono">📚</span>
-            Educación
-          </a>
+            <a href="/index.html?q=tecnología" class="categoria-card">
+              Tecnología
+            </a>
+
+            <a href="/index.html?q=salud bienestar" class="categoria-card">
+              Salud / Bienestar
+            </a>
+
+            <a href="/index.html?q=servicios" class="categoria-card">
+              Servicios
+            </a>
+
+            <a href="/index.html?q=deportes" class="categoria-card">
+              Deportes
+            </a>
+
+            <a href="/index.html?q=educación" class="categoria-card">
+              Educación
+            </a>
+
+          </div>
+
+          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(1)">→</button>
 
         </div>
 
@@ -792,5 +924,130 @@
 </script>
 <!-- FIN CLICKLOCAL: loading WhatsApp anti doble click -->
 
+
+<script>
+  function moverCategoriasHome(direccion) {
+    const contenedor = document.getElementById("categoriasHome");
+
+    if (!contenedor) return;
+
+    contenedor.scrollBy({
+      left: direccion * 340,
+      behavior: "smooth"
+    });
+  }
+</script>
+
 </body>
 </html>
+
+<style>
+/* FORZADO FINAL: categorías igual a demo_botones.html */
+.categorias-scroll-wrap {
+  max-width: 1350px !important;
+  margin: 24px auto 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.categorias-scroll {
+  display: flex !important;
+  gap: 14px !important;
+  overflow-x: auto !important;
+  scroll-behavior: smooth !important;
+  padding: 12px 4px !important;
+  scrollbar-width: none !important;
+}
+
+.categorias-scroll::-webkit-scrollbar {
+  display: none !important;
+}
+
+.categorias-scroll .categoria-card {
+  flex: 0 0 170px !important;
+  width: 170px !important;
+  min-width: 170px !important;
+  max-width: 170px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+
+  padding: 0 !important;
+  margin: 0 !important;
+
+  border: none !important;
+  border-radius: 999px !important;
+
+  background: #ff7a00 !important;
+  color: white !important;
+
+  font-size: 16px !important;
+  font-weight: bold !important;
+  line-height: 52px !important;
+  text-align: center !important;
+  text-decoration: none !important;
+
+  display: block !important;
+
+  box-shadow: 0 6px 14px rgba(0,0,0,.18) !important;
+
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.flecha-categorias {
+  flex: 0 0 48px !important;
+  width: 48px !important;
+  height: 48px !important;
+
+  border: none !important;
+  border-radius: 50% !important;
+
+  background: #ff7a00 !important;
+  color: white !important;
+
+  font-size: 26px !important;
+  font-weight: bold !important;
+
+  cursor: pointer !important;
+
+  box-shadow: 0 5px 12px rgba(0,0,0,.22) !important;
+}
+
+@media (max-width: 600px) {
+  .categorias-scroll-wrap {
+    gap: 6px !important;
+  }
+
+  .flecha-categorias {
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 23px !important;
+  }
+
+  .categorias-scroll .categoria-card {
+    flex: 0 0 150px !important;
+    width: 150px !important;
+    min-width: 150px !important;
+    max-width: 150px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+    max-height: 50px !important;
+    line-height: 50px !important;
+  }
+}
+</style>
+
+<style>
+/* Ajuste final: menos espacio entre categorías y destacados */
+.categorias {
+  padding-bottom: 18px !important;
+}
+
+.seccion.categorias + .seccion {
+  padding-top: 18px !important;
+}
+</style>
