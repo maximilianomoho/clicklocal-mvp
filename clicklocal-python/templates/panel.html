@@ -525,12 +525,35 @@
                   </div>
 
                   <div class="acciones-publicacion">
-                    <button type="button" disabled title="Lo agregamos en el próximo paso">
+                    <button type="button" disabled title="La edición completa va en el próximo paso">
                       Editar
                     </button>
-                    <button type="button" disabled title="Lo agregamos en el próximo paso">
-                      Eliminar
-                    </button>
+
+                    {% if item.activa %}
+                      <form
+                        method="post"
+                        action="{{ url_for('pausar_cartelera_panel', cartelera_id=item.id) }}"
+                        onsubmit="return confirm('¿Seguro que querés pausar esta cartelera? No se va a mostrar públicamente.');"
+                      >
+                        <button type="submit">Pausar</button>
+                      </form>
+                    {% else %}
+                      <form
+                        method="post"
+                        action="{{ url_for('activar_cartelera_panel', cartelera_id=item.id) }}"
+                        onsubmit="return confirm('¿Seguro que querés activar esta cartelera? Se volverá a mostrar públicamente.');"
+                      >
+                        <button type="submit">Activar</button>
+                      </form>
+                    {% endif %}
+
+                    <form
+                      method="post"
+                      action="{{ url_for('eliminar_cartelera_panel', cartelera_id=item.id) }}"
+                      onsubmit="return confirm('¿Seguro que querés eliminar esta cartelera? Quedará oculta, no borrada definitivamente.');"
+                    >
+                      <button type="submit">Eliminar</button>
+                    </form>
                   </div>
                 </div>
               {% endfor %}

@@ -1530,6 +1530,7 @@ def panel():
                 .table("carteleras")
                 .select("*")
                 .eq("comercio_id", comercio_id)
+                .eq("eliminada", False)
                 .order("created_at", desc=True)
                 .execute()
             )
@@ -1796,6 +1797,143 @@ def crear_cartelera_panel():
         return redirect(url_for("panel", cartelera_error="guardar"))
 
     return redirect(url_for("panel", cartelera_ok="1"))
+
+
+
+def _cartelera_panel_contexto(cartelera_id):
+    user_id = session.get("user_id")
+    comercio = session.get("comercio") or {}
+    comercio_id = comercio.get("id")
+
+    if not user_id or not comercio_id:
+        return None, "login"
+
+    es_cine_teatro = (comercio.get("categoria") or "").strip().lower() == "cine y teatro"
+
+    if not es_cine_teatro:
+        return None, "panel"
+
+    try:
+        cartelera_res = (
+            supabase_admin
+            .table("carteleras")
+            .select("id,comercio_id,activa,eliminada")
+            .eq("id", cartelera_id)
+            .eq("comercio_id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+
+        filas = cartelera_res.data or []
+
+        if not filas:
+            return None, "panel"
+
+        cartelera = filas[0]
+
+        if str(cartelera.get("eliminada")).lower() == "true":
+            return None, "panel"
+
+        return {
+            "comercio_id": comercio_id,
+            "cartelera": cartelera,
+        }, None
+
+    except Exception as e:
+        print("\nERROR VALIDANDO CARTELERA DEL PANEL:", e, flush=True)
+        return None, "panel"
+
+
+@app.route("/panel/cartelera/pausar/<cartelera_id>", methods=["POST"])
+def pausar_cartelera_panel(cartelera_id):
+    contexto, destino = _cartelera_panel_contexto(cartelera_id)
+
+    if destino == "login":
+        return redirect(url_for("login"))
+
+    if not contexto:
+        return redirect(url_for("panel"))
+
+    ahora = datetime.datetime.utcnow().isoformat()
+
+    try:
+        (
+            supabase_admin
+            .table("carteleras")
+            .update({
+                "activa": False,
+                "updated_at": ahora,
+            })
+            .eq("id", cartelera_id)
+            .eq("comercio_id", contexto["comercio_id"])
+            .execute()
+        )
+    except Exception as e:
+        print("\nERROR PAUSANDO CARTELERA:", e, flush=True)
+
+    return redirect(url_for("panel"))
+
+
+@app.route("/panel/cartelera/activar/<cartelera_id>", methods=["POST"])
+def activar_cartelera_panel(cartelera_id):
+    contexto, destino = _cartelera_panel_contexto(cartelera_id)
+
+    if destino == "login":
+        return redirect(url_for("login"))
+
+    if not contexto:
+        return redirect(url_for("panel"))
+
+    ahora = datetime.datetime.utcnow().isoformat()
+
+    try:
+        (
+            supabase_admin
+            .table("carteleras")
+            .update({
+                "activa": True,
+                "updated_at": ahora,
+            })
+            .eq("id", cartelera_id)
+            .eq("comercio_id", contexto["comercio_id"])
+            .execute()
+        )
+    except Exception as e:
+        print("\nERROR ACTIVANDO CARTELERA:", e, flush=True)
+
+    return redirect(url_for("panel"))
+
+
+@app.route("/panel/cartelera/eliminar/<cartelera_id>", methods=["POST"])
+def eliminar_cartelera_panel(cartelera_id):
+    contexto, destino = _cartelera_panel_contexto(cartelera_id)
+
+    if destino == "login":
+        return redirect(url_for("login"))
+
+    if not contexto:
+        return redirect(url_for("panel"))
+
+    ahora = datetime.datetime.utcnow().isoformat()
+
+    try:
+        (
+            supabase_admin
+            .table("carteleras")
+            .update({
+                "activa": False,
+                "eliminada": True,
+                "deleted_at": ahora,
+                "updated_at": ahora,
+            })
+            .eq("id", cartelera_id)
+            .eq("comercio_id", contexto["comercio_id"])
+            .execute()
+        )
+    except Exception as e:
+        print("\nERROR ELIMINANDO CARTELERA:", e, flush=True)
+
+    return redirect(url_for("panel"))
 
 
 
