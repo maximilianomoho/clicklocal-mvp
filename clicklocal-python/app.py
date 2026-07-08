@@ -1063,6 +1063,31 @@ def login():
 
 
 # PANEL DEL COMERCIO
+
+def limite_publicaciones_por_plan(comercio):
+    plan = str((comercio or {}).get("plan") or "gratis").strip().lower()
+    return 100 if plan == "premium" else 30
+
+
+def limite_listas_por_plan(comercio):
+    plan = str((comercio or {}).get("plan") or "gratis").strip().lower()
+    return 300 if plan == "premium" else 50
+
+
+def contar_publicaciones_activas(publicaciones):
+    total = 0
+    for pub in publicaciones or []:
+        if pub.get("eliminada") is True:
+            continue
+        if pub.get("activa") is True:
+            total += 1
+    return total
+
+
+def contar_listas_activas(listas):
+    return sum(1 for lista in (listas or []) if lista.get("activa") is True)
+
+
 @app.route("/panel", methods=["GET", "POST"])
 @app.route("/panel.html", methods=["GET", "POST"])
 def panel():
@@ -1368,11 +1393,25 @@ def panel():
                     "archivo": archivo
                 })
 
+        if activa:
+            limite_publicaciones = limite_publicaciones_por_plan(comercio)
+            publicaciones_activas = contar_publicaciones_activas(publicaciones)
+
+            if publicaciones_activas >= limite_publicaciones:
+                return render_template(
+                    "panel.html",
+                    comercio=comercio,
+                    publicaciones=publicaciones,
+                    listas_buscables=listas_buscables,
+                    error=f"Tu plan permite hasta {limite_publicaciones} publicaciones activas. Para cargar otra, pausá alguna publicación activa o mejorá tu plan."
+                )
+
         if len(fotos_a_procesar) == 0:
             return render_template(
                 "panel.html",
                 comercio=comercio,
                 publicaciones=publicaciones,
+                listas_buscables=listas_buscables,
                 error="Tenés que subir al menos 1 foto."
             )
 
@@ -1984,6 +2023,25 @@ def guardar_lista_buscable():
     atributos_texto = request.form.get("atributos_texto", "").strip()
 
     if not producto_categoria or not atributos_texto:
+        return redirect(url_for("panel") + "?lista_error=1#listas")
+
+    try:
+        listas_res = (
+            supabase_admin
+            .table("listas_buscables")
+            .select("id,activa")
+            .eq("comercio_id", comercio_id)
+            .eq("activa", True)
+            .execute()
+        )
+        listas_activas = len(listas_res.data or [])
+    except Exception as e:
+        print("ERROR contando listas activas:", e, flush=True)
+        listas_activas = 0
+
+    limite_listas = limite_listas_por_plan(comercio)
+
+    if listas_activas >= limite_listas:
         return redirect(url_for("panel") + "?lista_error=1#listas")
 
     nueva_lista = {
