@@ -754,6 +754,14 @@
 
                 {% if comercio.plan_actual == 'premium' %}
                   <p>Tu comercio tiene Premium activo y cuenta con mayor visibilidad en ClickLocal.</p>
+
+                  {% if comercio.fecha_vencimiento_plan_mostrar %}
+                    <p><strong>Vence:</strong> {{ comercio.fecha_vencimiento_plan_mostrar }}</p>
+                  {% endif %}
+
+                  {% if comercio.dias_restantes_plan is not none %}
+                    <p><strong>Tiempo restante:</strong> {{ comercio.dias_restantes_plan }} días</p>
+                  {% endif %}
                 {% elif comercio.solicitud_premium %}
                   <p>Tu solicitud Premium fue recibida. Te vamos a contactar por WhatsApp para informarte costos y forma de pago.</p>
                 {% else %}

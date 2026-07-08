@@ -1146,6 +1146,18 @@ def panel():
 
     comercio["plan_actual"] = plan_actual
     comercio["plan_nombre"] = "Premium" if plan_actual == "premium" else "Gratis"
+    comercio["fecha_vencimiento_plan_mostrar"] = None
+    comercio["dias_restantes_plan"] = None
+
+    if plan_actual == "premium" and comercio.get("fecha_vencimiento_plan"):
+        try:
+            import datetime
+            vencimiento_plan = datetime.date.fromisoformat(str(comercio.get("fecha_vencimiento_plan"))[:10])
+            hoy_plan = datetime.date.today()
+            comercio["fecha_vencimiento_plan_mostrar"] = vencimiento_plan.strftime("%d/%m/%Y")
+            comercio["dias_restantes_plan"] = max((vencimiento_plan - hoy_plan).days, 0)
+        except Exception:
+            comercio["fecha_vencimiento_plan_mostrar"] = comercio.get("fecha_vencimiento_plan")
 
     # Traer publicaciones desde Supabase si hay usuario
     if user_id:
