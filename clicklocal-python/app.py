@@ -1351,11 +1351,31 @@ def panel():
 
             imagen_principal_editada = imagenes_por_slot.get(principal_slot) or imagenes_finales[0]
 
+            publicacion_actual = next(
+                (pub for pub in publicaciones if str(pub.get("id")) == str(publicacion_id)),
+                {}
+            )
+            estaba_activa = publicacion_actual.get("activa") is True
+
+            if activa and not estaba_activa:
+                limite_publicaciones = limite_publicaciones_por_plan(comercio)
+                publicaciones_activas = contar_publicaciones_activas(publicaciones)
+
+                if publicaciones_activas >= limite_publicaciones:
+                    return render_template(
+                        "panel.html",
+                        comercio=comercio,
+                        publicaciones=publicaciones,
+                        listas_buscables=listas_buscables,
+                        error=f"Tu plan permite hasta {limite_publicaciones} publicaciones activas. Para activar esta publicación, pausá otra activa o mejorá tu plan."
+                    )
+
             cambios_publicacion = {
                 "nombre": nombre,
                 "precio": precio,
                 "descripcion": descripcion,
                 "activa": activa,
+                "pausada_por_limite_plan": False if activa else publicacion_actual.get("pausada_por_limite_plan", False),
                 "imagenes": imagenes_finales,
                 "imagen_principal": imagen_principal_editada,
                 "imagen_url": imagen_principal_editada
@@ -2106,11 +2126,49 @@ def editar_lista_buscable(lista_id):
     if not producto_categoria or not atributos_texto:
         return redirect(url_for("panel") + "?lista_error=1#listas")
 
+    try:
+        lista_actual_res = (
+            supabase_admin
+            .table("listas_buscables")
+            .select("id,activa")
+            .eq("id", lista_id)
+            .eq("comercio_id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+        lista_actual = (lista_actual_res.data or [{}])[0]
+    except Exception as e:
+        print("ERROR leyendo lista actual:", e, flush=True)
+        lista_actual = {}
+
+    estaba_activa = lista_actual.get("activa") is True
+
+    if not estaba_activa:
+        try:
+            listas_res = (
+                supabase_admin
+                .table("listas_buscables")
+                .select("id,activa")
+                .eq("comercio_id", comercio_id)
+                .eq("activa", True)
+                .execute()
+            )
+            listas_activas = len(listas_res.data or [])
+        except Exception as e:
+            print("ERROR contando listas activas al editar:", e, flush=True)
+            listas_activas = 0
+
+        limite_listas = limite_listas_por_plan(comercio)
+
+        if listas_activas >= limite_listas:
+            return redirect(url_for("panel") + "?lista_error=1#listas")
+
     cambios = {
         "producto_categoria": producto_categoria,
         "atributos_texto": atributos_texto,
         "updated_at": datetime.datetime.utcnow().isoformat(),
-        "activa": True
+        "activa": True,
+        "pausada_por_limite_plan": False
     }
 
     try:
