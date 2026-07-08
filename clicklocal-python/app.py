@@ -2827,7 +2827,16 @@ def admin_activar_premium(comercio_id):
     import datetime
 
     hoy = datetime.date.today()
-    vencimiento = hoy + datetime.timedelta(days=30)
+
+    try:
+        duracion_meses = int(request.form.get("duracion_meses", "1"))
+    except ValueError:
+        duracion_meses = 1
+
+    if duracion_meses not in [1, 3, 6]:
+        duracion_meses = 1
+
+    vencimiento = hoy + datetime.timedelta(days=30 * duracion_meses)
 
     try:
         supabase_admin.table("comercios").update({

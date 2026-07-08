@@ -242,7 +242,13 @@
                         {% endif %}
 
                         {% if s.id %}
-                          <form method="POST" action="{{ url_for('admin_activar_premium', comercio_id=s.id) }}" style="margin: 0;" onsubmit="return confirm('¿Activar Premium para este comercio?');">
+                          <form method="POST" action="{{ url_for('admin_activar_premium', comercio_id=s.id) }}" style="margin: 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;" onsubmit="return confirm('¿Activar Premium para este comercio?');">
+                            <select name="duracion_meses" class="admin-mini-link" style="border: 0; cursor: pointer;">
+                              <option value="1">1 mes</option>
+                              <option value="3">3 meses</option>
+                              <option value="6">6 meses</option>
+                            </select>
+
                             <button type="submit" class="admin-mini-link" style="border: 0; cursor: pointer;">
                               Activar Premium
                             </button>
