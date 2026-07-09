@@ -1088,6 +1088,103 @@ def contar_listas_activas(listas):
     return sum(1 for lista in (listas or []) if lista.get("activa") is True)
 
 
+def aplicar_limites_plan_comercio(comercio_id, comercio):
+    limite_publicaciones = limite_publicaciones_por_plan(comercio)
+    limite_listas = limite_listas_por_plan(comercio)
+
+    try:
+        publicaciones_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select("id,activa,eliminada,created_at")
+            .eq("comercio_id", comercio_id)
+            .eq("eliminada", False)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        publicaciones = publicaciones_res.data or []
+        publicaciones_activas = [p for p in publicaciones if p.get("activa") is True]
+
+        for pub in publicaciones_activas[limite_publicaciones:]:
+            supabase_admin.table("publicaciones").update({
+                "activa": False,
+                "pausada_por_limite_plan": True
+            }).eq("id", pub.get("id")).eq("comercio_id", comercio_id).execute()
+
+    except Exception as e:
+        print("ERROR aplicando límite de publicaciones:", e, flush=True)
+
+    try:
+        listas_res = (
+            supabase_admin
+            .table("listas_buscables")
+            .select("id,activa,created_at")
+            .eq("comercio_id", comercio_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        listas = listas_res.data or []
+        listas_activas = [l for l in listas if l.get("activa") is True]
+
+        for lista in listas_activas[limite_listas:]:
+            supabase_admin.table("listas_buscables").update({
+                "activa": False,
+                "pausada_por_limite_plan": True
+            }).eq("id", lista.get("id")).eq("comercio_id", comercio_id).execute()
+
+    except Exception as e:
+        print("ERROR aplicando límite de listas:", e, flush=True)
+
+
+def revisar_premium_vencidos():
+    import datetime
+
+    hoy = datetime.date.today()
+
+    try:
+        res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,plan,fecha_vencimiento_plan")
+            .eq("plan", "premium")
+            .execute()
+        )
+        comercios = res.data or []
+    except Exception as e:
+        print("ERROR buscando Premium vencidos:", e, flush=True)
+        return
+
+    for comercio in comercios:
+        vencimiento_raw = comercio.get("fecha_vencimiento_plan")
+        if not vencimiento_raw:
+            continue
+
+        try:
+            vencimiento = datetime.date.fromisoformat(str(vencimiento_raw)[:10])
+        except Exception:
+            continue
+
+        if vencimiento >= hoy:
+            continue
+
+        comercio_id = comercio.get("id")
+        if not comercio_id:
+            continue
+
+        try:
+            supabase_admin.table("comercios").update({
+                "plan": "gratis",
+                "estado_plan": "vencido"
+            }).eq("id", comercio_id).execute()
+
+            comercio_gratis = dict(comercio)
+            comercio_gratis["plan"] = "gratis"
+            aplicar_limites_plan_comercio(comercio_id, comercio_gratis)
+
+        except Exception as e:
+            print("ERROR venciendo Premium:", comercio_id, e, flush=True)
+
+
 @app.route("/panel", methods=["GET", "POST"])
 @app.route("/panel.html", methods=["GET", "POST"])
 def panel():
@@ -2783,6 +2880,8 @@ def admin_logout():
 @app.route("/admin.html")
 @admin_requerido
 def admin():
+    revisar_premium_vencidos()
+
     error = None
     comercios_raw = []
     publicaciones_raw = []
