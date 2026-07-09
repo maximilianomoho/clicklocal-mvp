@@ -3074,6 +3074,16 @@ def admin_activar_premium(comercio_id):
             "fecha_vencimiento_plan": vencimiento.isoformat()
         }).eq("id", comercio_id).execute()
 
+        supabase_admin.table("publicaciones").update({
+            "activa": True,
+            "pausada_por_limite_plan": False
+        }).eq("comercio_id", comercio_id).eq("pausada_por_limite_plan", True).execute()
+
+        supabase_admin.table("listas_buscables").update({
+            "activa": True,
+            "pausada_por_limite_plan": False
+        }).eq("comercio_id", comercio_id).eq("pausada_por_limite_plan", True).execute()
+
         return redirect(url_for("admin", premium_activado="1"))
 
     except Exception as e:
