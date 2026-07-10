@@ -124,8 +124,20 @@ app.jinja_env.filters["precio_arg"] = formatear_precio
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clicklocal-mvp-dev")
 
 # Carpeta donde guardamos fotos subidas en esta etapa local
+# Límite de seguridad para cargas desde celulares.
+app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024
+
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+@app.errorhandler(413)
+def carga_demasiado_grande(error):
+    return (
+        "Las fotos seleccionadas son demasiado pesadas. "
+        "Volvé al panel y probá con menos fotos o imágenes más livianas.",
+        413
+    )
 
 
 @app.route("/sw.js")

@@ -1158,13 +1158,158 @@
       const botonPublicacionSubmit = document.getElementById("publicacion-submit");
       const mensajeCargaPublicacion = document.getElementById("publicacion-loading");
 
+      function mostrarPeso(bytes) {
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+      }
+
+      function abrirImagenLocal(archivo) {
+        return new Promise(function (resolve, reject) {
+          const url = URL.createObjectURL(archivo);
+          const imagen = new Image();
+
+          imagen.onload = function () {
+            URL.revokeObjectURL(url);
+            resolve(imagen);
+          };
+
+          imagen.onerror = function () {
+            URL.revokeObjectURL(url);
+            reject(new Error("El teléfono no pudo preparar una de las fotos."));
+          };
+
+          imagen.src = url;
+        });
+      }
+
+      async function comprimirFotoAntesDeSubir(archivo) {
+        if (!archivo || archivo.size < 1200 * 1024) {
+          return archivo;
+        }
+
+        const imagen = await abrirImagenLocal(archivo);
+        const maximo = 1400;
+        const escala = Math.min(
+          1,
+          maximo / Math.max(imagen.naturalWidth, imagen.naturalHeight)
+        );
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(imagen.naturalWidth * escala);
+        canvas.height = Math.round(imagen.naturalHeight * escala);
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(imagen, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise(function (resolve) {
+          canvas.toBlob(resolve, "image/jpeg", 0.80);
+        });
+
+        if (!blob) {
+          throw new Error("No se pudo reducir una de las fotos.");
+        }
+
+        return new File(
+          [blob],
+          "foto-clicklocal.jpg",
+          { type: "image/jpeg", lastModified: Date.now() }
+        );
+      }
+
+      let cargaPublicacionEnCurso = false;
+
       if (formPublicacion && botonPublicacionSubmit) {
-        formPublicacion.addEventListener("submit", function () {
+        formPublicacion.addEventListener("submit", async function (event) {
+          event.preventDefault();
+
+          if (
+            !nombrePublicacionInput ||
+            !nombrePublicacionInput.value.trim()
+          ) {
+            if (mensajeCargaPublicacion) {
+              mensajeCargaPublicacion.style.display = "block";
+              mensajeCargaPublicacion.style.color = "#b42318";
+              mensajeCargaPublicacion.textContent =
+                "Escribí el nombre de la publicación antes de subir las fotos.";
+            }
+
+            if (nombrePublicacionInput) {
+              nombrePublicacionInput.focus();
+            }
+
+            return;
+          }
+
+          if (cargaPublicacionEnCurso) {
+            return;
+          }
+
+          cargaPublicacionEnCurso = true;
           botonPublicacionSubmit.disabled = true;
-          botonPublicacionSubmit.textContent = "Cargando...";
+          botonPublicacionSubmit.textContent = "Preparando fotos...";
 
           if (mensajeCargaPublicacion) {
             mensajeCargaPublicacion.style.display = "block";
+            mensajeCargaPublicacion.style.color = "#006aa6";
+            mensajeCargaPublicacion.textContent =
+              "Reduciendo las fotos para subirlas más rápido...";
+          }
+
+          try {
+            let pesoOriginal = 0;
+            let pesoFinal = 0;
+            let cantidad = 0;
+
+            for (let i = 0; i < 6; i++) {
+              const input = document.getElementById("foto_" + i);
+
+              if (!input || !input.files || !input.files.length) {
+                continue;
+              }
+
+              const original = input.files[0];
+              pesoOriginal += original.size;
+              cantidad += 1;
+
+              if (mensajeCargaPublicacion) {
+                mensajeCargaPublicacion.textContent =
+                  "Preparando foto " + cantidad + "...";
+              }
+
+              const preparada = await comprimirFotoAntesDeSubir(original);
+              pesoFinal += preparada.size;
+
+              const transferencia = new DataTransfer();
+              transferencia.items.add(preparada);
+              input.files = transferencia.files;
+            }
+
+            botonPublicacionSubmit.textContent = "Subiendo...";
+
+            if (mensajeCargaPublicacion) {
+              mensajeCargaPublicacion.textContent = cantidad
+                ? "Fotos preparadas: " +
+                  mostrarPeso(pesoOriginal) +
+                  " → " +
+                  mostrarPeso(pesoFinal) +
+                  ". Subiendo..."
+                : "Guardando publicación...";
+            }
+
+            HTMLFormElement.prototype.submit.call(formPublicacion);
+
+          } catch (error) {
+            cargaPublicacionEnCurso = false;
+            botonPublicacionSubmit.disabled = false;
+            botonPublicacionSubmit.textContent =
+              modoEdicion ? "Guardar cambios" : "Publicar";
+
+            if (mensajeCargaPublicacion) {
+              mensajeCargaPublicacion.style.display = "block";
+              mensajeCargaPublicacion.style.color = "#b42318";
+              mensajeCargaPublicacion.textContent =
+                error.message ||
+                "No se pudieron preparar las fotos.";
+            }
           }
         });
       }
