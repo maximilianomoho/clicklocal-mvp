@@ -96,6 +96,7 @@
             <input type="hidden" name="foto_principal" id="foto_principal" value="0">
             <input type="hidden" name="publicacion_id" id="publicacion_id" value="">
             <input type="hidden" name="imagenes_existentes" id="imagenes_existentes" value="[]">
+            <input type="hidden" name="imagenes_subidas_secuencial" id="imagenes_subidas_secuencial" value="[]">
             <input type="file" name="foto_0" id="foto_0" accept="image/*" hidden>
             <input type="file" name="foto_1" id="foto_1" accept="image/*" hidden>
             <input type="file" name="foto_2" id="foto_2" accept="image/*" hidden>
@@ -1217,6 +1218,82 @@
 
       let cargaPublicacionEnCurso = false;
 
+      async function subirFotoSecuencial(archivo, numero, total) {
+        const datosFoto = new FormData();
+        datosFoto.append("foto", archivo);
+
+        if (mensajeCargaPublicacion) {
+          mensajeCargaPublicacion.style.display = "block";
+          mensajeCargaPublicacion.style.color = "#006aa6";
+          mensajeCargaPublicacion.textContent =
+            "Subiendo foto " + numero + " de " + total + "...";
+        }
+
+        botonPublicacionSubmit.textContent =
+          "Subiendo " + numero + " de " + total + "...";
+
+        const controlador = new AbortController();
+        const temporizador = setTimeout(function () {
+          controlador.abort();
+        }, 120000);
+
+        let respuesta;
+
+        try {
+          respuesta = await fetch("/panel/subir-foto-publicacion", {
+            method: "POST",
+            body: datosFoto,
+            signal: controlador.signal,
+            credentials: "same-origin"
+          });
+        } catch (error) {
+          clearTimeout(temporizador);
+
+          if (error && error.name === "AbortError") {
+            throw new Error(
+              "La foto " + numero + " tardó demasiado. Revisá la conexión e intentá nuevamente."
+            );
+          }
+
+          throw new Error(
+            "Se cortó la conexión mientras se subía la foto " +
+            numero +
+            " de " +
+            total +
+            "."
+          );
+        }
+
+        clearTimeout(temporizador);
+
+        let resultado = {};
+
+        try {
+          resultado = await respuesta.json();
+        } catch (error) {
+          throw new Error(
+            "El servidor no pudo confirmar la foto " +
+            numero +
+            " de " +
+            total +
+            "."
+          );
+        }
+
+        if (!respuesta.ok || !resultado.ok || !resultado.url) {
+          throw new Error(
+            resultado.error ||
+            "No se pudo subir la foto " +
+            numero +
+            " de " +
+            total +
+            "."
+          );
+        }
+
+        return resultado.url;
+      }
+
       if (formPublicacion && botonPublicacionSubmit) {
         formPublicacion.addEventListener("submit", async function (event) {
           event.preventDefault();
@@ -1257,7 +1334,7 @@
           try {
             let pesoOriginal = 0;
             let pesoFinal = 0;
-            let cantidad = 0;
+            const fotosPreparadas = [];
 
             for (let i = 0; i < 6; i++) {
               const input = document.getElementById("foto_" + i);
@@ -1268,31 +1345,108 @@
 
               const original = input.files[0];
               pesoOriginal += original.size;
-              cantidad += 1;
 
               if (mensajeCargaPublicacion) {
                 mensajeCargaPublicacion.textContent =
-                  "Preparando foto " + cantidad + "...";
+                  "Preparando foto " + (fotosPreparadas.length + 1) + "...";
               }
 
               const preparada = await comprimirFotoAntesDeSubir(original);
               pesoFinal += preparada.size;
 
-              const transferencia = new DataTransfer();
-              transferencia.items.add(preparada);
-              input.files = transferencia.files;
+              fotosPreparadas.push({
+                slot: i,
+                archivo: preparada
+              });
             }
 
-            botonPublicacionSubmit.textContent = "Subiendo...";
+            /*
+             * En edición mantenemos por ahora el mecanismo existente.
+             * La carga secuencial se aplica primero a publicaciones nuevas.
+             */
+            if (modoEdicion) {
+              for (const foto of fotosPreparadas) {
+                const input = document.getElementById("foto_" + foto.slot);
+                const transferencia = new DataTransfer();
+                transferencia.items.add(foto.archivo);
+                input.files = transferencia.files;
+              }
+
+              botonPublicacionSubmit.textContent = "Guardando cambios...";
+
+              if (mensajeCargaPublicacion) {
+                mensajeCargaPublicacion.textContent = fotosPreparadas.length
+                  ? "Fotos preparadas: " +
+                    mostrarPeso(pesoOriginal) +
+                    " → " +
+                    mostrarPeso(pesoFinal) +
+                    ". Guardando cambios..."
+                  : "Guardando cambios...";
+              }
+
+              HTMLFormElement.prototype.submit.call(formPublicacion);
+              return;
+            }
+
+            if (!fotosPreparadas.length) {
+              throw new Error("Tenés que seleccionar al menos una foto.");
+            }
+
+            const fotosSubidas = [];
+
+            for (let indice = 0; indice < fotosPreparadas.length; indice++) {
+              const foto = fotosPreparadas[indice];
+
+              const url = await subirFotoSecuencial(
+                foto.archivo,
+                indice + 1,
+                fotosPreparadas.length
+              );
+
+              fotosSubidas.push({
+                slot: foto.slot,
+                url: url
+              });
+
+              if (mensajeCargaPublicacion) {
+                mensajeCargaPublicacion.textContent =
+                  "Foto " +
+                  (indice + 1) +
+                  " de " +
+                  fotosPreparadas.length +
+                  " subida correctamente.";
+              }
+            }
+
+            const inputSecuencial = document.getElementById(
+              "imagenes_subidas_secuencial"
+            );
+
+            if (!inputSecuencial) {
+              throw new Error(
+                "No se pudo preparar el guardado final de la publicación."
+              );
+            }
+
+            inputSecuencial.value = JSON.stringify(fotosSubidas);
+
+            /*
+             * Vaciar los archivos para que el formulario final mande
+             * solamente los datos y las URLs ya confirmadas.
+             */
+            for (let i = 0; i < 6; i++) {
+              const input = document.getElementById("foto_" + i);
+
+              if (input) {
+                input.value = "";
+              }
+            }
+
+            botonPublicacionSubmit.textContent = "Guardando publicación...";
 
             if (mensajeCargaPublicacion) {
-              mensajeCargaPublicacion.textContent = cantidad
-                ? "Fotos preparadas: " +
-                  mostrarPeso(pesoOriginal) +
-                  " → " +
-                  mostrarPeso(pesoFinal) +
-                  ". Subiendo..."
-                : "Guardando publicación...";
+              mensajeCargaPublicacion.textContent =
+                "Todas las fotos se subieron. Guardando publicación...";
             }
 
             HTMLFormElement.prototype.submit.call(formPublicacion);
@@ -1308,7 +1462,7 @@
               mensajeCargaPublicacion.style.color = "#b42318";
               mensajeCargaPublicacion.textContent =
                 error.message ||
-                "No se pudieron preparar las fotos.";
+                "No se pudieron subir las fotos.";
             }
           }
         });

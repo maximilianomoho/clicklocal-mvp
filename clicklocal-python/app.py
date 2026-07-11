@@ -1197,6 +1197,100 @@ def revisar_premium_vencidos():
             print("ERROR venciendo Premium:", comercio_id, e, flush=True)
 
 
+@app.route("/panel/subir-foto-publicacion", methods=["POST"])
+def subir_foto_publicacion_secuencial():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return {
+            "ok": False,
+            "error": "La sesión venció. Volvé a iniciar sesión."
+        }, 401
+
+    archivo = request.files.get("foto")
+
+    if not archivo or not getattr(archivo, "filename", "").strip():
+        return {
+            "ok": False,
+            "error": "No se recibió la foto."
+        }, 400
+
+    try:
+        buf = procesar_imagen_clicklocal(
+            archivo,
+            contexto="carga_secuencial"
+        )
+
+        nombre_final = f"{uuid.uuid4().hex}.jpg"
+        ruta_objeto = f"publicaciones/{nombre_final}"
+        contenido = buf.getvalue()
+
+        try:
+            supabase_admin.storage.from_("publicaciones").upload(
+                ruta_objeto,
+                contenido,
+                file_options={"content-type": "image/jpeg"}
+            )
+        except TypeError:
+            supabase_admin.storage.from_("publicaciones").upload(
+                ruta_objeto,
+                contenido,
+                {"content-type": "image/jpeg"}
+            )
+
+        url_res = (
+            supabase_admin
+            .storage
+            .from_("publicaciones")
+            .get_public_url(ruta_objeto)
+        )
+
+        if isinstance(url_res, dict):
+            public_url = (
+                url_res.get("publicURL")
+                or url_res.get("publicUrl")
+                or url_res.get("public_url")
+                or ""
+            )
+        else:
+            public_url = url_res
+
+        public_url = str(public_url or "").strip()
+
+        if not public_url:
+            try:
+                base = supabase_admin._client.url
+                public_url = (
+                    f"{base}/storage/v1/object/public/"
+                    f"publicaciones/{ruta_objeto}"
+                )
+            except Exception:
+                public_url = ""
+
+        if not public_url:
+            raise RuntimeError(
+                "La foto se subió, pero no se pudo obtener su dirección."
+            )
+
+        return {
+            "ok": True,
+            "url": public_url
+        }
+
+    except Exception as e:
+        print(
+            "\nERROR SUBIENDO FOTO SECUENCIAL:",
+            type(e),
+            e,
+            flush=True
+        )
+
+        return {
+            "ok": False,
+            "error": "No se pudo subir esta foto. Revisá la conexión e intentá nuevamente."
+        }, 500
+
+
 @app.route("/panel", methods=["GET", "POST"])
 @app.route("/panel.html", methods=["GET", "POST"])
 def panel():
@@ -1334,6 +1428,10 @@ def panel():
         activa = request.form.get("activa") == "on"
         publicacion_id = request.form.get("publicacion_id", "").strip()
         imagenes_existentes_raw = request.form.get("imagenes_existentes", "[]").strip()
+        imagenes_subidas_secuencial_raw = request.form.get(
+            "imagenes_subidas_secuencial",
+            "[]"
+        ).strip()
 
         if not nombre:
             return render_template(
@@ -1511,16 +1609,58 @@ def panel():
 
 
 
-        # Procesar archivos: hasta 6, conservando el casillero original
+        # Fotos ya subidas secuencialmente desde el navegador.
+        imagenes_secuenciales = []
+
+        try:
+            datos_secuenciales = json.loads(
+                imagenes_subidas_secuencial_raw
+            ) if imagenes_subidas_secuencial_raw else []
+
+            if not isinstance(datos_secuenciales, list):
+                datos_secuenciales = []
+        except Exception:
+            datos_secuenciales = []
+
+        slots_usados = set()
+
+        for item in datos_secuenciales:
+            if not isinstance(item, dict):
+                continue
+
+            try:
+                slot = int(item.get("slot"))
+            except Exception:
+                continue
+
+            url = str(item.get("url") or "").strip()
+
+            if (
+                slot < 0
+                or slot > 5
+                or not url
+                or slot in slots_usados
+            ):
+                continue
+
+            slots_usados.add(slot)
+            imagenes_secuenciales.append({
+                "slot": slot,
+                "url": url
+            })
+
+        # Compatibilidad con el mecanismo tradicional.
         fotos_a_procesar = []
 
-        for slot in range(6):
-            archivo = request.files.get(f"foto_{slot}")
-            if archivo and archivo.filename:
-                fotos_a_procesar.append({
-                    "slot": slot,
-                    "archivo": archivo
-                })
+        if not imagenes_secuenciales:
+            for slot in range(6):
+                archivo = request.files.get(f"foto_{slot}")
+
+                if archivo and archivo.filename:
+                    fotos_a_procesar.append({
+                        "slot": slot,
+                        "archivo": archivo
+                    })
 
         if activa:
             limite_publicaciones = limite_publicaciones_por_plan(comercio)
@@ -1535,7 +1675,7 @@ def panel():
                     error=f"Tu plan permite hasta {limite_publicaciones} publicaciones activas. Para cargar otra, pausá alguna publicación activa o mejorá tu plan."
                 )
 
-        if len(fotos_a_procesar) == 0:
+        if len(fotos_a_procesar) == 0 and len(imagenes_secuenciales) == 0:
             return render_template(
                 "panel.html",
                 comercio=comercio,
@@ -1544,7 +1684,7 @@ def panel():
                 error="Tenés que subir al menos 1 foto."
             )
 
-        if len(fotos_a_procesar) > 6:
+        if len(fotos_a_procesar) + len(imagenes_secuenciales) > 6:
             return render_template(
                 "panel.html",
                 comercio=comercio,
@@ -1557,7 +1697,14 @@ def panel():
         except Exception:
             principal_slot = 0
 
-        imagenes_urls = []
+        imagenes_urls = [
+            {
+                "slot": item["slot"],
+                "url": item["url"],
+                "es_principal": item["slot"] == principal_slot
+            }
+            for item in imagenes_secuenciales
+        ]
         imagen_principal = ""
 
         fotos_carga_procesadas = 0
