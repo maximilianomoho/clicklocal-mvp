@@ -1379,7 +1379,6 @@ def panel():
 
     if plan_actual == "premium" and comercio.get("fecha_vencimiento_plan"):
         try:
-            import datetime
             vencimiento_plan = datetime.date.fromisoformat(str(comercio.get("fecha_vencimiento_plan"))[:10])
             hoy_plan = datetime.date.today()
             comercio["fecha_vencimiento_plan_mostrar"] = vencimiento_plan.strftime("%d/%m/%Y")
