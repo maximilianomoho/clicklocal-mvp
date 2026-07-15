@@ -521,6 +521,715 @@
   }
 </style>
 
+
+<style>
+  .historias-home {
+    padding: 22px 0 8px;
+    background: #ffffff;
+    border-bottom: 1px solid #edf0f3;
+  }
+
+  .historias-home-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .historias-home-cabecera h2 {
+    margin: 2px 0 0;
+    font-size: 23px;
+  }
+
+  .historias-scroll {
+    display: flex;
+    gap: 17px;
+    overflow-x: auto;
+    padding: 3px 2px 16px;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+  }
+
+  .historias-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .historia-circulo-boton {
+    flex: 0 0 82px;
+    width: 82px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .historia-circulo-aro {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 7px;
+    padding: 3px;
+    border-radius: 50%;
+    background:
+      linear-gradient(
+        135deg,
+        #ff7a00 0%,
+        #f43f5e 48%,
+        #8b5cf6 100%
+      );
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.14);
+  }
+
+  .historia-circulo-interior {
+    width: 100%;
+    height: 100%;
+    border: 3px solid #ffffff;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #006aa6;
+    color: white;
+    font-size: 20px;
+    font-weight: 900;
+  }
+
+  .historia-circulo-interior img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .historia-circulo-nombre {
+    display: block;
+    max-width: 82px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: #202936;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .publicacion-card {
+    position: relative;
+  }
+
+  .publicacion-historia-indicador {
+    position: absolute;
+    z-index: 4;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 5px 10px;
+    border: 2px solid white;
+    border-radius: 999px;
+    background:
+      linear-gradient(
+        135deg,
+        #ff7a00,
+        #f43f5e,
+        #8b5cf6
+      );
+    color: white;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+
+  .historias-visor {
+    position: fixed;
+    z-index: 9999;
+    inset: 0;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 18px;
+    background: rgba(0, 0, 0, 0.88);
+  }
+
+  .historias-visor.abierto {
+    display: flex;
+  }
+
+  .historias-visor-contenido {
+    position: relative;
+    width: min(430px, 100%);
+    height: min(760px, calc(100vh - 36px));
+    overflow: hidden;
+    border-radius: 22px;
+    background: #111111;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  }
+
+  .historias-progreso {
+    position: absolute;
+    z-index: 8;
+    top: 11px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    gap: 5px;
+  }
+
+  .historias-progreso-linea {
+    height: 3px;
+    flex: 1;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.38);
+  }
+
+  .historias-progreso-linea span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: white;
+  }
+
+  .historias-progreso-linea.completa span {
+    width: 100%;
+  }
+
+  .historias-progreso-linea.actual span {
+    width: 100%;
+  }
+
+  .historias-visor-superior {
+    position: absolute;
+    z-index: 7;
+    top: 24px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+  }
+
+  .historias-visor-avatar {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    overflow: hidden;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #006aa6;
+    color: white;
+    font-weight: 900;
+  }
+
+  .historias-visor-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .historias-visor-negocio {
+    min-width: 0;
+    flex: 1;
+    font-size: 14px;
+    font-weight: 800;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+  }
+
+  .historias-visor-contador {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.84);
+  }
+
+  .historias-visor-cerrar {
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    color: white;
+    cursor: pointer;
+    font-size: 25px;
+    line-height: 38px;
+  }
+
+  .historias-visor-imagen {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #111111;
+  }
+
+  .historias-visor-sombra {
+    position: absolute;
+    z-index: 4;
+    inset: 45% 0 0;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        to bottom,
+        transparent,
+        rgba(0, 0, 0, 0.88)
+      );
+  }
+
+  .historias-visor-pie {
+    position: absolute;
+    z-index: 7;
+    left: 18px;
+    right: 18px;
+    bottom: 20px;
+    color: white;
+  }
+
+  .historias-visor-texto {
+    margin: 0 0 15px;
+    max-height: 135px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.35;
+    text-shadow: 0 2px 7px rgba(0, 0, 0, 0.7);
+  }
+
+  .historias-visor-acciones {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+
+  .historias-visor-enlace {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 42px;
+    padding: 9px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.66);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: white;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 800;
+    backdrop-filter: blur(7px);
+  }
+
+  .historias-visor-enlace-principal {
+    border-color: white;
+    background: white;
+    color: #17202b;
+  }
+
+  .historias-navegacion {
+    position: absolute;
+    z-index: 6;
+    top: 90px;
+    bottom: 145px;
+    width: 42%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .historias-anterior {
+    left: 0;
+  }
+
+  .historias-siguiente {
+    right: 0;
+  }
+
+  @media (max-width: 600px) {
+    .historias-home {
+      padding-top: 17px;
+    }
+
+    .historias-home-cabecera h2 {
+      font-size: 20px;
+    }
+
+    .historia-circulo-boton {
+      flex-basis: 74px;
+      width: 74px;
+    }
+
+    .historia-circulo-aro {
+      width: 66px;
+      height: 66px;
+    }
+
+    .historia-circulo-nombre {
+      max-width: 74px;
+      font-size: 11px;
+    }
+
+    .historias-visor {
+      padding: 0;
+    }
+
+    .historias-visor-contenido {
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      border-radius: 0;
+    }
+
+    .historias-visor-texto {
+      font-size: 17px;
+    }
+  }
+</style>
+
+
+<style>
+/* CLICKLOCAL: AJUSTE VISUAL HISTORIAS V2 */
+
+/* =========================================================
+   CÍRCULOS ESTABLES, SIN MOVIMIENTO VERTICAL NI LÍNEA EXTRA
+   ========================================================= */
+
+.historias-scroll {
+  align-items: flex-start !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+
+.historia-circulo-boton {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+
+  flex: 0 0 82px !important;
+  width: 82px !important;
+  min-width: 82px !important;
+  max-width: 82px !important;
+
+  height: 102px !important;
+  min-height: 102px !important;
+  max-height: 102px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  overflow: hidden !important;
+  vertical-align: top !important;
+  line-height: normal !important;
+}
+
+.historia-circulo-aro {
+  display: block !important;
+  flex: 0 0 72px !important;
+
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+
+  height: 72px !important;
+  min-height: 72px !important;
+  max-height: 72px !important;
+
+  margin: 0 auto 7px !important;
+  padding: 3px !important;
+
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  line-height: 0 !important;
+}
+
+.historia-circulo-interior {
+  display: flex !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  line-height: normal !important;
+}
+
+.historia-circulo-nombre {
+  display: block !important;
+  flex: 0 0 16px !important;
+
+  width: 82px !important;
+  max-width: 82px !important;
+  height: 16px !important;
+
+  margin: 0 !important;
+
+  line-height: 16px !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+
+
+/* =========================================================
+   VISOR: FOTO LIMPIA + SECTOR BLANCO PARA TEXTO Y BOTONES
+   ========================================================= */
+
+.historias-visor-contenido {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+
+  background: #ffffff !important;
+  overflow: hidden !important;
+}
+
+.historias-visor-imagen {
+  grid-row: 1 !important;
+
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+
+  object-fit: contain !important;
+  background: #111111 !important;
+}
+
+.historias-visor-sombra {
+  display: none !important;
+}
+
+.historias-visor-pie {
+  position: relative !important;
+  z-index: 10 !important;
+
+  grid-row: 2 !important;
+
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+
+  padding: 18px 18px 20px !important;
+
+  background: #ffffff !important;
+  color: #17202b !important;
+
+  border-top: 1px solid #e4e8ed !important;
+
+  max-height: 220px !important;
+  overflow-y: auto !important;
+
+  box-sizing: border-box !important;
+}
+
+.historias-visor-texto {
+  margin: 0 0 16px !important;
+
+  max-height: 105px !important;
+  overflow-y: auto !important;
+
+  color: #202936 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  line-height: 1.45 !important;
+
+  text-shadow: none !important;
+}
+
+.historias-visor-acciones {
+  display: flex !important;
+  gap: 9px !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+}
+
+.historias-visor-enlace {
+  min-height: 42px !important;
+  padding: 9px 15px !important;
+
+  border: 1px solid #cfd6df !important;
+  border-radius: 999px !important;
+
+  background: #f6f8fa !important;
+  color: #26313e !important;
+
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+.historias-visor-enlace-principal {
+  border-color: #006aa6 !important;
+  background: #006aa6 !important;
+  color: #ffffff !important;
+}
+
+.historias-navegacion {
+  top: 82px !important;
+  bottom: 165px !important;
+}
+
+
+/* =========================================================
+   CELULAR
+   ========================================================= */
+
+@media (max-width: 600px) {
+  .historia-circulo-boton {
+    flex-basis: 74px !important;
+
+    width: 74px !important;
+    min-width: 74px !important;
+    max-width: 74px !important;
+
+    height: 96px !important;
+    min-height: 96px !important;
+    max-height: 96px !important;
+  }
+
+  .historia-circulo-aro {
+    flex-basis: 66px !important;
+
+    width: 66px !important;
+    min-width: 66px !important;
+    max-width: 66px !important;
+
+    height: 66px !important;
+    min-height: 66px !important;
+    max-height: 66px !important;
+  }
+
+  .historia-circulo-nombre {
+    width: 74px !important;
+    max-width: 74px !important;
+  }
+
+  .historias-visor-pie {
+    padding: 16px 16px 18px !important;
+    max-height: 210px !important;
+  }
+
+  .historias-visor-texto {
+    font-size: 16px !important;
+    max-height: 100px !important;
+  }
+
+  .historias-navegacion {
+    bottom: 155px !important;
+  }
+}
+</style>
+
+
+<style>
+/* CLICKLOCAL: HISTORIAS AUTOMATICAS V1 */
+
+.historias-anterior,
+.historias-siguiente {
+  width: 25% !important;
+}
+
+.historias-pausa {
+  left: 25% !important;
+  width: 50% !important;
+}
+
+.historias-visor.historia-pausada::after {
+  content: "⏸ Pausada";
+  position: fixed;
+  z-index: 10001;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  padding: 10px 15px;
+  border-radius: 999px;
+
+  background: rgba(0, 0, 0, 0.68);
+  color: white;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  pointer-events: none;
+  backdrop-filter: blur(5px);
+}
+</style>
+
+
+<style>
+/* CLICKLOCAL: LINEAS CLICKEABLES HISTORIAS V1 */
+
+.historias-progreso {
+  top: 4px !important;
+  height: 22px !important;
+  align-items: center !important;
+}
+
+.historias-progreso-linea {
+  position: relative !important;
+
+  height: 18px !important;
+  min-height: 18px !important;
+
+  overflow: visible !important;
+
+  background: transparent !important;
+  border-radius: 0 !important;
+
+  cursor: pointer !important;
+  touch-action: manipulation;
+}
+
+.historias-progreso-linea::before {
+  content: "";
+
+  position: absolute;
+  z-index: 0;
+
+  left: 0;
+  right: 0;
+  top: 50%;
+
+  height: 3px;
+
+  transform: translateY(-50%);
+
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.historias-progreso-linea span {
+  position: absolute !important;
+  z-index: 1;
+
+  left: 0 !important;
+  top: 50% !important;
+
+  height: 3px !important;
+
+  transform: translateY(-50%) !important;
+
+  border-radius: 999px !important;
+  background: #ffffff !important;
+}
+
+.historias-progreso-linea:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 1px;
+  border-radius: 5px !important;
+}
+</style>
+
 </head>
 
 <body>
@@ -632,6 +1341,144 @@
   </section>
 
 
+
+  {% if historias_publicas %}
+  <section
+    id="historiasClickLocal"
+    class="historias-home"
+    aria-label="Historias de comercios"
+  >
+    <div class="contenedor">
+      <div class="historias-home-cabecera">
+        <div>
+          <p class="titulo-chico">HISTORIAS</p>
+          <h2>Ahora en los comercios</h2>
+        </div>
+      </div>
+
+      <div class="historias-scroll">
+        {% for grupo in historias_publicas %}
+          <button
+            type="button"
+            class="historia-circulo-boton"
+            data-historia-grupo="{{ loop.index0 }}"
+            aria-label="Ver historias de {{ grupo.nombre_negocio }}"
+          >
+            <span class="historia-circulo-aro">
+              <span class="historia-circulo-interior">
+                {% if grupo.logo_url %}
+                  <img
+                    src="{{ grupo.logo_url }}"
+                    alt="{{ grupo.nombre_negocio }}"
+                  />
+                {% else %}
+                  {{ grupo.iniciales }}
+                {% endif %}
+              </span>
+            </span>
+
+            <span class="historia-circulo-nombre">
+              {{ grupo.nombre_negocio }}
+            </span>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <script id="historiasDatos" type="application/json">
+    {{ historias_publicas|tojson }}
+  </script>
+
+  <div
+    id="historiasVisor"
+    class="historias-visor"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Visor de historias"
+  >
+    <div class="historias-visor-contenido">
+      <div id="historiasProgreso" class="historias-progreso"></div>
+
+      <div class="historias-visor-superior">
+        <div id="historiaVisorAvatar" class="historias-visor-avatar"></div>
+
+        <div style="min-width:0; flex:1;">
+          <div
+            id="historiaVisorNegocio"
+            class="historias-visor-negocio"
+          ></div>
+
+          <div
+            id="historiaVisorContador"
+            class="historias-visor-contador"
+          ></div>
+        </div>
+
+        <button
+          type="button"
+          id="cerrarHistorias"
+          class="historias-visor-cerrar"
+          aria-label="Cerrar historias"
+        >
+          ×
+        </button>
+      </div>
+
+      <img
+        id="historiaVisorImagen"
+        class="historias-visor-imagen"
+        alt="Historia del comercio"
+      />
+
+      <button
+        type="button"
+        id="historiaAnterior"
+        class="historias-navegacion historias-anterior"
+        aria-label="Historia anterior"
+      ></button>
+
+      <button
+        type="button"
+        id="historiaPausa"
+        class="historias-navegacion historias-pausa"
+        aria-label="Pausar o continuar historia"
+      ></button>
+
+      <button
+        type="button"
+        id="historiaSiguiente"
+        class="historias-navegacion historias-siguiente"
+        aria-label="Historia siguiente"
+      ></button>
+
+      <div class="historias-visor-sombra"></div>
+
+      <div class="historias-visor-pie">
+        <p id="historiaVisorTexto" class="historias-visor-texto"></p>
+
+        <div class="historias-visor-acciones">
+          <a
+            id="historiaVerPublicacion"
+            class="historias-visor-enlace historias-visor-enlace-principal"
+            href="#"
+          >
+            Ver publicación
+          </a>
+
+          <a
+            id="historiaVerComercio"
+            class="historias-visor-enlace"
+            href="#"
+          >
+            Ver comercio
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <main>
 
     {% if not busqueda %}\n    <!-- CATEGORÍAS -->
@@ -643,7 +1490,7 @@
 
         <div class="categorias-scroll-wrap">
 
-          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(-1)">←</button>
+          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(1)">←</button>
 
           <div class="grilla-categorias categorias-scroll" id="categoriasHome">
 
@@ -689,7 +1536,7 @@
 
           </div>
 
-          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(1)">→</button>
+          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(-1)">→</button>
 
         </div>
 
@@ -716,7 +1563,12 @@
 
             {% for pub in publicaciones %}
 
-              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %}">
+              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
+                {% if pub.tiene_historia %}
+                  <span class="publicacion-historia-indicador">
+                    Historia
+                  </span>
+                {% endif %}
                 {% if pub.categoria == 'Cine y Teatro' %}
                 <div class="cartelera-header">CARTELERA</div>
                 {% endif %}
@@ -838,7 +1690,12 @@
 
             {% for pub in publicaciones %}
 
-              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %}">
+              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
+                {% if pub.tiene_historia %}
+                  <span class="publicacion-historia-indicador">
+                    Historia
+                  </span>
+                {% endif %}
                 {% if pub.categoria == 'Cine y Teatro' %}
                 <div class="cartelera-header">CARTELERA</div>
                 {% endif %}
@@ -937,6 +1794,416 @@
     });
   }
 </script>
+
+
+{% if historias_publicas %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const nodoDatos = document.getElementById("historiasDatos");
+    const visor = document.getElementById("historiasVisor");
+
+    if (!nodoDatos || !visor) {
+      return;
+    }
+
+    let grupos = [];
+
+    try {
+      grupos = JSON.parse(nodoDatos.textContent || "[]");
+    } catch (error) {
+      console.error("No se pudieron leer las historias:", error);
+      return;
+    }
+
+    if (!Array.isArray(grupos) || grupos.length === 0) {
+      return;
+    }
+
+    const imagen = document.getElementById("historiaVisorImagen");
+    const texto = document.getElementById("historiaVisorTexto");
+    const negocio = document.getElementById("historiaVisorNegocio");
+    const contador = document.getElementById("historiaVisorContador");
+    const avatar = document.getElementById("historiaVisorAvatar");
+    const progreso = document.getElementById("historiasProgreso");
+    const verPublicacion = document.getElementById(
+      "historiaVerPublicacion"
+    );
+    const verComercio = document.getElementById(
+      "historiaVerComercio"
+    );
+    const cerrar = document.getElementById("cerrarHistorias");
+    const anterior = document.getElementById("historiaAnterior");
+    const pausa = document.getElementById("historiaPausa");
+    const siguiente = document.getElementById("historiaSiguiente");
+
+    const DURACION_HISTORIA_MS = 7000;
+
+    let grupoActual = 0;
+    let historiaActual = 0;
+    let animacionHistoria = null;
+    let inicioHistoria = 0;
+    let tiempoTranscurrido = 0;
+    let historiaPausada = false;
+
+    // CLICKLOCAL: REGISTRO PÚBLICO MÉTRICAS HISTORIAS V1
+    const vistasHistoriasEnviadas = new Set();
+
+    function historiaEnPantalla() {
+      const grupo = grupos[grupoActual];
+
+      if (!grupo || !Array.isArray(grupo.historias)) {
+        return null;
+      }
+
+      return grupo.historias[historiaActual] || null;
+    }
+
+    function cancelarReproduccion() {
+      if (animacionHistoria !== null) {
+        cancelAnimationFrame(animacionHistoria);
+        animacionHistoria = null;
+      }
+    }
+
+    function actualizarBarraActual(proporcion) {
+      const barraActual = progreso.querySelector(
+        ".historias-progreso-linea.actual span"
+      );
+
+      if (!barraActual) {
+        return;
+      }
+
+      const porcentaje = Math.max(
+        0,
+        Math.min(100, proporcion * 100)
+      );
+
+      barraActual.style.width = porcentaje + "%";
+    }
+
+    function pasoDelTemporizador(marcaTiempo) {
+      if (
+        historiaPausada ||
+        !visor.classList.contains("abierto")
+      ) {
+        return;
+      }
+
+      tiempoTranscurrido = marcaTiempo - inicioHistoria;
+
+      const proporcion =
+        tiempoTranscurrido / DURACION_HISTORIA_MS;
+
+      actualizarBarraActual(proporcion);
+
+      if (proporcion >= 1) {
+        animacionHistoria = null;
+        avanzarHistoria();
+        return;
+      }
+
+      animacionHistoria = requestAnimationFrame(
+        pasoDelTemporizador
+      );
+    }
+
+    function iniciarReproduccion() {
+      cancelarReproduccion();
+
+      historiaPausada = false;
+      tiempoTranscurrido = 0;
+      inicioHistoria = performance.now();
+
+      visor.classList.remove("historia-pausada");
+      actualizarBarraActual(0);
+
+      animacionHistoria = requestAnimationFrame(
+        pasoDelTemporizador
+      );
+    }
+
+    function pausarReproduccion() {
+      if (historiaPausada) {
+        return;
+      }
+
+      historiaPausada = true;
+
+      tiempoTranscurrido = Math.min(
+        performance.now() - inicioHistoria,
+        DURACION_HISTORIA_MS
+      );
+
+      cancelarReproduccion();
+      visor.classList.add("historia-pausada");
+    }
+
+    function continuarReproduccion() {
+      if (!historiaPausada) {
+        return;
+      }
+
+      historiaPausada = false;
+      inicioHistoria = performance.now() - tiempoTranscurrido;
+
+      visor.classList.remove("historia-pausada");
+
+      animacionHistoria = requestAnimationFrame(
+        pasoDelTemporizador
+      );
+    }
+
+    function alternarPausa() {
+      if (historiaPausada) {
+        continuarReproduccion();
+      } else {
+        pausarReproduccion();
+      }
+    }
+
+    function registrarVistaHistoria(historia) {
+      if (
+        !historia ||
+        !historia.id ||
+        !historia.vista_url
+      ) {
+        return;
+      }
+
+      const historiaId = String(historia.id);
+
+      if (vistasHistoriasEnviadas.has(historiaId)) {
+        return;
+      }
+
+      vistasHistoriasEnviadas.add(historiaId);
+
+      fetch(historia.vista_url, {
+        method: "POST",
+        credentials: "same-origin",
+        keepalive: true,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      })
+        .then(function (respuesta) {
+          if (!respuesta.ok) {
+            vistasHistoriasEnviadas.delete(historiaId);
+          }
+        })
+        .catch(function () {
+          vistasHistoriasEnviadas.delete(historiaId);
+        });
+    }
+
+    function dibujarAvatar(grupo) {
+      avatar.innerHTML = "";
+
+      if (grupo.logo_url) {
+        const img = document.createElement("img");
+        img.src = grupo.logo_url;
+        img.alt = grupo.nombre_negocio || "Comercio";
+        avatar.appendChild(img);
+      } else {
+        avatar.textContent = grupo.iniciales || "CL";
+      }
+    }
+
+    function dibujarProgreso(grupo) {
+      progreso.innerHTML = "";
+
+      grupo.historias.forEach(function (_, indice) {
+        const linea = document.createElement("div");
+        linea.className = "historias-progreso-linea";
+        linea.dataset.historiaIndice = String(indice);
+        linea.setAttribute("role", "button");
+        linea.setAttribute("tabindex", "0");
+        linea.setAttribute(
+          "aria-label",
+          "Ir a historia " +
+            (indice + 1) +
+            " de " +
+            grupo.historias.length
+        );
+
+        function irAHistoriaSeleccionada(event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          historiaActual = indice;
+          mostrarHistoria();
+        }
+
+        linea.addEventListener(
+          "click",
+          irAHistoriaSeleccionada
+        );
+
+        linea.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            irAHistoriaSeleccionada(event);
+          }
+        });
+
+        if (indice < historiaActual) {
+          linea.classList.add("completa");
+        } else if (indice === historiaActual) {
+          linea.classList.add("actual");
+        }
+
+        const relleno = document.createElement("span");
+        linea.appendChild(relleno);
+        progreso.appendChild(linea);
+      });
+    }
+
+    function mostrarHistoria() {
+      const grupo = grupos[grupoActual];
+      const historia = historiaEnPantalla();
+
+      if (!grupo || !historia) {
+        cerrarVisor();
+        return;
+      }
+
+      imagen.src = historia.imagen_url || "";
+      imagen.alt = "Historia de " + (
+        grupo.nombre_negocio || "comercio"
+      );
+
+      texto.textContent = historia.texto || "";
+      texto.style.display = historia.texto ? "block" : "none";
+
+      negocio.textContent = grupo.nombre_negocio || "Comercio local";
+      contador.textContent =
+        (historiaActual + 1) + " de " + grupo.historias.length;
+
+      dibujarAvatar(grupo);
+      dibujarProgreso(grupo);
+
+      verComercio.href =
+        historia.comercio_url ||
+        grupo.comercio_url ||
+        "#";
+
+      if (historia.publicacion_url) {
+        verPublicacion.href = historia.publicacion_url;
+        verPublicacion.style.display = "inline-flex";
+      } else {
+        verPublicacion.removeAttribute("href");
+        verPublicacion.style.display = "none";
+      }
+
+      registrarVistaHistoria(historia);
+      iniciarReproduccion();
+    }
+
+    function abrirVisor(indiceGrupo) {
+      grupoActual = Number(indiceGrupo) || 0;
+      historiaActual = 0;
+
+      visor.classList.add("abierto");
+      document.body.style.overflow = "hidden";
+
+      mostrarHistoria();
+    }
+
+    function cerrarVisor() {
+      cancelarReproduccion();
+
+      historiaPausada = false;
+      tiempoTranscurrido = 0;
+
+      visor.classList.remove("abierto");
+      visor.classList.remove("historia-pausada");
+
+      document.body.style.overflow = "";
+      imagen.removeAttribute("src");
+    }
+
+    function avanzarHistoria() {
+      const grupo = grupos[grupoActual];
+
+      if (!grupo) {
+        cerrarVisor();
+        return;
+      }
+
+      if (historiaActual < grupo.historias.length - 1) {
+        historiaActual += 1;
+        mostrarHistoria();
+        return;
+      }
+
+      if (grupoActual < grupos.length - 1) {
+        grupoActual += 1;
+        historiaActual = 0;
+        mostrarHistoria();
+        return;
+      }
+
+      cerrarVisor();
+    }
+
+    function retrocederHistoria() {
+      if (historiaActual > 0) {
+        historiaActual -= 1;
+        mostrarHistoria();
+        return;
+      }
+
+      if (grupoActual > 0) {
+        grupoActual -= 1;
+
+        const grupoAnterior = grupos[grupoActual];
+        historiaActual = Math.max(
+          (grupoAnterior.historias || []).length - 1,
+          0
+        );
+
+        mostrarHistoria();
+      }
+    }
+
+    document.querySelectorAll("[data-historia-grupo]").forEach(
+      function (boton) {
+        boton.addEventListener("click", function () {
+          abrirVisor(boton.dataset.historiaGrupo);
+        });
+      }
+    );
+
+    cerrar.addEventListener("click", cerrarVisor);
+    anterior.addEventListener("click", retrocederHistoria);
+    pausa.addEventListener("click", alternarPausa);
+    siguiente.addEventListener("click", avanzarHistoria);
+
+    visor.addEventListener("click", function (event) {
+      if (event.target === visor) {
+        cerrarVisor();
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (!visor.classList.contains("abierto")) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        cerrarVisor();
+      } else if (event.key === "ArrowRight") {
+        avanzarHistoria();
+      } else if (event.key === "ArrowLeft") {
+        retrocederHistoria();
+      } else if (event.key === " ") {
+        event.preventDefault();
+        alternarPausa();
+      }
+    });
+  });
+</script>
+{% endif %}
 
 </body>
 </html>

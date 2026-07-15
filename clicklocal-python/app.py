@@ -335,6 +335,7 @@ def analytics_registrar_evento(
     comercio_id=None,
     publicacion_id=None,
     lista_buscable_id=None,
+    historia_id=None,
     busqueda_id=None,
     consulta_origen=None,
     origen="web",
@@ -348,6 +349,7 @@ def analytics_registrar_evento(
         "comercio_id": uuid_o_none(comercio_id),
         "publicacion_id": uuid_o_none(publicacion_id),
         "lista_buscable_id": uuid_o_none(lista_buscable_id),
+        "historia_id": uuid_o_none(historia_id),
         "busqueda_id": uuid_o_none(busqueda_id),
         "consulta_origen": str(consulta_origen or "").strip() or None,
         "consulta_normalizada": normalizar_texto_analytics(consulta_origen),
@@ -436,6 +438,231 @@ def analytics_whatsapp(comercio_id):
     return redirect(url_for("inicio"))
 
 
+
+# ============================================================
+# CLICKLOCAL: ANALYTICS DE HISTORIAS V1
+# ============================================================
+
+def _historia_publica_para_analytics(historia_id):
+    historia_id = uuid_o_none(historia_id)
+
+    if not historia_id:
+        return None, None
+
+    try:
+        historia_res = (
+            supabase_admin
+            .table("historias")
+            .select(
+                "id,comercio_id,publicacion_id,"
+                "activa,eliminada,expires_at"
+            )
+            .eq("id", historia_id)
+            .limit(1)
+            .execute()
+        )
+
+        historias = historia_res.data or []
+
+        if not historias:
+            return None, None
+
+        historia = historias[0]
+
+        if historia.get("activa") is not True:
+            return None, None
+
+        if historia.get("eliminada") is True:
+            return None, None
+
+        if not _historia_esta_vigente(historia):
+            return None, None
+
+        comercio_id = historia.get("comercio_id")
+
+        if not comercio_id:
+            return None, None
+
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,activo,plan")
+            .eq("id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+
+        comercios = comercio_res.data or []
+
+        if not comercios:
+            return None, None
+
+        comercio = comercios[0]
+
+        if comercio.get("activo") is False:
+            return None, None
+
+        plan = str(
+            comercio.get("plan") or "gratis"
+        ).strip().lower()
+
+        if plan != "premium":
+            return None, None
+
+        return historia, comercio
+
+    except Exception as e:
+        print(
+            "ERROR VALIDANDO HISTORIA PARA ANALYTICS:",
+            e,
+            flush=True
+        )
+        return None, None
+
+
+@app.route(
+    "/analytics/historias/vista/<historia_id>",
+    methods=["POST"]
+)
+def analytics_historia_vista(historia_id):
+    import hashlib
+
+    historia, comercio = _historia_publica_para_analytics(
+        historia_id
+    )
+
+    if not historia or not comercio:
+        return "", 404
+
+    historia_id_valida = str(historia.get("id"))
+
+    clave_historia = hashlib.sha256(
+        historia_id_valida.encode("utf-8")
+    ).hexdigest()[:16]
+
+    vistas_sesion_raw = str(
+        session.get("historias_vistas_sesion") or ""
+    )
+
+    vistas_sesion = [
+        item
+        for item in vistas_sesion_raw.split(".")
+        if item
+    ]
+
+    if clave_historia in vistas_sesion:
+        return "", 204
+
+    registrado = analytics_registrar_evento(
+        "vista_historia",
+        comercio_id=historia.get("comercio_id"),
+        publicacion_id=historia.get("publicacion_id"),
+        historia_id=historia.get("id"),
+        origen="visor_historia",
+        metadata={
+            "medicion": "una_vista_por_historia_y_sesion"
+        }
+    )
+
+    if registrado:
+        vistas_sesion.append(clave_historia)
+
+        # Máximo práctico: cubre todas las historias públicas
+        # disponibles durante una sesión sin inflar la cookie.
+        vistas_sesion = vistas_sesion[-120:]
+
+        session["historias_vistas_sesion"] = ".".join(
+            vistas_sesion
+        )
+        session.modified = True
+
+    return "", 204
+
+
+@app.route(
+    "/analytics/historias/publicacion/<historia_id>"
+)
+def analytics_historia_publicacion(historia_id):
+    historia, comercio = _historia_publica_para_analytics(
+        historia_id
+    )
+
+    if not historia or not comercio:
+        return redirect(url_for("inicio"))
+
+    publicacion_id = uuid_o_none(
+        historia.get("publicacion_id")
+    )
+
+    if not publicacion_id:
+        return redirect(
+            f"/comercio/{historia.get('comercio_id')}"
+        )
+
+    try:
+        publicacion_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select("id,comercio_id,activa,eliminada")
+            .eq("id", publicacion_id)
+            .eq("comercio_id", historia.get("comercio_id"))
+            .eq("activa", True)
+            .eq("eliminada", False)
+            .limit(1)
+            .execute()
+        )
+
+        if not (publicacion_res.data or []):
+            return redirect(
+                f"/comercio/{historia.get('comercio_id')}"
+            )
+
+        analytics_registrar_evento(
+            "click_historia_publicacion",
+            comercio_id=historia.get("comercio_id"),
+            publicacion_id=publicacion_id,
+            historia_id=historia.get("id"),
+            origen="boton_historia_publicacion"
+        )
+
+        return redirect(f"/detalle/{publicacion_id}")
+
+    except Exception as e:
+        print(
+            "ERROR REGISTRANDO CLIC DE HISTORIA A PUBLICACIÓN:",
+            e,
+            flush=True
+        )
+
+        return redirect(
+            f"/comercio/{historia.get('comercio_id')}"
+        )
+
+
+@app.route(
+    "/analytics/historias/comercio/<historia_id>"
+)
+def analytics_historia_comercio(historia_id):
+    historia, comercio = _historia_publica_para_analytics(
+        historia_id
+    )
+
+    if not historia or not comercio:
+        return redirect(url_for("inicio"))
+
+    comercio_id = historia.get("comercio_id")
+
+    analytics_registrar_evento(
+        "click_historia_comercio",
+        comercio_id=comercio_id,
+        publicacion_id=historia.get("publicacion_id"),
+        historia_id=historia.get("id"),
+        origen="boton_historia_comercio"
+    )
+
+    return redirect(f"/comercio/{comercio_id}")
+
+
 # INICIO / PLATAFORMA
 @app.route("/")
 @app.route("/index.html")
@@ -446,6 +673,7 @@ def inicio():
     comercio = session.get("comercio") or comercio_default()
     publicaciones_finales = []
     comercios_relacionados = []
+    historias_publicas = []
     busqueda_id = None
 
     busqueda = request.args.get("q", "").strip()
@@ -598,7 +826,7 @@ def inicio():
         comercios_res = (
             supabase_admin
             .table("comercios")
-            .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,whatsapp,activo,plan")
+            .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,logo_url,whatsapp,activo,plan")
             .in_("id", list(set(comercio_ids)))
             .execute()
         )
@@ -936,11 +1164,233 @@ def inicio():
         publicaciones_finales = []
         comercios_relacionados = []
 
+    # ====================================================
+    # 3) HISTORIAS PREMIUM PÚBLICAS
+    # Un círculo por comercio, con hasta 2 historias vigentes.
+    # Si existe logo_url se usa el logo; de lo contrario,
+    # se muestran las iniciales del comercio.
+    # ====================================================
+    try:
+        historias_res = (
+            supabase_admin
+            .table("historias")
+            .select(
+                "id,comercio_id,imagen_url,texto,publicacion_id,"
+                "activa,eliminada,expires_at,created_at"
+            )
+            .eq("activa", True)
+            .eq("eliminada", False)
+            .order("created_at", desc=True)
+            .limit(100)
+            .execute()
+        )
+
+        historias_candidatas = historias_res.data or []
+
+        historias_vigentes = [
+            historia
+            for historia in historias_candidatas
+            if _historia_esta_vigente(historia)
+        ]
+
+        comercio_ids_historias = [
+            historia.get("comercio_id")
+            for historia in historias_vigentes
+            if historia.get("comercio_id")
+        ]
+
+        comercios_historias_por_id = cargar_comercios_por_id(
+            comercio_ids_historias
+        )
+
+        publicacion_ids_historias = list({
+            historia.get("publicacion_id")
+            for historia in historias_vigentes
+            if historia.get("publicacion_id")
+        })
+
+        publicaciones_vinculadas_validas = set()
+
+        if publicacion_ids_historias:
+            publicaciones_vinculadas_res = (
+                supabase_admin
+                .table("publicaciones")
+                .select("id,comercio_id,activa,eliminada")
+                .in_("id", publicacion_ids_historias)
+                .eq("activa", True)
+                .eq("eliminada", False)
+                .execute()
+            )
+
+            publicaciones_vinculadas_validas = {
+                fila.get("id")
+                for fila in (publicaciones_vinculadas_res.data or [])
+                if fila.get("id")
+            }
+
+        publicacion_ids_resultados = {
+            item.get("id")
+            for item in publicaciones_finales
+            if item.get("tipo") == "publicacion" and item.get("id")
+        }
+
+        comercio_ids_resultados = {
+            item.get("comercio_id")
+            for item in publicaciones_finales
+            if item.get("comercio_id")
+        }
+
+        comercio_ids_resultados.update({
+            item.get("comercio_id")
+            for item in comercios_relacionados
+            if item.get("comercio_id")
+        })
+
+        def iniciales_comercio(nombre):
+            palabras = [
+                palabra
+                for palabra in str(nombre or "").strip().split()
+                if palabra
+            ]
+
+            if not palabras:
+                return "CL"
+
+            return "".join(
+                palabra[0]
+                for palabra in palabras[:2]
+            ).upper()
+
+        grupos_por_comercio = {}
+        orden_comercios = []
+
+        for historia in historias_vigentes:
+            comercio_id = historia.get("comercio_id")
+            comercio_historia = comercios_historias_por_id.get(
+                comercio_id,
+                {}
+            )
+
+            if not comercio_historia:
+                continue
+
+            if comercio_historia.get("activo") is False:
+                continue
+
+            plan_historia = str(
+                comercio_historia.get("plan") or "gratis"
+            ).strip().lower()
+
+            if plan_historia != "premium":
+                continue
+
+            nombre_negocio = (
+                comercio_historia.get("nombre_negocio")
+                or "Comercio local"
+            )
+
+            if busqueda_normalizada:
+                texto_historia_busqueda = " ".join([
+                    str(historia.get("texto") or ""),
+                    str(nombre_negocio),
+                    str(comercio_historia.get("categoria") or ""),
+                    str(comercio_historia.get("ciudad") or ""),
+                ])
+
+                score_historia, _ = calcular_score_busqueda(
+                    texto_historia_busqueda,
+                    peso=3
+                )
+
+                publicacion_id = historia.get("publicacion_id")
+
+                relacionada = (
+                    score_historia > 0
+                    or publicacion_id in publicacion_ids_resultados
+                    or comercio_id in comercio_ids_resultados
+                )
+
+                if not relacionada:
+                    continue
+
+            if comercio_id not in grupos_por_comercio:
+                grupos_por_comercio[comercio_id] = {
+                    "comercio_id": comercio_id,
+                    "nombre_negocio": nombre_negocio,
+                    "iniciales": iniciales_comercio(nombre_negocio),
+                    "logo_url": str(
+                        comercio_historia.get("logo_url") or ""
+                    ).strip(),
+                    "comercio_url": f"/comercio/{comercio_id}",
+                    "historias": [],
+                }
+
+                orden_comercios.append(comercio_id)
+
+            historia_id = historia.get("id")
+            publicacion_id = historia.get("publicacion_id")
+            publicacion_url = ""
+
+            if (
+                publicacion_id
+                and publicacion_id in publicaciones_vinculadas_validas
+            ):
+                publicacion_url = (
+                    f"/analytics/historias/publicacion/"
+                    f"{historia_id}"
+                )
+
+            grupos_por_comercio[comercio_id]["historias"].append({
+                "id": historia_id,
+                "imagen_url": historia.get("imagen_url") or "",
+                "texto": historia.get("texto") or "",
+                "publicacion_id": publicacion_id,
+                "publicacion_url": publicacion_url,
+                "comercio_url": (
+                    f"/analytics/historias/comercio/"
+                    f"{historia_id}"
+                ),
+                "vista_url": (
+                    f"/analytics/historias/vista/"
+                    f"{historia_id}"
+                ),
+                "expires_at": historia.get("expires_at"),
+            })
+
+        historias_publicas = [
+            grupos_por_comercio[comercio_id]
+            for comercio_id in orden_comercios
+            if grupos_por_comercio[comercio_id]["historias"]
+        ][:30]
+
+        comercios_con_historia = {
+            grupo.get("comercio_id")
+            for grupo in historias_publicas
+            if grupo.get("comercio_id")
+        }
+
+        for item in publicaciones_finales:
+            item["tiene_historia"] = (
+                item.get("comercio_id") in comercios_con_historia
+            )
+
+    except Exception as e:
+        print(
+            "ERROR CARGANDO HISTORIAS PÚBLICAS:",
+            e,
+            flush=True
+        )
+        historias_publicas = []
+
+        for item in publicaciones_finales:
+            item["tiene_historia"] = False
+
     return render_template(
         "index.html",
         comercio=comercio,
         publicaciones=publicaciones_finales,
         comercios_relacionados=comercios_relacionados,
+        historias_publicas=historias_publicas,
         busqueda=busqueda
     )
 
@@ -1402,6 +1852,142 @@ def panel():
             publicaciones = session.get("publicaciones", [])
     else:
         publicaciones = session.get("publicaciones", [])
+
+    # ============================================================
+    # CLICKLOCAL: MÉTRICAS PREMIUM POR PUBLICACIÓN V1
+    #
+    # Las visitas comenzaron a registrarse correctamente cuando
+    # Supabase habilitó visita_publicacion el 14/07/2026.
+    # No se mezclan clics antiguos con visitas que antes no se guardaban.
+    # ============================================================
+    metricas_publicaciones_desde_iso = (
+        "2026-07-14T19:46:00+00:00"
+    )
+    metricas_publicaciones_desde_mostrar = "14/07/2026"
+
+    for publicacion in publicaciones:
+        publicacion["metricas_visitas"] = 0
+        publicacion["metricas_whatsapp"] = 0
+        publicacion["metricas_conversion"] = None
+        publicacion["metricas_desde"] = (
+            metricas_publicaciones_desde_mostrar
+        )
+
+    if plan_actual == "premium" and publicaciones:
+        try:
+            ids_publicaciones_metricas = [
+                publicacion.get("id")
+                for publicacion in publicaciones
+                if publicacion.get("id")
+            ]
+
+            metricas_por_publicacion = {
+                str(publicacion_id): {
+                    "visita_publicacion": 0,
+                    "click_whatsapp": 0,
+                }
+                for publicacion_id in ids_publicaciones_metricas
+            }
+
+            if ids_publicaciones_metricas:
+                inicio_eventos = 0
+                tamanio_pagina_eventos = 1000
+
+                while True:
+                    eventos_res = (
+                        supabase_admin
+                        .table("eventos_analytics")
+                        .select(
+                            "publicacion_id,tipo_evento,"
+                            "created_at,origen"
+                        )
+                        .eq("comercio_id", comercio_id)
+                        .in_(
+                            "publicacion_id",
+                            ids_publicaciones_metricas
+                        )
+                        .in_(
+                            "tipo_evento",
+                            [
+                                "visita_publicacion",
+                                "click_whatsapp",
+                            ]
+                        )
+                        .gte(
+                            "created_at",
+                            metricas_publicaciones_desde_iso
+                        )
+                        .range(
+                            inicio_eventos,
+                            inicio_eventos
+                            + tamanio_pagina_eventos
+                            - 1
+                        )
+                        .execute()
+                    )
+
+                    eventos = eventos_res.data or []
+
+                    for evento in eventos:
+                        publicacion_id_evento = str(
+                            evento.get("publicacion_id") or ""
+                        )
+
+                        tipo_evento = str(
+                            evento.get("tipo_evento") or ""
+                        )
+
+                        if (
+                            publicacion_id_evento
+                            in metricas_por_publicacion
+                            and tipo_evento
+                            in metricas_por_publicacion[
+                                publicacion_id_evento
+                            ]
+                        ):
+                            metricas_por_publicacion[
+                                publicacion_id_evento
+                            ][tipo_evento] += 1
+
+                    if len(eventos) < tamanio_pagina_eventos:
+                        break
+
+                    inicio_eventos += tamanio_pagina_eventos
+
+            for publicacion in publicaciones:
+                publicacion_id_actual = str(
+                    publicacion.get("id") or ""
+                )
+
+                metricas = metricas_por_publicacion.get(
+                    publicacion_id_actual,
+                    {}
+                )
+
+                visitas = int(
+                    metricas.get("visita_publicacion", 0)
+                )
+
+                clicks_whatsapp = int(
+                    metricas.get("click_whatsapp", 0)
+                )
+
+                publicacion["metricas_visitas"] = visitas
+                publicacion["metricas_whatsapp"] = clicks_whatsapp
+
+                if visitas > 0:
+                    publicacion["metricas_conversion"] = round(
+                        (clicks_whatsapp / visitas) * 100
+                    )
+                else:
+                    publicacion["metricas_conversion"] = None
+
+        except Exception as e:
+            print(
+                "ERROR CARGANDO MÉTRICAS DE PUBLICACIONES:",
+                e,
+                flush=True
+            )
 
     # Traer listas buscables reales desde Supabase
     listas_buscables = []
@@ -1891,14 +2477,706 @@ def panel():
             print("\nERROR CARGANDO CARTELERAS EN PANEL:", e, flush=True)
             carteleras = []
 
+    # ============================================================
+    # HISTORIAS PREMIUM - LECTURA PARA EL PANEL
+    # Máximo 2 historias activas y vigentes por comercio.
+    # ============================================================
+    es_premium = str(comercio.get("plan_actual") or comercio.get("plan") or "").strip().lower() == "premium"
+    historias = []
+    historias_activas = 0
+
+    if es_premium:
+        try:
+            historias_res = (
+                supabase_admin
+                .table("historias")
+                .select("*")
+                .eq("comercio_id", comercio_id)
+                .eq("eliminada", False)
+                .order("created_at", desc=True)
+                .execute()
+            )
+
+            historias = historias_res.data or []
+            ahora_utc = datetime.datetime.now(datetime.timezone.utc)
+
+            for historia in historias:
+                expires_at_raw = str(historia.get("expires_at") or "").strip()
+                vigente = False
+
+                if expires_at_raw:
+                    try:
+                        expires_at = datetime.datetime.fromisoformat(
+                            expires_at_raw.replace("Z", "+00:00")
+                        )
+
+                        if expires_at.tzinfo is None:
+                            expires_at = expires_at.replace(
+                                tzinfo=datetime.timezone.utc
+                            )
+
+                        vigente = expires_at > ahora_utc
+                    except Exception:
+                        vigente = False
+
+                historia["vigente"] = vigente
+                historia["activa_vigente"] = (
+                    historia.get("activa") is True
+                    and historia.get("eliminada") is not True
+                    and vigente
+                )
+
+                historia["metricas_vistas"] = 0
+                historia["metricas_click_publicacion"] = 0
+                historia["metricas_click_comercio"] = 0
+
+            ids_historias_metricas = [
+                historia.get("id")
+                for historia in historias
+                if historia.get("id")
+            ]
+
+            if ids_historias_metricas:
+                try:
+                    metricas_por_historia = {
+                        str(historia_id): {
+                            "vista_historia": 0,
+                            "click_historia_publicacion": 0,
+                            "click_historia_comercio": 0,
+                        }
+                        for historia_id in ids_historias_metricas
+                    }
+
+                    inicio_metricas = 0
+                    tamanio_pagina_metricas = 1000
+
+                    while True:
+                        eventos_res = (
+                            supabase_admin
+                            .table("eventos_analytics")
+                            .select("historia_id,tipo_evento")
+                            .in_(
+                                "historia_id",
+                                ids_historias_metricas
+                            )
+                            .range(
+                                inicio_metricas,
+                                inicio_metricas
+                                + tamanio_pagina_metricas
+                                - 1
+                            )
+                            .execute()
+                        )
+
+                        eventos = eventos_res.data or []
+
+                        for evento in eventos:
+                            historia_id_evento = str(
+                                evento.get("historia_id") or ""
+                            )
+
+                            tipo_evento = str(
+                                evento.get("tipo_evento") or ""
+                            )
+
+                            if (
+                                historia_id_evento
+                                in metricas_por_historia
+                                and tipo_evento
+                                in metricas_por_historia[
+                                    historia_id_evento
+                                ]
+                            ):
+                                metricas_por_historia[
+                                    historia_id_evento
+                                ][tipo_evento] += 1
+
+                        if len(eventos) < tamanio_pagina_metricas:
+                            break
+
+                        inicio_metricas += tamanio_pagina_metricas
+
+                    for historia in historias:
+                        historia_id_actual = str(
+                            historia.get("id") or ""
+                        )
+
+                        metricas = metricas_por_historia.get(
+                            historia_id_actual,
+                            {}
+                        )
+
+                        historia["metricas_vistas"] = int(
+                            metricas.get("vista_historia", 0)
+                        )
+
+                        historia["metricas_click_publicacion"] = int(
+                            metricas.get(
+                                "click_historia_publicacion",
+                                0
+                            )
+                        )
+
+                        historia["metricas_click_comercio"] = int(
+                            metricas.get(
+                                "click_historia_comercio",
+                                0
+                            )
+                        )
+
+                except Exception as e:
+                    print(
+                        "ERROR CARGANDO MÉTRICAS DE HISTORIAS:",
+                        e,
+                        flush=True
+                    )
+
+            historias_activas = sum(
+                1
+                for historia in historias
+                if historia.get("activa_vigente") is True
+            )
+
+        except Exception as e:
+            print("\nERROR CARGANDO HISTORIAS EN PANEL:", e, flush=True)
+            historias = []
+            historias_activas = 0
+
     return render_template(
         "panel.html",
         comercio=comercio,
         publicaciones=publicaciones,
         listas_buscables=listas_buscables,
         es_cine_teatro=es_cine_teatro,
-        carteleras=carteleras
+        carteleras=carteleras,
+        es_premium=es_premium,
+        historias=historias,
+        historias_activas=historias_activas,
+        limite_historias_activas=2
     )
+
+
+
+# ============================================================
+# HISTORIAS PREMIUM
+# Máximo 2 historias activas y vigentes por comercio.
+# ============================================================
+
+def _historia_esta_vigente(historia):
+    expires_at_raw = str((historia or {}).get("expires_at") or "").strip()
+
+    if not expires_at_raw:
+        return False
+
+    try:
+        expires_at = datetime.datetime.fromisoformat(
+            expires_at_raw.replace("Z", "+00:00")
+        )
+
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+
+        return expires_at > datetime.datetime.now(datetime.timezone.utc)
+
+    except Exception:
+        return False
+
+
+def _historias_activas_del_comercio(comercio_id):
+    historias_res = (
+        supabase_admin
+        .table("historias")
+        .select("id,activa,eliminada,expires_at")
+        .eq("comercio_id", comercio_id)
+        .eq("eliminada", False)
+        .execute()
+    )
+
+    historias = historias_res.data or []
+
+    return [
+        historia
+        for historia in historias
+        if historia.get("activa") is True
+        and _historia_esta_vigente(historia)
+    ]
+
+
+def _contexto_comercio_para_historias():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return None, None, "login"
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("*")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+
+        comercios = comercio_res.data or []
+
+        if not comercios:
+            return None, None, "comercio"
+
+        comercio = comercios[0]
+        comercio_id = comercio.get("id")
+
+        if comercio.get("activo") is False:
+            return comercio, comercio_id, "bloqueado"
+
+        plan = str(
+            comercio.get("plan_actual")
+            or comercio.get("plan")
+            or "gratis"
+        ).strip().lower()
+
+        if plan != "premium":
+            return comercio, comercio_id, "premium"
+
+        session["comercio"] = comercio
+        session.modified = True
+
+        return comercio, comercio_id, None
+
+    except Exception as e:
+        print("ERROR OBTENIENDO COMERCIO PARA HISTORIAS:", e, flush=True)
+        return None, None, "servidor"
+
+
+def _volver_historias(**parametros):
+    return redirect(
+        url_for("panel", **parametros) + "#historias-premium"
+    )
+
+
+@app.route("/panel/historias/crear", methods=["POST"])
+def crear_historia_panel():
+    comercio, comercio_id, error_contexto = _contexto_comercio_para_historias()
+
+    if error_contexto == "login":
+        return redirect(url_for("login"))
+
+    if error_contexto == "bloqueado":
+        return "Esta cuenta fue bloqueada por administración.", 403
+
+    if error_contexto == "premium":
+        return _volver_historias(historia_error="solo_premium")
+
+    if error_contexto or not comercio_id:
+        return _volver_historias(historia_error="servidor")
+
+    try:
+        historias_activas = _historias_activas_del_comercio(comercio_id)
+
+        if len(historias_activas) >= 2:
+            return _volver_historias(historia_error="limite")
+
+    except Exception as e:
+        print("ERROR CONTANDO HISTORIAS ACTIVAS:", e, flush=True)
+        return _volver_historias(historia_error="servidor")
+
+    texto_historia = request.form.get("historia_texto", "").strip()
+
+    if len(texto_historia) > 180:
+        return _volver_historias(historia_error="texto")
+
+    publicacion_id = request.form.get(
+        "historia_publicacion_id",
+        ""
+    ).strip()
+
+    if publicacion_id:
+        try:
+            uuid.UUID(publicacion_id)
+
+            publicacion_res = (
+                supabase_admin
+                .table("publicaciones")
+                .select("id")
+                .eq("id", publicacion_id)
+                .eq("comercio_id", comercio_id)
+                .eq("activa", True)
+                .eq("eliminada", False)
+                .limit(1)
+                .execute()
+            )
+
+            if not publicacion_res.data:
+                return _volver_historias(
+                    historia_error="publicacion"
+                )
+
+        except Exception:
+            return _volver_historias(historia_error="publicacion")
+    else:
+        publicacion_id = None
+
+    foto = request.files.get("historia_foto")
+
+    if not foto or not foto.filename:
+        return _volver_historias(historia_error="foto")
+
+    try:
+        buf = procesar_imagen_clicklocal(
+            foto,
+            contexto="historia_premium"
+        )
+
+        nombre_final = f"{uuid.uuid4().hex}.jpg"
+        ruta_objeto = f"historias/{nombre_final}"
+
+        try:
+            supabase_admin.storage.from_("publicaciones").upload(
+                ruta_objeto,
+                buf.getvalue(),
+                file_options={"content-type": "image/jpeg"}
+            )
+        except Exception:
+            buf.seek(0)
+            supabase_admin.storage.from_("publicaciones").upload(
+                ruta_objeto,
+                buf,
+                file_options={"content-type": "image/jpeg"}
+            )
+
+        url_res = (
+            supabase_admin
+            .storage
+            .from_("publicaciones")
+            .get_public_url(ruta_objeto)
+        )
+
+        if isinstance(url_res, dict):
+            imagen_url = (
+                url_res.get("publicURL")
+                or url_res.get("publicUrl")
+                or url_res.get("public_url")
+                or ""
+            )
+        else:
+            imagen_url = str(url_res or "").strip()
+
+        if not imagen_url:
+            base = supabase_admin._client.url
+            imagen_url = (
+                f"{base}/storage/v1/object/public/"
+                f"publicaciones/{ruta_objeto}"
+            )
+
+        expires_at = (
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(hours=24)
+        ).isoformat()
+
+        nueva_historia = {
+            "comercio_id": comercio_id,
+            "imagen_url": imagen_url,
+            "texto": texto_historia or None,
+            "publicacion_id": publicacion_id,
+            "activa": True,
+            "eliminada": False,
+            "expires_at": expires_at,
+        }
+
+        supabase_admin.table("historias").insert(
+            nueva_historia
+        ).execute()
+
+        return _volver_historias(historia_ok="creada")
+
+    except Exception as e:
+        print("\nERROR CREANDO HISTORIA PREMIUM:", flush=True)
+        print(type(e), e, flush=True)
+        return _volver_historias(historia_error="guardar")
+
+
+@app.route(
+    "/panel/historias/desactivar/<historia_id>",
+    methods=["POST"]
+)
+def desactivar_historia_panel(historia_id):
+    comercio, comercio_id, error_contexto = _contexto_comercio_para_historias()
+
+    if error_contexto == "login":
+        return redirect(url_for("login"))
+
+    if error_contexto or not comercio_id:
+        return _volver_historias(historia_error="permiso")
+
+    try:
+        uuid.UUID(str(historia_id))
+
+        supabase_admin.table("historias").update({
+            "activa": False
+        }).eq(
+            "id", historia_id
+        ).eq(
+            "comercio_id", comercio_id
+        ).eq(
+            "eliminada", False
+        ).execute()
+
+        return _volver_historias(historia_ok="desactivada")
+
+    except Exception as e:
+        print("ERROR DESACTIVANDO HISTORIA:", e, flush=True)
+        return _volver_historias(historia_error="desactivar")
+
+
+@app.route(
+    "/panel/historias/activar/<historia_id>",
+    methods=["POST"]
+)
+def activar_historia_panel(historia_id):
+    comercio, comercio_id, error_contexto = _contexto_comercio_para_historias()
+
+    if error_contexto == "login":
+        return redirect(url_for("login"))
+
+    if error_contexto or not comercio_id:
+        return _volver_historias(historia_error="permiso")
+
+    try:
+        uuid.UUID(str(historia_id))
+
+        historia_res = (
+            supabase_admin
+            .table("historias")
+            .select("id,activa,eliminada,expires_at")
+            .eq("id", historia_id)
+            .eq("comercio_id", comercio_id)
+            .eq("eliminada", False)
+            .limit(1)
+            .execute()
+        )
+
+        historias = historia_res.data or []
+
+        if not historias:
+            return _volver_historias(historia_error="no_existe")
+
+        historia = historias[0]
+
+        if not _historia_esta_vigente(historia):
+            return _volver_historias(historia_error="vencida")
+
+        if historia.get("activa") is not True:
+            historias_activas = _historias_activas_del_comercio(
+                comercio_id
+            )
+
+            if len(historias_activas) >= 2:
+                return _volver_historias(historia_error="limite")
+
+        supabase_admin.table("historias").update({
+            "activa": True
+        }).eq(
+            "id", historia_id
+        ).eq(
+            "comercio_id", comercio_id
+        ).execute()
+
+        return _volver_historias(historia_ok="activada")
+
+    except Exception as e:
+        print("ERROR ACTIVANDO HISTORIA:", e, flush=True)
+        return _volver_historias(historia_error="activar")
+
+
+
+@app.route(
+    "/panel/historias/editar/<historia_id>",
+    methods=["POST"]
+)
+def editar_historia_panel(historia_id):
+    comercio, comercio_id, error_contexto = _contexto_comercio_para_historias()
+
+    if error_contexto == "login":
+        return redirect(url_for("login"))
+
+    if error_contexto == "bloqueado":
+        return "Esta cuenta fue bloqueada por administración.", 403
+
+    if error_contexto == "premium":
+        return _volver_historias(historia_error="solo_premium")
+
+    if error_contexto or not comercio_id:
+        return _volver_historias(historia_error="permiso")
+
+    try:
+        uuid.UUID(str(historia_id))
+
+        historia_res = (
+            supabase_admin
+            .table("historias")
+            .select("id")
+            .eq("id", historia_id)
+            .eq("comercio_id", comercio_id)
+            .eq("eliminada", False)
+            .limit(1)
+            .execute()
+        )
+
+        if not (historia_res.data or []):
+            return _volver_historias(historia_error="no_existe")
+
+        texto_historia = request.form.get(
+            "historia_texto",
+            ""
+        ).strip()
+
+        if len(texto_historia) > 180:
+            return _volver_historias(historia_error="texto")
+
+        publicacion_id = request.form.get(
+            "historia_publicacion_id",
+            ""
+        ).strip()
+
+        if publicacion_id:
+            try:
+                uuid.UUID(publicacion_id)
+
+                publicacion_res = (
+                    supabase_admin
+                    .table("publicaciones")
+                    .select("id")
+                    .eq("id", publicacion_id)
+                    .eq("comercio_id", comercio_id)
+                    .eq("activa", True)
+                    .eq("eliminada", False)
+                    .limit(1)
+                    .execute()
+                )
+
+                if not publicacion_res.data:
+                    return _volver_historias(
+                        historia_error="publicacion"
+                    )
+
+            except Exception:
+                return _volver_historias(
+                    historia_error="publicacion"
+                )
+        else:
+            publicacion_id = None
+
+        actualizacion = {
+            "texto": texto_historia or None,
+            "publicacion_id": publicacion_id,
+        }
+
+        foto = request.files.get("historia_foto")
+
+        if foto and foto.filename:
+            buf = procesar_imagen_clicklocal(
+                foto,
+                contexto="historia_premium"
+            )
+
+            nombre_final = f"{uuid.uuid4().hex}.jpg"
+            ruta_objeto = f"historias/{nombre_final}"
+
+            try:
+                supabase_admin.storage.from_("publicaciones").upload(
+                    ruta_objeto,
+                    buf.getvalue(),
+                    file_options={"content-type": "image/jpeg"}
+                )
+            except Exception:
+                buf.seek(0)
+                supabase_admin.storage.from_("publicaciones").upload(
+                    ruta_objeto,
+                    buf,
+                    file_options={"content-type": "image/jpeg"}
+                )
+
+            url_res = (
+                supabase_admin
+                .storage
+                .from_("publicaciones")
+                .get_public_url(ruta_objeto)
+            )
+
+            if isinstance(url_res, dict):
+                imagen_url = (
+                    url_res.get("publicURL")
+                    or url_res.get("publicUrl")
+                    or url_res.get("public_url")
+                    or ""
+                )
+            else:
+                imagen_url = str(url_res or "").strip()
+
+            if not imagen_url:
+                base = supabase_admin._client.url
+                imagen_url = (
+                    f"{base}/storage/v1/object/public/"
+                    f"publicaciones/{ruta_objeto}"
+                )
+
+            actualizacion["imagen_url"] = imagen_url
+
+        supabase_admin.table("historias").update(
+            actualizacion
+        ).eq(
+            "id", historia_id
+        ).eq(
+            "comercio_id", comercio_id
+        ).eq(
+            "eliminada", False
+        ).execute()
+
+        return _volver_historias(historia_ok="editada")
+
+    except Exception as e:
+        print("ERROR EDITANDO HISTORIA:", e, flush=True)
+        return _volver_historias(historia_error="editar")
+
+
+@app.route(
+    "/panel/historias/eliminar/<historia_id>",
+    methods=["POST"]
+)
+def eliminar_historia_panel(historia_id):
+    comercio, comercio_id, error_contexto = _contexto_comercio_para_historias()
+
+    if error_contexto == "login":
+        return redirect(url_for("login"))
+
+    if error_contexto == "bloqueado":
+        return "Esta cuenta fue bloqueada por administración.", 403
+
+    if error_contexto == "premium":
+        return _volver_historias(historia_error="solo_premium")
+
+    if error_contexto or not comercio_id:
+        return _volver_historias(historia_error="permiso")
+
+    try:
+        uuid.UUID(str(historia_id))
+
+        supabase_admin.table("historias").update({
+            "activa": False,
+            "eliminada": True
+        }).eq(
+            "id", historia_id
+        ).eq(
+            "comercio_id", comercio_id
+        ).eq(
+            "eliminada", False
+        ).execute()
+
+        return _volver_historias(historia_ok="eliminada")
+
+    except Exception as e:
+        print("ERROR ELIMINANDO HISTORIA:", e, flush=True)
+        return _volver_historias(historia_error="eliminar")
 
 
 @app.route("/panel/cartelera/crear", methods=["POST"])

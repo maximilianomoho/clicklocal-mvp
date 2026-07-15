@@ -75,6 +75,78 @@
 
         <!-- CARGAR PUBLICACIÓN -->
         {% if not es_cine_teatro %}
+
+        {% if es_premium %}
+        <article class="panel-card" style="padding:18px 22px;">
+          <h2 style="margin:0;">¿Qué querés publicar?</h2>
+
+          <div
+            style="
+              display:grid;
+              grid-template-columns:repeat(2, minmax(0, 1fr));
+              gap:10px;
+              margin-top:14px;
+              align-items:end;
+            "
+          >
+            <div style="display:grid; grid-template-rows:20px auto; gap:6px;">
+              <span aria-hidden="true"></span>
+
+              <button
+                type="button"
+                id="modo-publicacion"
+                style="
+                  width:100%;
+                  min-height:50px;
+                  margin:0;
+                  padding:12px;
+                  border:1px solid #006aa6;
+                  border-radius:14px;
+                  background:#006aa6;
+                  color:white;
+                  font-weight:700;
+                  cursor:pointer;
+                "
+              >
+                Publicación normal
+              </button>
+            </div>
+
+            <div style="display:grid; grid-template-rows:20px auto; gap:6px;">
+              <span
+                style="
+                  font-size:12px;
+                  font-weight:700;
+                  color:#006aa6;
+                  text-align:center;
+                "
+              >
+                Solo para comercios Premium
+              </span>
+
+              <button
+                type="button"
+                id="modo-historia"
+                style="
+                  width:100%;
+                  min-height:50px;
+                  margin:0;
+                  padding:12px;
+                  border:1px solid #d6dce5;
+                  border-radius:14px;
+                  background:white;
+                  color:#1f2937;
+                  font-weight:700;
+                  cursor:pointer;
+                "
+              >
+                Historia 24 h
+              </button>
+            </div>
+          </div>
+        </article>
+        {% endif %}
+
         <article id="publicacion" class="panel-card">
           <div class="panel-card-header">
             <div>
@@ -135,6 +207,584 @@
           </form>
         </article>
 
+        {% if es_premium %}
+        <article id="historias-premium" class="panel-card" style="display:none;">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">HISTORIAS PREMIUM</p>
+              <h2>Historias de 24 horas</h2>
+            </div>
+
+            <span class="badge">
+              {{ historias_activas }} de {{ limite_historias_activas }} activas
+            </span>
+          </div>
+
+          <p class="panel-descripcion">
+            Subí una foto, agregá un texto corto y, si querés, vinculala
+            con una publicación de tu vidriera.
+          </p>
+
+          {% set historia_ok = request.args.get('historia_ok') %}
+          {% set historia_error = request.args.get('historia_error') %}
+
+          {% if historia_ok %}
+            <div
+              style="
+                margin:14px 0;
+                padding:12px 14px;
+                border:1px solid #86c79a;
+                border-radius:12px;
+                background:#eefaf1;
+                color:#17632e;
+                font-weight:700;
+              "
+            >
+              {% if historia_ok == 'creada' %}
+                Historia publicada correctamente.
+              {% elif historia_ok == 'editada' %}
+                Historia editada correctamente.
+              {% elif historia_ok == 'desactivada' %}
+                Historia pausada correctamente.
+              {% elif historia_ok == 'activada' %}
+                Historia reactivada correctamente.
+              {% elif historia_ok == 'eliminada' %}
+                Historia eliminada correctamente.
+              {% else %}
+                Operación realizada correctamente.
+              {% endif %}
+            </div>
+          {% endif %}
+
+          {% if historia_error %}
+            <div
+              style="
+                margin:14px 0;
+                padding:12px 14px;
+                border:1px solid #e6a0a0;
+                border-radius:12px;
+                background:#fff1f1;
+                color:#8a1f1f;
+                font-weight:700;
+              "
+            >
+              {% if historia_error == 'limite' %}
+                Ya tenés dos historias activas. Pausá o eliminá una para publicar otra.
+              {% elif historia_error == 'texto' %}
+                El texto no puede superar los 180 caracteres.
+              {% elif historia_error == 'foto' %}
+                Tenés que seleccionar una foto.
+              {% elif historia_error == 'publicacion' %}
+                La publicación seleccionada no es válida o ya no está activa.
+              {% elif historia_error == 'vencida' %}
+                Esa historia ya cumplió sus 24 horas y no puede reactivarse.
+              {% elif historia_error == 'solo_premium' %}
+                Las historias están disponibles solamente para comercios Premium.
+              {% elif historia_error == 'no_existe' %}
+                No encontramos esa historia.
+              {% elif historia_error == 'permiso' %}
+                No tenés permiso para modificar esa historia.
+              {% else %}
+                No se pudo completar la operación. Volvé a intentarlo.
+              {% endif %}
+            </div>
+          {% endif %}
+
+          <div
+            style="
+              margin-top:18px;
+              padding:16px;
+              border:1px solid #dfe4ea;
+              border-radius:16px;
+              background:#fafbfd;
+            "
+          >
+            <h3 style="margin:0 0 6px;">Nueva historia</h3>
+
+            <p style="margin:0 0 16px; color:#5f6875;">
+              La historia vencerá automáticamente 24 horas después de publicarla.
+            </p>
+
+            {% if historias_activas < limite_historias_activas %}
+              <form
+                id="form-historia-nueva"
+                class="formulario panel-form"
+                method="POST"
+                action="{{ url_for('crear_historia_panel') }}"
+                enctype="multipart/form-data"
+                data-form-historia
+              >
+                <div class="campo">
+                  <label for="historia-foto-nueva">Foto de la historia *</label>
+
+                  <input
+                    type="file"
+                    name="historia_foto"
+                    id="historia-foto-nueva"
+                    accept="image/*"
+                    required
+                  />
+
+                  <img
+                    id="historia-preview-nueva"
+                    alt="Vista previa de la historia"
+                    style="
+                      display:none;
+                      width:100%;
+                      max-width:300px;
+                      height:320px;
+                      margin-top:12px;
+                      border-radius:16px;
+                      object-fit:cover;
+                      border:1px solid #dfe4ea;
+                    "
+                  />
+                </div>
+
+                <div class="campo">
+                  <label for="historia-texto-nueva">Texto de la historia</label>
+
+                  <textarea
+                    name="historia_texto"
+                    id="historia-texto-nueva"
+                    maxlength="180"
+                    placeholder="Ej: ¡Ya salieron los bizcochos calientes!"
+                    data-historia-texto
+                    data-contador="contador-historia-nueva"
+                  ></textarea>
+
+                  <small
+                    id="contador-historia-nueva"
+                    style="display:block; margin-top:5px; color:#697386;"
+                  >
+                    0 de 180 caracteres
+                  </small>
+                </div>
+
+                <div class="campo">
+                  <label for="historia-publicacion-nueva">
+                    Publicación vinculada
+                  </label>
+
+                  <select
+                    name="historia_publicacion_id"
+                    id="historia-publicacion-nueva"
+                  >
+                    <option value="">Sin publicación vinculada</option>
+
+                    {% for pub in publicaciones %}
+                      {% if pub.activa and not pub.eliminada %}
+                        <option value="{{ pub.id }}">
+                          {{ pub.nombre_publicacion or pub.nombre or 'Publicación' }}
+                        </option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+
+                  <small style="display:block; margin-top:5px; color:#697386;">
+                    Al abrir la historia, el visitante podrá llegar a esa publicación.
+                  </small>
+                </div>
+
+                <button
+                  type="submit"
+                  class="boton-principal-form"
+                  data-submit-historia
+                >
+                  Publicar historia
+                </button>
+
+                <p
+                  data-loading-historia
+                  style="
+                    display:none;
+                    margin-top:10px;
+                    font-weight:700;
+                    color:#006aa6;
+                  "
+                >
+                  Cargando historia, no cierres esta ventana...
+                </p>
+              </form>
+            {% else %}
+              <div
+                style="
+                  padding:14px;
+                  border-radius:12px;
+                  background:#fff7e8;
+                  border:1px solid #f0cc83;
+                  color:#75500d;
+                  font-weight:700;
+                "
+              >
+                Alcanzaste el máximo de dos historias activas. Podés pausar,
+                editar o eliminar una desde la lista de abajo.
+              </div>
+            {% endif %}
+          </div>
+
+          <div style="margin-top:22px;">
+            <h3 style="margin:0 0 12px;">Mis historias</h3>
+
+            {% if historias %}
+              <div style="display:grid; gap:14px;">
+                {% for historia in historias %}
+                  <section
+                    style="
+                      padding:14px;
+                      border:1px solid #dfe4ea;
+                      border-radius:16px;
+                      background:white;
+                    "
+                  >
+                    <div
+                      style="
+                        display:flex;
+                        gap:14px;
+                        align-items:flex-start;
+                        flex-wrap:wrap;
+                      "
+                    >
+                      <img
+                        src="{{ historia.imagen_url }}"
+                        alt="Historia del comercio"
+                        style="
+                          width:120px;
+                          height:150px;
+                          flex:0 0 120px;
+                          border-radius:14px;
+                          object-fit:cover;
+                          border:1px solid #dfe4ea;
+                        "
+                      />
+
+                      <div style="flex:1 1 240px; min-width:0;">
+                        <div
+                          style="
+                            display:flex;
+                            justify-content:space-between;
+                            align-items:center;
+                            gap:10px;
+                            flex-wrap:wrap;
+                          "
+                        >
+                          {% if historia.activa_vigente %}
+                            <span
+                              style="
+                                padding:5px 9px;
+                                border-radius:999px;
+                                background:#e8f8ed;
+                                color:#17632e;
+                                font-size:12px;
+                                font-weight:800;
+                              "
+                            >
+                              ACTIVA
+                            </span>
+                          {% elif historia.vigente %}
+                            <span
+                              style="
+                                padding:5px 9px;
+                                border-radius:999px;
+                                background:#fff4dd;
+                                color:#79530a;
+                                font-size:12px;
+                                font-weight:800;
+                              "
+                            >
+                              PAUSADA
+                            </span>
+                          {% else %}
+                            <span
+                              style="
+                                padding:5px 9px;
+                                border-radius:999px;
+                                background:#f1f2f4;
+                                color:#58606b;
+                                font-size:12px;
+                                font-weight:800;
+                              "
+                            >
+                              VENCIDA
+                            </span>
+                          {% endif %}
+                        </div>
+
+                        <p
+                          class="historia-panel-texto"
+                          style="
+                            display:block;
+                            width:100%;
+                            margin:12px 0;
+                            padding:0;
+                            color:#27313d;
+                            text-align:left !important;
+                            white-space:pre-line;
+                            overflow-wrap:anywhere;
+                            line-height:1.45;
+                          "
+                        >{{- historia.texto or 'Sin texto' -}}</p>
+
+                        {% if historia.publicacion_id %}
+                          <p
+                            style="
+                              margin:0 0 12px;
+                              color:#667180;
+                              font-size:14px;
+                            "
+                          >
+                            Tiene una publicación vinculada.
+                          </p>
+                        {% else %}
+                          <p
+                            style="
+                              margin:0 0 12px;
+                              color:#667180;
+                              font-size:14px;
+                            "
+                          >
+                            Sin publicación vinculada.
+                          </p>
+                        {% endif %}
+
+                        {# CLICKLOCAL: MÉTRICAS EN TARJETA DE HISTORIA V1 #}
+                        <div
+                          style="
+                            display:flex;
+                            gap:10px;
+                            align-items:center;
+                            flex-wrap:wrap;
+                            margin:0 0 14px;
+                            padding:10px 12px;
+                            border:1px solid #e1e6ec;
+                            border-radius:12px;
+                            background:#f7f9fb;
+                            color:#344150;
+                            font-size:13px;
+                            font-weight:700;
+                          "
+                        >
+                          <span>
+                            👁 {{ historia.metricas_vistas or 0 }}
+                            visualizaciones
+                          </span>
+
+                          <span>
+                            🏪 {{ historia.metricas_click_comercio or 0 }}
+                            visitas al comercio
+                          </span>
+
+                          {% if historia.publicacion_id %}
+                            <span>
+                              🔗 {{ historia.metricas_click_publicacion or 0 }}
+                              visitas a la publicación
+                            </span>
+                          {% endif %}
+                        </div>
+
+                        <div
+                          style="
+                            display:flex;
+                            gap:8px;
+                            align-items:center;
+                            flex-wrap:wrap;
+                          "
+                        >
+                          <button
+                            type="button"
+                            class="boton-secundario"
+                            data-editar-historia="{{ historia.id }}"
+                          >
+                            Editar
+                          </button>
+
+                          {% if historia.activa_vigente %}
+                            <form
+                              method="POST"
+                              action="{{ url_for('desactivar_historia_panel', historia_id=historia.id) }}"
+                              style="margin:0;"
+                            >
+                              <button type="submit" class="boton-secundario">
+                                Pausar
+                              </button>
+                            </form>
+                          {% elif historia.vigente %}
+                            <form
+                              method="POST"
+                              action="{{ url_for('activar_historia_panel', historia_id=historia.id) }}"
+                              style="margin:0;"
+                            >
+                              <button type="submit" class="boton-secundario">
+                                Reactivar
+                              </button>
+                            </form>
+                          {% endif %}
+
+                          <form
+                            method="POST"
+                            action="{{ url_for('eliminar_historia_panel', historia_id=historia.id) }}"
+                            style="margin:0;"
+                            onsubmit="return confirm('¿Seguro que querés eliminar esta historia? Dejará de mostrarse inmediatamente.');"
+                          >
+                            <button
+                              type="submit"
+                              class="boton-secundario"
+                              style="
+                                border-color:#c83b3b;
+                                color:#a51f1f;
+                              "
+                            >
+                              Eliminar
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+
+                    <form
+                      id="editar-historia-{{ historia.id }}"
+                      class="formulario panel-form"
+                      method="POST"
+                      action="{{ url_for('editar_historia_panel', historia_id=historia.id) }}"
+                      enctype="multipart/form-data"
+                      data-form-historia
+                      style="
+                        display:none;
+                        margin-top:16px;
+                        padding-top:16px;
+                        border-top:1px solid #e1e5ea;
+                      "
+                    >
+                      <h4 style="margin:0 0 14px;">Editar historia</h4>
+
+                      <div class="campo">
+                        <label for="foto-editar-{{ historia.id }}">
+                          Cambiar foto
+                        </label>
+
+                        <input
+                          type="file"
+                          name="historia_foto"
+                          id="foto-editar-{{ historia.id }}"
+                          accept="image/*"
+                          data-preview-historia-input
+                          data-preview-id="preview-editar-{{ historia.id }}"
+                        />
+
+                        <small style="display:block; margin-top:5px; color:#697386;">
+                          Dejala vacía para conservar la foto actual.
+                        </small>
+
+                        <img
+                          id="preview-editar-{{ historia.id }}"
+                          alt="Vista previa de la nueva foto"
+                          style="
+                            display:none;
+                            width:100%;
+                            max-width:260px;
+                            height:280px;
+                            margin-top:12px;
+                            border-radius:16px;
+                            object-fit:cover;
+                            border:1px solid #dfe4ea;
+                          "
+                        />
+                      </div>
+
+                      <div class="campo">
+                        <label for="texto-editar-{{ historia.id }}">
+                          Texto
+                        </label>
+
+                        <textarea
+                          name="historia_texto"
+                          id="texto-editar-{{ historia.id }}"
+                          maxlength="180"
+                          data-historia-texto
+                          data-contador="contador-editar-{{ historia.id }}"
+                        >{{ historia.texto or '' }}</textarea>
+
+                        <small
+                          id="contador-editar-{{ historia.id }}"
+                          style="display:block; margin-top:5px; color:#697386;"
+                        >
+                          0 de 180 caracteres
+                        </small>
+                      </div>
+
+                      <div class="campo">
+                        <label for="publicacion-editar-{{ historia.id }}">
+                          Publicación vinculada
+                        </label>
+
+                        <select
+                          name="historia_publicacion_id"
+                          id="publicacion-editar-{{ historia.id }}"
+                        >
+                          <option value="">Sin publicación vinculada</option>
+
+                          {% for pub in publicaciones %}
+                            {% if pub.activa and not pub.eliminada %}
+                              <option
+                                value="{{ pub.id }}"
+                                {% if historia.publicacion_id == pub.id %}selected{% endif %}
+                              >
+                                {{ pub.nombre_publicacion or pub.nombre or 'Publicación' }}
+                              </option>
+                            {% endif %}
+                          {% endfor %}
+                        </select>
+                      </div>
+
+                      <div
+                        style="
+                          display:flex;
+                          gap:8px;
+                          align-items:center;
+                          flex-wrap:wrap;
+                        "
+                      >
+                        <button
+                          type="submit"
+                          class="boton-principal-form"
+                          data-submit-historia
+                        >
+                          Guardar cambios
+                        </button>
+
+                        <button
+                          type="button"
+                          class="boton-secundario"
+                          data-cancelar-edicion="{{ historia.id }}"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+
+                      <p
+                        data-loading-historia
+                        style="
+                          display:none;
+                          margin-top:10px;
+                          font-weight:700;
+                          color:#006aa6;
+                        "
+                      >
+                        Guardando cambios...
+                      </p>
+                    </form>
+                  </section>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p style="margin:0; color:#667180;">
+                Todavía no publicaste ninguna historia.
+              </p>
+            {% endif %}
+          </div>
+        </article>
+        {% endif %}
+
 
         <!-- MIS PUBLICACIONES -->
         <article id="mis-publicaciones" class="panel-card">
@@ -171,6 +821,87 @@
                       <span class="estado-activo">Activa</span>
                     {% else %}
                       <span class="estado-activo">Pausada</span>
+                    {% endif %}
+
+                    {% if es_premium %}
+                      {# CLICKLOCAL: RENDIMIENTO DE PUBLICACIÓN PREMIUM V1 #}
+                      <div
+                        style="
+                          width:100%;
+                          margin-top:13px;
+                          padding:11px 13px;
+                          border:1px solid #e1e6ec;
+                          border-radius:12px;
+                          background:#f7f9fb;
+                          color:#344150;
+                          box-sizing:border-box;
+                        "
+                      >
+                        <div
+                          style="
+                            display:flex;
+                            justify-content:space-between;
+                            align-items:center;
+                            gap:10px;
+                            margin-bottom:8px;
+                            flex-wrap:wrap;
+                          "
+                        >
+                          <strong style="font-size:13px;">
+                            Rendimiento
+                          </strong>
+
+                          <span
+                            style="
+                              color:#697386;
+                              font-size:11px;
+                              font-weight:600;
+                            "
+                          >
+                            Desde {{ pub.metricas_desde or '14/07/2026' }}
+                          </span>
+                        </div>
+
+                        <div
+                          style="
+                            display:flex;
+                            gap:12px;
+                            align-items:center;
+                            flex-wrap:wrap;
+                            font-size:13px;
+                            font-weight:700;
+                          "
+                        >
+                          <span>
+                            👁 {{ pub.metricas_visitas or 0 }}
+                            {% if pub.metricas_visitas == 1 %}
+                              visita
+                            {% else %}
+                              visitas
+                            {% endif %}
+                          </span>
+
+                          <span>
+                            💬 {{ pub.metricas_whatsapp or 0 }}
+                            {% if pub.metricas_whatsapp == 1 %}
+                              clic en WhatsApp
+                            {% else %}
+                              clics en WhatsApp
+                            {% endif %}
+                          </span>
+
+                          {% if pub.metricas_conversion is not none %}
+                            <span>
+                              📈 {{ pub.metricas_conversion }} %
+                              de conversión
+                            </span>
+                          {% else %}
+                            <span style="color:#697386;">
+                              📈 Sin visitas suficientes
+                            </span>
+                          {% endif %}
+                        </div>
+                      </div>
                     {% endif %}
                   </div>
 
@@ -1526,5 +2257,173 @@
   <!-- FIN JS LISTAS BUSCABLES EDITAR ARRIBA -->
 
   <script src="/static/pwa.js"></script>
+
+  {% if es_premium and not es_cine_teatro %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const normal = document.getElementById("modo-publicacion");
+      const historia = document.getElementById("modo-historia");
+      const formularioNormal = document.getElementById("publicacion");
+      const formularioHistoria = document.getElementById("historias-premium");
+
+      if (!normal || !historia || !formularioNormal || !formularioHistoria) {
+        return;
+      }
+
+      normal.addEventListener("click", function () {
+        formularioNormal.style.display = "";
+        formularioHistoria.style.display = "none";
+        normal.style.background = "#006aa6";
+        normal.style.color = "white";
+        historia.style.background = "white";
+        historia.style.color = "#1f2937";
+      });
+
+      historia.addEventListener("click", function () {
+        formularioNormal.style.display = "none";
+        formularioHistoria.style.display = "";
+        historia.style.background = "#006aa6";
+        historia.style.color = "white";
+        normal.style.background = "white";
+        normal.style.color = "#1f2937";
+      });
+    });
+  </script>
+  {% endif %}
+
+
+  {% if es_premium and not es_cine_teatro %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const normal = document.getElementById("modo-publicacion");
+      const historia = document.getElementById("modo-historia");
+      const formularioNormal = document.getElementById("publicacion");
+      const formularioHistoria = document.getElementById("historias-premium");
+
+      function mostrarHistorias() {
+        if (!normal || !historia || !formularioNormal || !formularioHistoria) {
+          return;
+        }
+
+        formularioNormal.style.display = "none";
+        formularioHistoria.style.display = "";
+        historia.style.background = "#006aa6";
+        historia.style.color = "white";
+        normal.style.background = "white";
+        normal.style.color = "#1f2937";
+      }
+
+      const parametros = new URLSearchParams(window.location.search);
+      const volverAHistorias =
+        window.location.hash === "#historias-premium" ||
+        parametros.has("historia_ok") ||
+        parametros.has("historia_error");
+
+      if (volverAHistorias) {
+        mostrarHistorias();
+      }
+
+      const fotoNueva = document.getElementById("historia-foto-nueva");
+      const previewNueva = document.getElementById("historia-preview-nueva");
+
+      if (fotoNueva && previewNueva) {
+        fotoNueva.addEventListener("change", function () {
+          const archivo = fotoNueva.files && fotoNueva.files[0];
+
+          if (!archivo) {
+            previewNueva.removeAttribute("src");
+            previewNueva.style.display = "none";
+            return;
+          }
+
+          previewNueva.src = URL.createObjectURL(archivo);
+          previewNueva.style.display = "block";
+        });
+      }
+
+      document.querySelectorAll("[data-historia-texto]").forEach(function (campo) {
+        const contador = document.getElementById(campo.dataset.contador);
+
+        function actualizarContador() {
+          if (contador) {
+            contador.textContent =
+              campo.value.length + " de 180 caracteres";
+          }
+        }
+
+        campo.addEventListener("input", actualizarContador);
+        actualizarContador();
+      });
+
+      document.querySelectorAll("[data-editar-historia]").forEach(function (boton) {
+        boton.addEventListener("click", function () {
+          const historiaId = boton.dataset.editarHistoria;
+          const formulario = document.getElementById(
+            "editar-historia-" + historiaId
+          );
+
+          if (!formulario) {
+            return;
+          }
+
+          formulario.style.display =
+            formulario.style.display === "none" ? "block" : "none";
+        });
+      });
+
+      document.querySelectorAll("[data-cancelar-edicion]").forEach(function (boton) {
+        boton.addEventListener("click", function () {
+          const historiaId = boton.dataset.cancelarEdicion;
+          const formulario = document.getElementById(
+            "editar-historia-" + historiaId
+          );
+
+          if (formulario) {
+            formulario.style.display = "none";
+          }
+        });
+      });
+
+      document.querySelectorAll("[data-preview-historia-input]").forEach(
+        function (input) {
+          input.addEventListener("change", function () {
+            const preview = document.getElementById(input.dataset.previewId);
+            const archivo = input.files && input.files[0];
+
+            if (!preview) {
+              return;
+            }
+
+            if (!archivo) {
+              preview.removeAttribute("src");
+              preview.style.display = "none";
+              return;
+            }
+
+            preview.src = URL.createObjectURL(archivo);
+            preview.style.display = "block";
+          });
+        }
+      );
+
+      document.querySelectorAll("[data-form-historia]").forEach(function (formulario) {
+        formulario.addEventListener("submit", function () {
+          const boton = formulario.querySelector("[data-submit-historia]");
+          const mensaje = formulario.querySelector("[data-loading-historia]");
+
+          if (boton) {
+            boton.disabled = true;
+            boton.textContent = "Cargando...";
+          }
+
+          if (mensaje) {
+            mensaje.style.display = "block";
+          }
+        });
+      });
+    });
+  </script>
+  {% endif %}
+
 </body>
 </html>
