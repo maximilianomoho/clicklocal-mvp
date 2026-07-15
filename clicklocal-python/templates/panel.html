@@ -1440,6 +1440,222 @@
             </div>
           </div>
 
+          <!-- CLICKLOCAL: LOGO DEL NEGOCIO V1 -->
+
+          {% set nombre_para_logo =
+            comercio.nombre_negocio
+            or comercio.nombre
+            or "ClickLocal"
+          %}
+
+          {% set palabras_logo = nombre_para_logo.split() %}
+          {% set inicial_logo_1 =
+            palabras_logo[0][0]
+            if palabras_logo
+            else "C"
+          %}
+          {% set inicial_logo_2 =
+            palabras_logo[1][0]
+            if palabras_logo|length > 1
+            else ""
+          %}
+          {% set iniciales_logo =
+            (inicial_logo_1 ~ inicial_logo_2)|upper
+          %}
+
+          {% if request.args.get("logo_ok") == "subido" %}
+            <div
+              style="
+                margin-bottom:16px;
+                padding:12px 14px;
+                border-radius:12px;
+                background:#ecfdf3;
+                color:#166534;
+                font-weight:700;
+              "
+            >
+              Logo guardado correctamente.
+            </div>
+          {% elif request.args.get("logo_ok") == "quitado" %}
+            <div
+              style="
+                margin-bottom:16px;
+                padding:12px 14px;
+                border-radius:12px;
+                background:#f7f8fa;
+                color:#374151;
+                font-weight:700;
+              "
+            >
+              Logo quitado. Volverán a mostrarse las iniciales.
+            </div>
+          {% endif %}
+
+          {% if request.args.get("logo_error") %}
+            <div
+              style="
+                margin-bottom:16px;
+                padding:12px 14px;
+                border-radius:12px;
+                background:#fff1f2;
+                color:#9f1239;
+                font-weight:700;
+              "
+            >
+              {% if request.args.get("logo_error") == "sin_imagen" %}
+                Elegí una imagen antes de guardar.
+              {% elif request.args.get("logo_error") == "formato" %}
+                No pudimos procesar esa imagen. Probá con JPG,
+                PNG, WEBP, HEIC o una captura de pantalla.
+              {% elif request.args.get("logo_error") == "quitar" %}
+                No se pudo quitar el logo. Intentá nuevamente.
+              {% else %}
+                No se pudo guardar el logo. Revisá la conexión
+                e intentá nuevamente.
+              {% endif %}
+            </div>
+          {% endif %}
+
+          <div
+            style="
+              margin-bottom:24px;
+              padding:18px;
+              border:1px solid #e3e7ed;
+              border-radius:16px;
+              background:#fafbfc;
+            "
+          >
+            <div
+              style="
+                display:flex;
+                align-items:flex-start;
+                gap:18px;
+                flex-wrap:wrap;
+              "
+            >
+              <div
+                style="
+                  width:120px;
+                  height:120px;
+                  flex:0 0 120px;
+                  overflow:hidden;
+                  display:flex;
+                  align-items:center;
+                  justify-content:center;
+                  border:1px solid #d8dee7;
+                  border-radius:18px;
+                  background:#ffffff;
+                "
+              >
+                <img
+                  id="logoVistaPreviaPanel"
+                  {% if comercio.logo_url %}
+                    src="{{ comercio.logo_url }}"
+                  {% endif %}
+                  alt="Vista previa del logo"
+                  style="
+                    width:100%;
+                    height:100%;
+                    object-fit:contain;
+                    background:#ffffff;
+                    {% if not comercio.logo_url %}
+                      display:none;
+                    {% endif %}
+                  "
+                />
+
+                <div
+                  id="logoInicialesPanel"
+                  style="
+                    font-size:2.2rem;
+                    font-weight:900;
+                    color:#111827;
+                    {% if comercio.logo_url %}
+                      display:none;
+                    {% endif %}
+                  "
+                >
+                  {{ iniciales_logo }}
+                </div>
+              </div>
+
+              <div style="flex:1; min-width:220px;">
+                <p
+                  class="titulo-chico"
+                  style="margin-top:0;"
+                >
+                  LOGO DEL NEGOCIO
+                </p>
+
+                <h3 style="margin:4px 0 8px;">
+                  Tu imagen en ClickLocal
+                </h3>
+
+                <p style="margin:0 0 6px; line-height:1.5;">
+                  Subí un logo, una captura o una foto donde
+                  se vea claramente tu negocio.
+                </p>
+
+                <p
+                  style="
+                    margin:0;
+                    color:#667085;
+                    line-height:1.5;
+                  "
+                >
+                  Las imágenes cuadradas funcionan mejor.
+                  Si no subís una imagen, mostraremos las
+                  iniciales de tu negocio.
+                </p>
+              </div>
+            </div>
+
+            <form
+              method="POST"
+              action="{{ url_for('subir_logo_negocio') }}"
+              enctype="multipart/form-data"
+              style="margin-top:18px;"
+            >
+              <div class="campo">
+                <label for="logoNegocio">
+                  Elegir imagen
+                </label>
+
+                <input
+                  type="file"
+                  id="logoNegocio"
+                  name="logo"
+                  accept="image/*,.heic,.heif"
+                  required
+                />
+              </div>
+
+              <button type="submit">
+                Guardar logo
+              </button>
+            </form>
+
+            {% if comercio.logo_url %}
+              <form
+                method="POST"
+                action="{{ url_for('quitar_logo_negocio') }}"
+                style="margin-top:10px;"
+                onsubmit="
+                  return confirm(
+                    '¿Querés quitar el logo del negocio?'
+                  );
+                "
+              >
+                <button
+                  type="submit"
+                  class="boton-secundario"
+                >
+                  Quitar logo
+                </button>
+              </form>
+            {% endif %}
+          </div>
+
           <form class="formulario panel-form" method="POST" action="{{ url_for('panel') }}">
             <input type="hidden" name="accion" value="actualizar_mis_datos">
 
@@ -2424,6 +2640,49 @@
     });
   </script>
   {% endif %}
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const inputLogo = document.getElementById("logoNegocio");
+    const vistaLogo = document.getElementById(
+      "logoVistaPreviaPanel"
+    );
+    const inicialesLogo = document.getElementById(
+      "logoInicialesPanel"
+    );
+
+    if (!inputLogo || !vistaLogo) {
+      return;
+    }
+
+    let urlTemporalLogo = null;
+
+    inputLogo.addEventListener("change", function () {
+      const archivo = inputLogo.files
+        ? inputLogo.files[0]
+        : null;
+
+      if (!archivo) {
+        return;
+      }
+
+      if (urlTemporalLogo) {
+        URL.revokeObjectURL(urlTemporalLogo);
+      }
+
+      urlTemporalLogo = URL.createObjectURL(archivo);
+
+      vistaLogo.src = urlTemporalLogo;
+      vistaLogo.style.display = "block";
+
+      if (inicialesLogo) {
+        inicialesLogo.style.display = "none";
+      }
+    });
+  });
+</script>
+<!-- FIN CLICKLOCAL: LOGO DEL NEGOCIO V1 -->
 
 </body>
 </html>

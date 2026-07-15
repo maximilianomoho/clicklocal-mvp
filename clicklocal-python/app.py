@@ -203,6 +203,188 @@ def procesar_imagen_clicklocal(f, contexto="foto"):
     return buf
 
 
+
+# ============================================================
+# CLICKLOCAL: LOGO DEL NEGOCIO V1
+#
+# Recibe una foto, captura o archivo de imagen y la acomoda
+# dentro de un cuadrado blanco sin recortarla ni deformarla.
+# ============================================================
+
+def procesar_logo_clicklocal(archivo):
+    if not archivo or not getattr(archivo, "filename", "").strip():
+        raise ValueError("No se recibió ninguna imagen.")
+
+    try:
+        archivo.stream.seek(0)
+        imagen = Image.open(archivo.stream)
+        imagen.load()
+        imagen = ImageOps.exif_transpose(imagen)
+    except Exception as e:
+        raise ValueError(
+            "No se pudo abrir la imagen seleccionada."
+        ) from e
+
+    if imagen.width < 20 or imagen.height < 20:
+        raise ValueError("La imagen es demasiado pequeña.")
+
+    tiene_transparencia = (
+        imagen.mode in ("RGBA", "LA")
+        or (
+            imagen.mode == "P"
+            and "transparency" in imagen.info
+        )
+    )
+
+    if tiene_transparencia:
+        imagen = imagen.convert("RGBA")
+
+        fondo_original = Image.new(
+            "RGBA",
+            imagen.size,
+            (255, 255, 255, 255)
+        )
+
+        fondo_original.alpha_composite(imagen)
+        imagen = fondo_original.convert("RGB")
+    else:
+        imagen = imagen.convert("RGB")
+
+    tamanio_canvas = 800
+
+    remuestreo = getattr(Image, "Resampling", Image)
+
+    # CLICKLOCAL: RECORTE SEGURO DE BORDE DE LOGO V1
+    #
+    # Solo recorta cuando el borde exterior es mayormente
+    # blanco. Así evitamos cortar logos normales que utilizan
+    # todo el espacio de la imagen.
+    ancho_antes_recorte, alto_antes_recorte = imagen.size
+
+    if ancho_antes_recorte >= 100 and alto_antes_recorte >= 100:
+        muestra_borde = imagen.resize(
+            (100, 100),
+            remuestreo.LANCZOS
+        )
+
+        pixeles = muestra_borde.load()
+        grosor_muestra = 6
+        pixeles_borde = 0
+        pixeles_blancos = 0
+
+        for y in range(100):
+            for x in range(100):
+                esta_en_borde = (
+                    x < grosor_muestra
+                    or x >= 100 - grosor_muestra
+                    or y < grosor_muestra
+                    or y >= 100 - grosor_muestra
+                )
+
+                if not esta_en_borde:
+                    continue
+
+                pixeles_borde += 1
+                rojo, verde, azul = pixeles[x, y]
+
+                if rojo >= 235 and verde >= 235 and azul >= 235:
+                    pixeles_blancos += 1
+
+        proporcion_blanca = (
+            pixeles_blancos / pixeles_borde
+            if pixeles_borde
+            else 0
+        )
+
+        if proporcion_blanca >= 0.70:
+            recorte_x = max(
+                1,
+                round(ancho_antes_recorte * 0.08)
+            )
+            recorte_y = max(
+                1,
+                round(alto_antes_recorte * 0.08)
+            )
+
+            ancho_recortado = (
+                ancho_antes_recorte - recorte_x * 2
+            )
+            alto_recortado = (
+                alto_antes_recorte - recorte_y * 2
+            )
+
+            if ancho_recortado >= 20 and alto_recortado >= 20:
+                imagen = imagen.crop((
+                    recorte_x,
+                    recorte_y,
+                    ancho_antes_recorte - recorte_x,
+                    alto_antes_recorte - recorte_y
+                ))
+
+                print(
+                    "LOGO CLICKLOCAL: borde blanco detectado, "
+                    "recorte suave aplicado",
+                    flush=True
+                )
+
+    # Ajusta el logo permitiendo también agrandar imágenes
+    # pequeñas, siempre sin deformarlas.
+    escala_logo = min(
+        tamanio_canvas / imagen.width,
+        tamanio_canvas / imagen.height
+    )
+
+    nuevo_ancho = max(
+        1,
+        round(imagen.width * escala_logo)
+    )
+    nuevo_alto = max(
+        1,
+        round(imagen.height * escala_logo)
+    )
+
+    imagen = imagen.resize(
+        (nuevo_ancho, nuevo_alto),
+        remuestreo.LANCZOS
+    )
+
+    canvas = Image.new(
+        "RGB",
+        (tamanio_canvas, tamanio_canvas),
+        (255, 255, 255)
+    )
+
+    posicion_x = (tamanio_canvas - imagen.width) // 2
+    posicion_y = (tamanio_canvas - imagen.height) // 2
+
+    canvas.paste(
+        imagen,
+        (posicion_x, posicion_y)
+    )
+
+    buffer_logo = BytesIO()
+
+    canvas.save(
+        buffer_logo,
+        format="PNG",
+        optimize=True
+    )
+
+    buffer_logo.seek(0)
+
+    print(
+        "LOGO CLICKLOCAL OK | "
+        f"archivo={archivo.filename} | "
+        f"original={imagen.width}x{imagen.height} | "
+        f"final={tamanio_canvas}x{tamanio_canvas} | "
+        f"bytes={len(buffer_logo.getvalue())}",
+        flush=True
+    )
+
+    return buffer_logo
+
+
+
 def comercio_default():
     return {
         "nombre_negocio": "Deck Bazar",
@@ -1739,6 +1921,209 @@ def subir_foto_publicacion_secuencial():
             "ok": False,
             "error": "No se pudo subir esta foto. Revisá la conexión e intentá nuevamente."
         }, 500
+
+
+
+
+# ============================================================
+# CLICKLOCAL: LOGO DEL NEGOCIO V1
+# ============================================================
+
+@app.route("/panel/logo/subir", methods=["POST"])
+def subir_logo_negocio():
+    user_id = session.get("user_id")
+    comercio_sesion = dict(session.get("comercio") or {})
+
+    if not user_id:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio_sesion.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login"))
+
+    archivo = request.files.get("logo")
+
+    if not archivo or not getattr(
+        archivo,
+        "filename",
+        ""
+    ).strip():
+        return redirect(
+            url_for("panel", logo_error="sin_imagen")
+            + "#datos"
+        )
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,user_id,nombre_negocio,logo_url")
+            .eq("id", comercio_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+
+        comercios = comercio_res.data or []
+
+        if not comercios:
+            return redirect(url_for("login"))
+
+        buffer_logo = procesar_logo_clicklocal(archivo)
+
+        nombre_final = f"{uuid.uuid4().hex}.png"
+        ruta_objeto = (
+            f"logos/{comercio_id}/{nombre_final}"
+        )
+
+        contenido_logo = buffer_logo.getvalue()
+
+        try:
+            supabase_admin.storage.from_(
+                "publicaciones"
+            ).upload(
+                ruta_objeto,
+                contenido_logo,
+                file_options={
+                    "content-type": "image/png"
+                }
+            )
+        except TypeError:
+            supabase_admin.storage.from_(
+                "publicaciones"
+            ).upload(
+                ruta_objeto,
+                contenido_logo,
+                {
+                    "content-type": "image/png"
+                }
+            )
+
+        url_res = (
+            supabase_admin
+            .storage
+            .from_("publicaciones")
+            .get_public_url(ruta_objeto)
+        )
+
+        if isinstance(url_res, dict):
+            logo_url = (
+                url_res.get("publicURL")
+                or url_res.get("publicUrl")
+                or url_res.get("public_url")
+                or ""
+            )
+        else:
+            logo_url = str(url_res or "").strip()
+
+        logo_url = str(logo_url or "").strip()
+
+        if not logo_url:
+            try:
+                base = supabase_admin._client.url
+                logo_url = (
+                    f"{base}/storage/v1/object/public/"
+                    f"publicaciones/{ruta_objeto}"
+                )
+            except Exception:
+                logo_url = ""
+
+        if not logo_url:
+            raise RuntimeError(
+                "La imagen se subió, pero no se obtuvo su URL."
+            )
+
+        supabase_admin.table("comercios").update({
+            "logo_url": logo_url
+        }).eq(
+            "id",
+            comercio_id
+        ).eq(
+            "user_id",
+            user_id
+        ).execute()
+
+        comercio_sesion["logo_url"] = logo_url
+        session["comercio"] = comercio_sesion
+        session.modified = True
+
+        return redirect(
+            url_for("panel", logo_ok="subido")
+            + "#datos"
+        )
+
+    except ValueError as e:
+        print(
+            "ERROR PROCESANDO LOGO:",
+            e,
+            flush=True
+        )
+
+        return redirect(
+            url_for("panel", logo_error="formato")
+            + "#datos"
+        )
+
+    except Exception as e:
+        print(
+            "ERROR SUBIENDO LOGO:",
+            type(e),
+            e,
+            flush=True
+        )
+
+        return redirect(
+            url_for("panel", logo_error="subida")
+            + "#datos"
+        )
+
+
+@app.route("/panel/logo/quitar", methods=["POST"])
+def quitar_logo_negocio():
+    user_id = session.get("user_id")
+    comercio_sesion = dict(session.get("comercio") or {})
+
+    if not user_id:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio_sesion.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login"))
+
+    try:
+        supabase_admin.table("comercios").update({
+            "logo_url": None
+        }).eq(
+            "id",
+            comercio_id
+        ).eq(
+            "user_id",
+            user_id
+        ).execute()
+
+        comercio_sesion["logo_url"] = None
+        session["comercio"] = comercio_sesion
+        session.modified = True
+
+        return redirect(
+            url_for("panel", logo_ok="quitado")
+            + "#datos"
+        )
+
+    except Exception as e:
+        print(
+            "ERROR QUITANDO LOGO:",
+            type(e),
+            e,
+            flush=True
+        )
+
+        return redirect(
+            url_for("panel", logo_error="quitar")
+            + "#datos"
+        )
 
 
 @app.route("/panel", methods=["GET", "POST"])
