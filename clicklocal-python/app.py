@@ -1,9 +1,9 @@
-from flask import Flask, render_template, send_from_directory, request, redirect, url_for, session
+from flask import Flask, render_template, send_from_directory, send_file, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
 import os
 from decimal import Decimal, InvalidOperation
 import uuid
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageDraw, ImageFont
 from io import BytesIO
 try:
     from pillow_heif import register_heif_opener
@@ -3982,6 +3982,142 @@ def detalle(publicacion_id):
         comercio=comercio,
         publicacion=publicacion_encontrada
     )
+
+
+
+# ============================================================
+# CLICKLOCAL: IMAGEN PARA COMPARTIR NEGOCIO V1
+#
+# Cuando el comercio todavía no tiene logo, genera una imagen
+# cuadrada con sus iniciales para la vista previa del enlace.
+# ============================================================
+
+@app.route(
+    "/comercio/<comercio_id>/imagen-compartir.png"
+)
+def imagen_compartir_negocio(comercio_id):
+    comercio_id = uuid_o_none(comercio_id)
+
+    if not comercio_id:
+        return "", 404
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,nombre_negocio,activo")
+            .eq("id", comercio_id)
+            .eq("activo", True)
+            .limit(1)
+            .execute()
+        )
+
+        comercios = comercio_res.data or []
+
+        if not comercios:
+            return "", 404
+
+        nombre_negocio = str(
+            comercios[0].get("nombre_negocio")
+            or "Comercio"
+        ).strip()
+
+        palabras = [
+            palabra
+            for palabra in nombre_negocio.split()
+            if palabra
+        ]
+
+        iniciales = "".join(
+            palabra[0]
+            for palabra in palabras[:2]
+        ).upper() or "CL"
+
+        tamanio = 800
+
+        imagen = Image.new(
+            "RGB",
+            (tamanio, tamanio),
+            (15, 23, 42)
+        )
+
+        dibujo = ImageDraw.Draw(imagen)
+
+        fuente = None
+
+        rutas_fuente = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+        ]
+
+        for ruta_fuente in rutas_fuente:
+            try:
+                fuente = ImageFont.truetype(
+                    ruta_fuente,
+                    270 if len(iniciales) > 1 else 330
+                )
+                break
+            except Exception:
+                continue
+
+        if fuente is None:
+            fuente = ImageFont.load_default()
+
+        caja_texto = dibujo.textbbox(
+            (0, 0),
+            iniciales,
+            font=fuente
+        )
+
+        ancho_texto = caja_texto[2] - caja_texto[0]
+        alto_texto = caja_texto[3] - caja_texto[1]
+
+        posicion_x = (
+            (tamanio - ancho_texto) / 2
+            - caja_texto[0]
+        )
+
+        posicion_y = (
+            (tamanio - alto_texto) / 2
+            - caja_texto[1]
+        )
+
+        dibujo.text(
+            (posicion_x, posicion_y),
+            iniciales,
+            font=fuente,
+            fill=(255, 255, 255)
+        )
+
+        buffer_imagen = BytesIO()
+
+        imagen.save(
+            buffer_imagen,
+            format="PNG",
+            optimize=True
+        )
+
+        buffer_imagen.seek(0)
+
+        respuesta = send_file(
+            buffer_imagen,
+            mimetype="image/png",
+            max_age=86400
+        )
+
+        respuesta.headers["Cache-Control"] = (
+            "public, max-age=86400"
+        )
+
+        return respuesta
+
+    except Exception as e:
+        print(
+            "ERROR GENERANDO IMAGEN PARA COMPARTIR NEGOCIO:",
+            e,
+            flush=True
+        )
+        return "", 404
 
 
 # PERFIL PÚBLICO DEL COMERCIO

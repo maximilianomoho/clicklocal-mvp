@@ -11,7 +11,67 @@
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deck Bazar | ClickLocal</title>
+
+  {# CLICKLOCAL: VISTA PREVIA PROFESIONAL DEL NEGOCIO V1 #}
+  {% set imagen_compartir =
+    comercio.logo_url
+    or url_for(
+      'imagen_compartir_negocio',
+      comercio_id=comercio.id,
+      _external=True
+    )
+  %}
+
+  <title>{{ comercio.nombre_negocio }} | ClickLocal</title>
+
+  <meta
+    name="description"
+    content="ClickLocal Paraná"
+  />
+
+  <meta property="og:type" content="website" />
+  <meta
+    property="og:site_name"
+    content="ClickLocal Paraná"
+  />
+  <meta
+    property="og:title"
+    content="{{ comercio.nombre_negocio }}"
+  />
+  <meta
+    property="og:description"
+    content="ClickLocal Paraná"
+  />
+  <meta
+    property="og:url"
+    content="{{ request.base_url }}"
+  />
+  <meta
+    property="og:image"
+    content="{{ imagen_compartir }}"
+  />
+  <meta
+    property="og:image:alt"
+    content="{{ comercio.nombre_negocio }}"
+  />
+
+  <meta
+    name="twitter:card"
+    content="summary"
+  />
+  <meta
+    name="twitter:title"
+    content="{{ comercio.nombre_negocio }}"
+  />
+  <meta
+    name="twitter:description"
+    content="ClickLocal Paraná"
+  />
+  <meta
+    name="twitter:image"
+    content="{{ imagen_compartir }}"
+  />
+
   <link rel="stylesheet" href="/styles.css" />
 
 <style>
@@ -19,6 +79,76 @@
     padding: 14px 26px;
     font-size: 1.05rem;
     border-radius: 999px;
+  }
+
+  /* Logo real del negocio dentro del cuadrado del perfil */
+  .perfil-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
+    background: #ffffff;
+  }
+
+  /* CLICKLOCAL: COMPARTIR NEGOCIO V1 */
+  .perfil-acciones-principales {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .perfil-compartir {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50px;
+    padding: 14px 26px;
+    border: 1px solid #cfd6df;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #1f2937;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .perfil-compartir:hover {
+    background: #f7f8fa;
+    border-color: #aeb7c3;
+  }
+
+  .perfil-compartir:active {
+    transform: scale(0.98);
+  }
+
+  .perfil-compartir:disabled {
+    cursor: wait;
+    opacity: 0.75;
+  }
+
+  @media (max-width: 700px) {
+    .perfil-acciones-principales {
+      width: 100%;
+      margin-left: 0;
+      justify-content: stretch;
+    }
+
+    .perfil-acciones-principales .perfil-whatsapp,
+    .perfil-acciones-principales .perfil-compartir {
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+    }
   }
 </style>
 
@@ -65,7 +195,14 @@
         <div class="perfil-info-principal">
 
           <div class="perfil-logo">
-            {{ comercio.iniciales }}
+            {% if comercio.logo_url %}
+              <img
+                src="{{ comercio.logo_url }}"
+                alt="{{ comercio.nombre_negocio }}"
+              />
+            {% else %}
+              {{ comercio.iniciales }}
+            {% endif %}
           </div>
 
           <div class="perfil-textos">
@@ -75,11 +212,26 @@
             <p class="perfil-ubicacion">📍 {{ comercio.ubicacion_perfil }}</p>
           </div>
 
-          {% if comercio.categoria != "Cine y Teatro" %}
-          <a href="{{ comercio.whatsapp_url or '#' }}" class="boton-whatsapp perfil-whatsapp" target="_blank" rel="noopener noreferrer">
-            Consultar por WhatsApp
-          </a>
-          {% endif %}
+          <div class="perfil-acciones-principales">
+            {% if comercio.categoria != "Cine y Teatro" %}
+              <a
+                href="{{ comercio.whatsapp_url or '#' }}"
+                class="boton-whatsapp perfil-whatsapp"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Consultar por WhatsApp
+              </a>
+            {% endif %}
+
+            <button
+              type="button"
+              id="compartirNegocio"
+              class="perfil-compartir"
+            >
+              Compartir negocio
+            </button>
+          </div>
 
         </div>
 
@@ -165,35 +317,6 @@
       </section>
 
 
-      <!-- LISTAS BUSCABLES -->
-      <section class="perfil-bloque">
-        <div class="perfil-bloque-header">
-          <div>
-            <p class="titulo-chico">TAMBIÉN PODÉS ENCONTRAR</p>
-            <h2>Listas buscables</h2>
-          </div>
-        </div>
-
-        <div class="perfil-listas">
-
-          <div class="perfil-lista-card">
-            <h3>Mate</h3>
-            <p>Imperial, camionero, acero, cuero, Stanley, térmico, silicona.</p>
-          </div>
-
-          <div class="perfil-lista-card">
-            <h3>Botellas</h3>
-            <p>Deportivas, térmicas, acero, plástico, litro, 750ml, colores.</p>
-          </div>
-
-          <div class="perfil-lista-card">
-            <h3>Bazar</h3>
-            <p>Vasos, platos, fuentes, recipientes, utensilios, regalos.</p>
-          </div>
-
-        </div>
-      </section>
-
       {% endif %}
 
     </section>
@@ -241,6 +364,108 @@
   });
 </script>
 <!-- FIN CLICKLOCAL: loading WhatsApp anti doble click -->
+
+<!-- CLICKLOCAL: COMPARTIR NEGOCIO V1 -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const botonCompartir = document.getElementById(
+      "compartirNegocio"
+    );
+
+    if (!botonCompartir) {
+      return;
+    }
+
+    const textoOriginal =
+      botonCompartir.textContent.trim();
+
+    function obtenerUrlPerfil() {
+      const urlPerfil = new URL(window.location.href);
+      urlPerfil.search = "";
+      urlPerfil.hash = "";
+      return urlPerfil.toString();
+    }
+
+    async function copiarContenido(texto) {
+      if (
+        navigator.clipboard &&
+        window.isSecureContext
+      ) {
+        await navigator.clipboard.writeText(texto);
+        return;
+      }
+
+      const areaTemporal = document.createElement("textarea");
+
+      areaTemporal.value = texto;
+      areaTemporal.setAttribute("readonly", "");
+      areaTemporal.style.position = "fixed";
+      areaTemporal.style.left = "-9999px";
+      areaTemporal.style.opacity = "0";
+
+      document.body.appendChild(areaTemporal);
+      areaTemporal.select();
+
+      const copiado = document.execCommand("copy");
+
+      document.body.removeChild(areaTemporal);
+
+      if (!copiado) {
+        throw new Error("No se pudo copiar el enlace.");
+      }
+    }
+
+    function mostrarResultado(texto) {
+      botonCompartir.textContent = texto;
+
+      window.setTimeout(function () {
+        botonCompartir.textContent = textoOriginal;
+        botonCompartir.disabled = false;
+        botonCompartir.removeAttribute("aria-busy");
+      }, 2400);
+    }
+
+    botonCompartir.addEventListener(
+      "click",
+      async function () {
+        const urlPerfil = obtenerUrlPerfil();
+
+        botonCompartir.disabled = true;
+        botonCompartir.setAttribute("aria-busy", "true");
+
+        try {
+          if (navigator.share) {
+            await navigator.share({
+              url: urlPerfil
+            });
+
+            mostrarResultado("Compartido ✓");
+            return;
+          }
+
+          await copiarContenido(urlPerfil);
+          mostrarResultado("Enlace copiado ✓");
+
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            botonCompartir.disabled = false;
+            botonCompartir.removeAttribute("aria-busy");
+            return;
+          }
+
+          try {
+            await copiarContenido(urlPerfil);
+            mostrarResultado("Enlace copiado ✓");
+          } catch (errorCopiar) {
+            mostrarResultado("No se pudo compartir");
+          }
+        }
+      }
+    );
+  });
+</script>
+<!-- FIN CLICKLOCAL: COMPARTIR NEGOCIO V1 -->
+
 
 </body>
 </html>
