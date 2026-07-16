@@ -4371,6 +4371,391 @@ def detalle(publicacion_id):
 
 
 # ============================================================
+# CLICKLOCAL: IMAGEN PARA COMPARTIR PUBLICACIÓN V1
+#
+# Genera una imagen horizontal para WhatsApp, Facebook,
+# Telegram y otras vistas previas:
+# foto del producto + publicación + negocio + ClickLocal.
+# ============================================================
+
+@app.route(
+    "/detalle/<publicacion_id>/imagen-compartir.jpg"
+)
+def imagen_compartir_publicacion(publicacion_id):
+    publicacion_id = uuid_o_none(publicacion_id)
+
+    if not publicacion_id:
+        return "", 404
+
+    try:
+        publicacion_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select(
+                "id,nombre,imagenes,imagen_principal,"
+                "imagen_url,activa,comercio_id"
+            )
+            .eq("id", publicacion_id)
+            .eq("activa", True)
+            .limit(1)
+            .execute()
+        )
+
+        publicaciones = publicacion_res.data or []
+
+        if not publicaciones:
+            return "", 404
+
+        publicacion = publicaciones[0]
+        comercio_id = publicacion.get("comercio_id")
+
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,nombre_negocio,activo")
+            .eq("id", comercio_id)
+            .eq("activo", True)
+            .limit(1)
+            .execute()
+        )
+
+        comercios = comercio_res.data or []
+
+        if not comercios:
+            return "", 404
+
+        nombre_publicacion = str(
+            publicacion.get("nombre")
+            or "Publicación"
+        ).strip()
+
+        nombre_negocio = str(
+            comercios[0].get("nombre_negocio")
+            or "Comercio local"
+        ).strip()
+
+        imagenes = publicacion.get("imagenes") or []
+        primera_imagen = ""
+
+        if isinstance(imagenes, list):
+            primera_imagen = next(
+                (
+                    str(imagen).strip()
+                    for imagen in imagenes
+                    if imagen
+                ),
+                ""
+            )
+
+        imagen_url = str(
+            publicacion.get("imagen_principal")
+            or publicacion.get("imagen_url")
+            or primera_imagen
+            or ""
+        ).strip()
+
+        ancho = 1200
+        alto = 630
+        alto_foto = 455
+
+        imagen_final = Image.new(
+            "RGB",
+            (ancho, alto),
+            (255, 255, 255)
+        )
+
+        def cargar_fuente(tamanio, negrita=False):
+            if negrita:
+                rutas = [
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+                ]
+            else:
+                rutas = [
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+                ]
+
+            for ruta_fuente in rutas:
+                try:
+                    return ImageFont.truetype(
+                        ruta_fuente,
+                        tamanio
+                    )
+                except Exception:
+                    continue
+
+            return ImageFont.load_default()
+
+        fuente_titulo = cargar_fuente(42, negrita=True)
+        fuente_negocio = cargar_fuente(30, negrita=True)
+        fuente_clicklocal = cargar_fuente(28, negrita=True)
+        fuente_fallback = cargar_fuente(110, negrita=True)
+
+        imagen_producto = None
+
+        if imagen_url:
+            try:
+                datos_imagen = None
+
+                if imagen_url.startswith("/static/"):
+                    import os
+
+                    raiz_app = os.path.abspath(app.root_path)
+                    ruta_local = os.path.abspath(
+                        os.path.join(
+                            raiz_app,
+                            imagen_url.lstrip("/")
+                        )
+                    )
+
+                    if not ruta_local.startswith(
+                        raiz_app + os.sep
+                    ):
+                        raise ValueError(
+                            "Ruta de imagen local inválida."
+                        )
+
+                    with open(ruta_local, "rb") as archivo:
+                        datos_imagen = archivo.read(
+                            15 * 1024 * 1024 + 1
+                        )
+
+                else:
+                    from urllib.parse import urlparse
+                    from urllib.request import Request, urlopen
+
+                    url_analizada = urlparse(imagen_url)
+
+                    if url_analizada.scheme != "https":
+                        raise ValueError(
+                            "La imagen debe usar HTTPS."
+                        )
+
+                    solicitud = Request(
+                        imagen_url,
+                        headers={
+                            "User-Agent":
+                            "ClickLocal-Preview/1.0"
+                        }
+                    )
+
+                    with urlopen(
+                        solicitud,
+                        timeout=10
+                    ) as respuesta_imagen:
+                        datos_imagen = respuesta_imagen.read(
+                            15 * 1024 * 1024 + 1
+                        )
+
+                if (
+                    not datos_imagen
+                    or len(datos_imagen) > 15 * 1024 * 1024
+                ):
+                    raise ValueError(
+                        "La imagen supera el límite permitido."
+                    )
+
+                imagen_producto = Image.open(
+                    BytesIO(datos_imagen)
+                )
+
+                imagen_producto = ImageOps.exif_transpose(
+                    imagen_producto
+                ).convert("RGB")
+
+            except Exception as error_imagen:
+                print(
+                    "CLICKLOCAL: no se pudo cargar la foto "
+                    "para compartir publicación:",
+                    error_imagen,
+                    flush=True
+                )
+
+        if imagen_producto is not None:
+            remuestreo = getattr(
+                getattr(Image, "Resampling", Image),
+                "LANCZOS"
+            )
+
+            portada = ImageOps.fit(
+                imagen_producto,
+                (ancho, alto_foto),
+                method=remuestreo,
+                centering=(0.5, 0.5)
+            )
+
+            imagen_final.paste(portada, (0, 0))
+
+        else:
+            fondo = Image.new(
+                "RGB",
+                (ancho, alto_foto),
+                (15, 23, 42)
+            )
+
+            dibujo_fondo = ImageDraw.Draw(fondo)
+
+            texto_fallback = "ClickLocal"
+
+            caja_fallback = dibujo_fondo.textbbox(
+                (0, 0),
+                texto_fallback,
+                font=fuente_fallback
+            )
+
+            ancho_fallback = (
+                caja_fallback[2] - caja_fallback[0]
+            )
+
+            alto_fallback = (
+                caja_fallback[3] - caja_fallback[1]
+            )
+
+            dibujo_fondo.text(
+                (
+                    (ancho - ancho_fallback) / 2,
+                    (alto_foto - alto_fallback) / 2
+                    - caja_fallback[1]
+                ),
+                texto_fallback,
+                font=fuente_fallback,
+                fill=(255, 255, 255)
+            )
+
+            imagen_final.paste(fondo, (0, 0))
+
+        dibujo = ImageDraw.Draw(imagen_final)
+
+        dibujo.rectangle(
+            (0, alto_foto, ancho, alto_foto + 8),
+            fill=(255, 122, 0)
+        )
+
+        dibujo.rectangle(
+            (0, alto_foto + 8, ancho, alto),
+            fill=(255, 255, 255)
+        )
+
+        def recortar_texto(texto, fuente, ancho_maximo):
+            texto = " ".join(str(texto).split())
+
+            if dibujo.textlength(
+                texto,
+                font=fuente
+            ) <= ancho_maximo:
+                return texto
+
+            sufijo = "…"
+            texto_recortado = texto
+
+            while (
+                texto_recortado
+                and dibujo.textlength(
+                    texto_recortado + sufijo,
+                    font=fuente
+                ) > ancho_maximo
+            ):
+                texto_recortado = (
+                    texto_recortado[:-1].rstrip()
+                )
+
+            return (
+                texto_recortado + sufijo
+                if texto_recortado
+                else sufijo
+            )
+
+        titulo_mostrar = recortar_texto(
+            nombre_publicacion,
+            fuente_titulo,
+            1080
+        )
+
+        texto_clicklocal = "ClickLocal Paraná"
+
+        ancho_clicklocal = dibujo.textlength(
+            texto_clicklocal,
+            font=fuente_clicklocal
+        )
+
+        ancho_negocio_maximo = (
+            ancho
+            - 120
+            - ancho_clicklocal
+            - 50
+        )
+
+        negocio_mostrar = recortar_texto(
+            nombre_negocio,
+            fuente_negocio,
+            ancho_negocio_maximo
+        )
+
+        dibujo.text(
+            (60, 485),
+            titulo_mostrar,
+            font=fuente_titulo,
+            fill=(15, 23, 42)
+        )
+
+        dibujo.text(
+            (60, 552),
+            negocio_mostrar,
+            font=fuente_negocio,
+            fill=(51, 65, 85)
+        )
+
+        dibujo.text(
+            (
+                ancho - 60 - ancho_clicklocal,
+                554
+            ),
+            texto_clicklocal,
+            font=fuente_clicklocal,
+            fill=(230, 105, 0)
+        )
+
+        buffer_imagen = BytesIO()
+
+        imagen_final.save(
+            buffer_imagen,
+            format="JPEG",
+            quality=88,
+            optimize=True,
+            progressive=True
+        )
+
+        buffer_imagen.seek(0)
+
+        respuesta = send_file(
+            buffer_imagen,
+            mimetype="image/jpeg",
+            max_age=3600
+        )
+
+        respuesta.headers["Cache-Control"] = (
+            "public, max-age=3600"
+        )
+
+        respuesta.headers["X-Content-Type-Options"] = (
+            "nosniff"
+        )
+
+        return respuesta
+
+    except Exception as error:
+        print(
+            "ERROR GENERANDO IMAGEN PARA COMPARTIR "
+            "PUBLICACIÓN:",
+            error,
+            flush=True
+        )
+
+        return "", 404
+
+
+# ============================================================
 # CLICKLOCAL: IMAGEN PARA COMPARTIR NEGOCIO V1
 #
 # Cuando el comercio todavía no tiene logo, genera una imagen
