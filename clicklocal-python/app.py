@@ -1032,9 +1032,9 @@ def inicio():
         publicaciones_res = (
             supabase_admin
             .table("publicaciones")
-            .select("id,nombre,precio,descripcion,imagenes,imagen_principal,imagen_url,activa,comercio_id,direccion_mostrar,created_at")
+            .select("id,nombre,precio,descripcion,imagenes,imagen_principal,imagen_url,activa,comercio_id,direccion_mostrar,created_at,orden_grilla_at")
             .eq("activa", True)
-            .order("created_at", desc=True)
+            .order("orden_grilla_at", desc=True)
             .limit(limite)
             .execute()
         )
@@ -1111,6 +1111,10 @@ def inicio():
                 "direccion_mostrar": ubicacion_publica(comercio_pub, pub.get("direccion_mostrar")),
                 "categoria": comercio_pub.get("categoria"),
                 "created_at": pub.get("created_at"),
+                "orden_grilla_at": (
+                    pub.get("orden_grilla_at")
+                    or pub.get("created_at")
+                ),
                 "_score_busqueda": score_total,
                 "_plan": str(comercio_pub.get("plan") or "gratis").lower(),
                 "_coincidencias": coincidencias,
@@ -1208,6 +1212,7 @@ def inicio():
                 "direccion_mostrar": ubicacion_publica(comercio_cartelera, item.get("direccion_mostrar")),
                 "categoria": comercio_cartelera.get("categoria") or "Cine y Teatro",
                 "created_at": item.get("created_at"),
+                "orden_grilla_at": item.get("created_at"),
                 "_score_busqueda": score_total,
                 "_plan": str(comercio_cartelera.get("plan") or "gratis").lower(),
                 "_coincidencias": coincidencias,
@@ -1218,13 +1223,19 @@ def inicio():
                 key=lambda item: (
                     item.get("_score_busqueda", 0),
                     1 if item.get("_plan") == "premium" else 0,
-                    item.get("created_at") or ""
+                    item.get("orden_grilla_at")
+                    or item.get("created_at")
+                    or ""
                 ),
                 reverse=True
             )
         else:
             publicaciones_finales.sort(
-                key=lambda item: item.get("created_at") or "",
+                key=lambda item: (
+                    item.get("orden_grilla_at")
+                    or item.get("created_at")
+                    or ""
+                ),
                 reverse=True
             )
 
@@ -2530,10 +2541,50 @@ def panel():
 
             imagen_principal_editada = imagenes_por_slot.get(principal_slot) or imagenes_finales[0]
 
-            publicacion_actual = next(
-                (pub for pub in publicaciones if str(pub.get("id")) == str(publicacion_id)),
-                {}
-            )
+            try:
+                publicacion_actual_res = (
+                    supabase_admin
+                    .table("publicaciones")
+                    .select(
+                        "id,nombre,precio,descripcion,activa,"
+                        "pausada_por_limite_plan,imagenes,"
+                        "imagen_principal,imagen_url,"
+                        "created_at,orden_grilla_at"
+                    )
+                    .eq("id", publicacion_id)
+                    .eq("comercio_id", comercio_id)
+                    .limit(1)
+                    .execute()
+                )
+
+                filas_publicacion_actual = (
+                    publicacion_actual_res.data or []
+                )
+
+                publicacion_actual = (
+                    filas_publicacion_actual[0]
+                    if filas_publicacion_actual
+                    else {}
+                )
+
+            except Exception as e:
+                return render_template(
+                    "panel.html",
+                    comercio=comercio,
+                    publicaciones=publicaciones,
+                    listas_buscables=listas_buscables,
+                    error=f"No se pudo leer la publicación: {e}"
+                )
+
+            if not publicacion_actual:
+                return render_template(
+                    "panel.html",
+                    comercio=comercio,
+                    publicaciones=publicaciones,
+                    listas_buscables=listas_buscables,
+                    error="La publicación que querés editar no existe."
+                )
+
             estaba_activa = publicacion_actual.get("activa") is True
 
             if activa and not estaba_activa:
@@ -2559,6 +2610,95 @@ def panel():
                 "imagen_principal": imagen_principal_editada,
                 "imagen_url": imagen_principal_editada
             }
+
+            precio_actual = normalizar_precio(
+                ""
+                if publicacion_actual.get("precio") is None
+                else str(publicacion_actual.get("precio"))
+            )
+
+            imagenes_actuales = (
+                publicacion_actual.get("imagenes") or []
+            )
+
+            if not isinstance(imagenes_actuales, list):
+                imagenes_actuales = []
+
+            imagen_principal_actual = str(
+                publicacion_actual.get("imagen_principal")
+                or publicacion_actual.get("imagen_url")
+                or ""
+            ).strip()
+
+            hubo_cambio_real = any([
+                str(
+                    publicacion_actual.get("nombre") or ""
+                ).strip() != nombre,
+
+                precio_actual != precio,
+
+                str(
+                    publicacion_actual.get("descripcion") or ""
+                ).strip() != descripcion,
+
+                (publicacion_actual.get("activa") is True)
+                != activa,
+
+                imagenes_actuales != imagenes_finales,
+
+                imagen_principal_actual
+                != imagen_principal_editada,
+            ])
+
+            if hubo_cambio_real and activa:
+                ahora_utc = datetime.datetime.now(
+                    datetime.timezone.utc
+                )
+
+                valor_orden_actual = (
+                    publicacion_actual.get("orden_grilla_at")
+                    or publicacion_actual.get("created_at")
+                )
+
+                fecha_orden_actual = None
+
+                if valor_orden_actual:
+                    try:
+                        fecha_orden_actual = (
+                            datetime.datetime.fromisoformat(
+                                str(valor_orden_actual).replace(
+                                    "Z",
+                                    "+00:00"
+                                )
+                            )
+                        )
+
+                        if fecha_orden_actual.tzinfo is None:
+                            fecha_orden_actual = (
+                                fecha_orden_actual.replace(
+                                    tzinfo=datetime.timezone.utc
+                                )
+                            )
+
+                        fecha_orden_actual = (
+                            fecha_orden_actual.astimezone(
+                                datetime.timezone.utc
+                            )
+                        )
+
+                    except Exception:
+                        fecha_orden_actual = None
+
+                puede_subir_en_grilla = (
+                    fecha_orden_actual is None
+                    or ahora_utc - fecha_orden_actual
+                    >= datetime.timedelta(hours=24)
+                )
+
+                if puede_subir_en_grilla:
+                    cambios_publicacion["orden_grilla_at"] = (
+                        ahora_utc.isoformat()
+                    )
 
             try:
                 supabase_admin.table("publicaciones").update(cambios_publicacion).eq("id", publicacion_id).eq("comercio_id", comercio_id).execute()
