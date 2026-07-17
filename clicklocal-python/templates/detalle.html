@@ -17,7 +17,7 @@
     url_for(
       'imagen_compartir_publicacion',
       publicacion_id=publicacion.id,
-      v=2,
+      v=3,
       _external=True
     )
   %}
@@ -354,13 +354,51 @@
     const textoOriginal =
       botonCompartir.textContent.trim();
 
+    const urlImagenCompartir =
+      {{ imagen_compartir|tojson }};
+
+    function prepararVistaPreviaCompartir() {
+      return fetch(
+        urlImagenCompartir,
+        {
+          method: "GET",
+          cache: "reload",
+          credentials: "same-origin"
+        }
+      )
+        .then(function (respuesta) {
+          if (!respuesta.ok) {
+            throw new Error(
+              "No se pudo preparar la vista previa."
+            );
+          }
+
+          return respuesta.blob();
+        })
+        .catch(function () {
+          return null;
+        });
+    }
+
+    prepararVistaPreviaCompartir();
+
+    botonCompartir.addEventListener(
+      "pointerdown",
+      function () {
+        prepararVistaPreviaCompartir();
+      },
+      {
+        passive: true
+      }
+    );
+
     function obtenerUrlPublicacion() {
       const urlPublicacion = new URL(window.location.href);
 
       urlPublicacion.search = "";
       urlPublicacion.searchParams.set(
         "compartir",
-        "2"
+        "3"
       );
 
       urlPublicacion.hash = "";

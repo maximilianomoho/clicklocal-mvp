@@ -14,6 +14,8 @@ except Exception as e:
 
 import json
 import datetime
+import time
+from threading import Lock
 from config.supabase_config import supabase_auth, supabase_admin
 
 
@@ -4370,6 +4372,39 @@ def detalle(publicacion_id):
 
 
 
+# Caché temporal en memoria para que la imagen compartida
+# no tenga que descargarse y procesarse nuevamente.
+CACHE_IMAGENES_COMPARTIR = {}
+CACHE_IMAGENES_COMPARTIR_LOCK = Lock()
+CACHE_IMAGENES_COMPARTIR_TTL = 3600
+
+
+def respuesta_imagen_compartir_publicacion(
+    datos_imagen,
+    estado_cache
+):
+    respuesta = send_file(
+        BytesIO(datos_imagen),
+        mimetype="image/jpeg",
+        max_age=3600
+    )
+
+    respuesta.headers["Cache-Control"] = (
+        "public, max-age=3600, "
+        "stale-while-revalidate=86400"
+    )
+
+    respuesta.headers["X-Content-Type-Options"] = (
+        "nosniff"
+    )
+
+    respuesta.headers["X-ClickLocal-Preview-Cache"] = (
+        estado_cache
+    )
+
+    return respuesta
+
+
 # ============================================================
 # CLICKLOCAL: IMAGEN PARA COMPARTIR PUBLICACIÓN V1
 #
@@ -4386,6 +4421,38 @@ def imagen_compartir_publicacion(publicacion_id):
 
     if not publicacion_id:
         return "", 404
+
+    version_imagen = str(
+        request.args.get("v") or "3"
+    ).strip()[:20]
+
+    clave_cache = (
+        f"{publicacion_id}:{version_imagen}"
+    )
+
+    ahora = time.monotonic()
+
+    with CACHE_IMAGENES_COMPARTIR_LOCK:
+        entrada_cache = CACHE_IMAGENES_COMPARTIR.get(
+            clave_cache
+        )
+
+        if entrada_cache:
+            momento_cache, datos_cache = entrada_cache
+
+            if (
+                ahora - momento_cache
+                < CACHE_IMAGENES_COMPARTIR_TTL
+            ):
+                return respuesta_imagen_compartir_publicacion(
+                    datos_cache,
+                    "HIT"
+                )
+
+            CACHE_IMAGENES_COMPARTIR.pop(
+                clave_cache,
+                None
+            )
 
     try:
         publicacion_res = (
@@ -4487,10 +4554,10 @@ def imagen_compartir_publicacion(publicacion_id):
 
             return ImageFont.load_default()
 
-        fuente_titulo = cargar_fuente(42, negrita=True)
-        fuente_negocio = cargar_fuente(30, negrita=True)
-        fuente_clicklocal = cargar_fuente(28, negrita=True)
-        fuente_fallback = cargar_fuente(110, negrita=True)
+        fuente_fallback = cargar_fuente(
+            110,
+            negrita=True
+        )
 
         imagen_producto = None
 
@@ -4635,23 +4702,35 @@ def imagen_compartir_publicacion(publicacion_id):
             progressive=True
         )
 
-        buffer_imagen.seek(0)
+        datos_generados = buffer_imagen.getvalue()
+        ahora = time.monotonic()
 
-        respuesta = send_file(
-            buffer_imagen,
-            mimetype="image/jpeg",
-            max_age=3600
+        with CACHE_IMAGENES_COMPARTIR_LOCK:
+            claves_vencidas = [
+                clave
+                for clave, entrada
+                in CACHE_IMAGENES_COMPARTIR.items()
+                if (
+                    ahora - entrada[0]
+                    >= CACHE_IMAGENES_COMPARTIR_TTL
+                )
+            ]
+
+            for clave_vencida in claves_vencidas:
+                CACHE_IMAGENES_COMPARTIR.pop(
+                    clave_vencida,
+                    None
+                )
+
+            CACHE_IMAGENES_COMPARTIR[clave_cache] = (
+                ahora,
+                datos_generados
+            )
+
+        return respuesta_imagen_compartir_publicacion(
+            datos_generados,
+            "MISS"
         )
-
-        respuesta.headers["Cache-Control"] = (
-            "public, max-age=3600"
-        )
-
-        respuesta.headers["X-Content-Type-Options"] = (
-            "nosniff"
-        )
-
-        return respuesta
 
     except Exception as error:
         print(
