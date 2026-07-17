@@ -17,7 +17,7 @@
     url_for(
       'imagen_compartir_publicacion',
       publicacion_id=publicacion.id,
-      v=1,
+      v=2,
       _external=True
     )
   %}
@@ -351,18 +351,6 @@
       return;
     }
 
-    const tituloPublicacion =
-      {{ publicacion.nombre|tojson }};
-
-    const nombreComercio =
-      {{ comercio.nombre_negocio|tojson }};
-
-    const textoCompartir =
-      tituloPublicacion +
-      " · " +
-      nombreComercio +
-      " · ClickLocal Paraná";
-
     const textoOriginal =
       botonCompartir.textContent.trim();
 
@@ -372,7 +360,7 @@
       urlPublicacion.search = "";
       urlPublicacion.searchParams.set(
         "compartir",
-        "1"
+        "2"
       );
 
       urlPublicacion.hash = "";
@@ -442,8 +430,6 @@
         try {
           if (navigator.share) {
             await navigator.share({
-              title: tituloPublicacion,
-              text: textoCompartir,
               url: urlPublicacion
             });
 
@@ -451,11 +437,7 @@
             return;
           }
 
-          await copiarContenido(
-            textoCompartir +
-            "\n" +
-            urlPublicacion
-          );
+          await copiarContenido(urlPublicacion);
 
           mostrarResultado("Enlace copiado ✓");
 
@@ -469,11 +451,7 @@
           }
 
           try {
-            await copiarContenido(
-              textoCompartir +
-              "\n" +
-              urlPublicacion
-            );
+            await copiarContenido(urlPublicacion);
 
             mostrarResultado("Enlace copiado ✓");
 

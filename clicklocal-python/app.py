@@ -4456,7 +4456,7 @@ def imagen_compartir_publicacion(publicacion_id):
 
         ancho = 1200
         alto = 630
-        alto_foto = 455
+        alto_foto = 630
 
         imagen_final = Image.new(
             "RGB",
@@ -4624,97 +4624,6 @@ def imagen_compartir_publicacion(publicacion_id):
             )
 
             imagen_final.paste(fondo, (0, 0))
-
-        dibujo = ImageDraw.Draw(imagen_final)
-
-        dibujo.rectangle(
-            (0, alto_foto, ancho, alto_foto + 8),
-            fill=(255, 122, 0)
-        )
-
-        dibujo.rectangle(
-            (0, alto_foto + 8, ancho, alto),
-            fill=(255, 255, 255)
-        )
-
-        def recortar_texto(texto, fuente, ancho_maximo):
-            texto = " ".join(str(texto).split())
-
-            if dibujo.textlength(
-                texto,
-                font=fuente
-            ) <= ancho_maximo:
-                return texto
-
-            sufijo = "…"
-            texto_recortado = texto
-
-            while (
-                texto_recortado
-                and dibujo.textlength(
-                    texto_recortado + sufijo,
-                    font=fuente
-                ) > ancho_maximo
-            ):
-                texto_recortado = (
-                    texto_recortado[:-1].rstrip()
-                )
-
-            return (
-                texto_recortado + sufijo
-                if texto_recortado
-                else sufijo
-            )
-
-        titulo_mostrar = recortar_texto(
-            nombre_publicacion,
-            fuente_titulo,
-            1080
-        )
-
-        texto_clicklocal = "ClickLocal Paraná"
-
-        ancho_clicklocal = dibujo.textlength(
-            texto_clicklocal,
-            font=fuente_clicklocal
-        )
-
-        ancho_negocio_maximo = (
-            ancho
-            - 120
-            - ancho_clicklocal
-            - 50
-        )
-
-        negocio_mostrar = recortar_texto(
-            nombre_negocio,
-            fuente_negocio,
-            ancho_negocio_maximo
-        )
-
-        dibujo.text(
-            (60, 485),
-            titulo_mostrar,
-            font=fuente_titulo,
-            fill=(15, 23, 42)
-        )
-
-        dibujo.text(
-            (60, 552),
-            negocio_mostrar,
-            font=fuente_negocio,
-            fill=(51, 65, 85)
-        )
-
-        dibujo.text(
-            (
-                ancho - 60 - ancho_clicklocal,
-                554
-            ),
-            texto_clicklocal,
-            font=fuente_clicklocal,
-            fill=(230, 105, 0)
-        )
 
         buffer_imagen = BytesIO()
 
