@@ -1573,11 +1573,13 @@
           {% endif %}
         </h2>
 
+        {% set publicaciones_destacadas = publicaciones if busqueda else publicaciones_mas_vistas %}
+
         <div class="grilla-publicaciones">
 
-          {% if publicaciones %}
+          {% if publicaciones_destacadas %}
 
-            {% for pub in publicaciones %}
+            {% for pub in publicaciones_destacadas %}
 
               <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
                 {% if pub.tiene_historia %}
@@ -1613,6 +1615,8 @@
                 También encontramos locales que pueden tener "{{ busqueda }}". Mirá las opciones disponibles más abajo.
               {% elif busqueda %}
                 Por ahora no encontramos locales ni publicaciones para "{{ busqueda }}". Probá con otra búsqueda.
+              {% elif publicaciones %}
+                Todavía no hay publicaciones visitadas para mostrar en esta sección.
               {% else %}
                 Todavía no hay publicaciones cargadas. Entrá como comercio y cargá la primera.
               {% endif %}

@@ -847,6 +847,96 @@ def analytics_historia_comercio(historia_id):
     return redirect(f"/comercio/{comercio_id}")
 
 
+# ============================================================
+# CLICKLOCAL: LO MÁS VISTO POR VISITAS REALES
+#
+# Cuenta únicamente eventos "visita_publicacion".
+# La caché evita consultar toda la tabla de Analytics
+# en cada apertura de la portada.
+# ============================================================
+
+CACHE_MAS_VISTAS_PUBLICACIONES = {
+    "actualizado_en": 0.0,
+    "conteos": {},
+}
+
+CACHE_MAS_VISTAS_PUBLICACIONES_LOCK = Lock()
+CACHE_MAS_VISTAS_PUBLICACIONES_TTL = 300
+
+
+def obtener_conteos_visitas_publicaciones():
+    ahora = time.monotonic()
+
+    with CACHE_MAS_VISTAS_PUBLICACIONES_LOCK:
+        actualizado_en = (
+            CACHE_MAS_VISTAS_PUBLICACIONES["actualizado_en"]
+        )
+
+        if (
+            actualizado_en
+            and ahora - actualizado_en
+            < CACHE_MAS_VISTAS_PUBLICACIONES_TTL
+        ):
+            return dict(
+                CACHE_MAS_VISTAS_PUBLICACIONES["conteos"]
+            )
+
+    conteos = {}
+    inicio = 0
+    pagina = 1000
+
+    try:
+        while True:
+            respuesta = (
+                supabase_admin
+                .table("eventos_analytics")
+                .select("publicacion_id")
+                .eq("tipo_evento", "visita_publicacion")
+                .range(inicio, inicio + pagina - 1)
+                .execute()
+            )
+
+            filas = respuesta.data or []
+
+            for fila in filas:
+                publicacion_id = fila.get("publicacion_id")
+
+                if not publicacion_id:
+                    continue
+
+                publicacion_id = str(publicacion_id)
+
+                conteos[publicacion_id] = (
+                    conteos.get(publicacion_id, 0) + 1
+                )
+
+            if len(filas) < pagina:
+                break
+
+            inicio += pagina
+
+    except Exception as error:
+        print(
+            "ERROR cargando visitas para Lo más visto:",
+            error,
+            flush=True
+        )
+
+        # Si ya existía una caché válida, conserva esos datos.
+        # Si todavía no había caché, devuelve una lista vacía
+        # y la portada continúa mostrando Publicaciones recientes.
+        with CACHE_MAS_VISTAS_PUBLICACIONES_LOCK:
+            return dict(
+                CACHE_MAS_VISTAS_PUBLICACIONES["conteos"]
+            )
+
+    with CACHE_MAS_VISTAS_PUBLICACIONES_LOCK:
+        CACHE_MAS_VISTAS_PUBLICACIONES["actualizado_en"] = ahora
+        CACHE_MAS_VISTAS_PUBLICACIONES["conteos"] = dict(conteos)
+
+    return dict(conteos)
+
+
 # INICIO / PLATAFORMA
 @app.route("/")
 @app.route("/index.html")
@@ -856,6 +946,7 @@ def inicio():
 
     comercio = session.get("comercio") or comercio_default()
     publicaciones_finales = []
+    publicaciones_mas_vistas = []
     comercios_relacionados = []
     historias_publicas = []
     busqueda_id = None
@@ -1580,10 +1671,58 @@ def inicio():
         for item in publicaciones_finales:
             item["tiene_historia"] = False
 
+    # ====================================================
+    # 4) LO MÁS VISTO
+    #
+    # Solo se calcula en la portada sin búsqueda.
+    # No usa orden_grilla_at y no incluye carteleras.
+    # Una edición no puede modificar este ranking.
+    # ====================================================
+    if not busqueda_normalizada:
+        conteos_visitas = (
+            obtener_conteos_visitas_publicaciones()
+        )
+
+        publicaciones_con_visitas = []
+
+        for item in publicaciones_finales:
+            if item.get("tipo") != "publicacion":
+                continue
+
+            publicacion_id = str(item.get("id") or "")
+
+            if not publicacion_id:
+                continue
+
+            visitas_reales = int(
+                conteos_visitas.get(publicacion_id, 0) or 0
+            )
+
+            if visitas_reales <= 0:
+                continue
+
+            item_mas_visto = dict(item)
+            item_mas_visto["visitas_reales"] = visitas_reales
+
+            publicaciones_con_visitas.append(
+                item_mas_visto
+            )
+
+        publicaciones_mas_vistas = sorted(
+            publicaciones_con_visitas,
+            key=lambda item: (
+                item.get("visitas_reales", 0),
+                item.get("created_at") or "",
+                str(item.get("id") or "")
+            ),
+            reverse=True
+        )[:12]
+
     return render_template(
         "index.html",
         comercio=comercio,
         publicaciones=publicaciones_finales,
+        publicaciones_mas_vistas=publicaciones_mas_vistas,
         comercios_relacionados=comercios_relacionados,
         historias_publicas=historias_publicas,
         busqueda=busqueda
