@@ -850,7 +850,8 @@ def analytics_historia_comercio(historia_id):
 # ============================================================
 # CLICKLOCAL: LO MÁS VISTO POR VISITAS REALES
 #
-# Cuenta únicamente eventos "visita_publicacion".
+# Cuenta únicamente eventos "visita_publicacion"
+# registrados durante los últimos 7 días.
 # La caché evita consultar toda la tabla de Analytics
 # en cada apertura de la portada.
 # ============================================================
@@ -865,7 +866,14 @@ CACHE_MAS_VISTAS_PUBLICACIONES_TTL = 300
 
 
 def obtener_conteos_visitas_publicaciones():
+    from datetime import datetime, timedelta, timezone
+
     ahora = time.monotonic()
+
+    desde_utc = (
+        datetime.now(timezone.utc)
+        - timedelta(days=7)
+    ).isoformat()
 
     with CACHE_MAS_VISTAS_PUBLICACIONES_LOCK:
         actualizado_en = (
@@ -892,6 +900,7 @@ def obtener_conteos_visitas_publicaciones():
                 .table("eventos_analytics")
                 .select("publicacion_id")
                 .eq("tipo_evento", "visita_publicacion")
+                .gte("created_at", desde_utc)
                 .range(inicio, inicio + pagina - 1)
                 .execute()
             )
@@ -1708,7 +1717,7 @@ def inicio():
                 item_mas_visto
             )
 
-        publicaciones_mas_vistas = sorted(
+        publicaciones_ordenadas_por_visitas = sorted(
             publicaciones_con_visitas,
             key=lambda item: (
                 item.get("visitas_reales", 0),
@@ -1716,7 +1725,34 @@ def inicio():
                 str(item.get("id") or "")
             ),
             reverse=True
-        )[:12]
+        )
+
+        publicaciones_por_comercio = {}
+
+        for item in publicaciones_ordenadas_por_visitas:
+            clave_comercio = str(
+                item.get("comercio_id")
+                or f"sin-comercio:{item.get('id')}"
+            )
+
+            cantidad_del_comercio = (
+                publicaciones_por_comercio.get(
+                    clave_comercio,
+                    0
+                )
+            )
+
+            if cantidad_del_comercio >= 2:
+                continue
+
+            publicaciones_mas_vistas.append(item)
+
+            publicaciones_por_comercio[clave_comercio] = (
+                cantidad_del_comercio + 1
+            )
+
+            if len(publicaciones_mas_vistas) >= 12:
+                break
 
     return render_template(
         "index.html",
