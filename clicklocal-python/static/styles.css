@@ -222,8 +222,8 @@ img {
 
 .publicacion-card img {
   height: 210px;
-  object-fit: contain;
-  background: #ffffff;
+  object-fit: cover;
+  background: #e5e7eb;
 }
 
 .publicacion-info {
