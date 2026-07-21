@@ -1117,11 +1117,36 @@ def inicio():
 
         comercios = comercios_res.data or []
 
-        return {
+        comercios_por_id = {
             com.get("id"): com
             for com in comercios
             if com.get("id") and com.get("activo") is not False
         }
+
+        categorias_por_comercio = (
+            obtener_categorias_secundarias_por_comercio(
+                list(comercios_por_id.keys())
+            )
+        )
+
+        for comercio_id, comercio_data in (
+            comercios_por_id.items()
+        ):
+            categorias_secundarias = (
+                categorias_por_comercio.get(
+                    comercio_id,
+                    []
+                )
+            )
+
+            comercio_data["categorias_secundarias"] = (
+                categorias_secundarias
+            )
+            comercio_data[
+                "_categorias_secundarias_texto"
+            ] = " ".join(categorias_secundarias)
+
+        return comercios_por_id
 
     try:
         # ====================================================
@@ -1163,6 +1188,11 @@ def inicio():
                 str(pub.get("descripcion") or ""),
                 str(comercio_pub.get("nombre_negocio") or ""),
                 str(comercio_pub.get("categoria") or ""),
+                str(
+                    comercio_pub.get(
+                        "_categorias_secundarias_texto"
+                    ) or ""
+                ),
                 str(comercio_pub.get("ciudad") or ""),
             ])
 
@@ -1177,6 +1207,11 @@ def inicio():
                 " ".join([
                     str(comercio_pub.get("nombre_negocio") or ""),
                     str(comercio_pub.get("categoria") or ""),
+                str(
+                    comercio_pub.get(
+                        "_categorias_secundarias_texto"
+                    ) or ""
+                ),
                     str(comercio_pub.get("ciudad") or ""),
                 ]),
                 peso=1
@@ -1258,6 +1293,11 @@ def inicio():
                 str(item.get("promociones") or ""),
                 str(comercio_cartelera.get("nombre_negocio") or ""),
                 str(comercio_cartelera.get("categoria") or ""),
+                str(
+                    comercio_cartelera.get(
+                        "_categorias_secundarias_texto"
+                    ) or ""
+                ),
                 str(comercio_cartelera.get("ciudad") or ""),
             ])
 
@@ -1275,6 +1315,11 @@ def inicio():
                 " ".join([
                     str(comercio_cartelera.get("nombre_negocio") or ""),
                     str(comercio_cartelera.get("categoria") or ""),
+                str(
+                    comercio_cartelera.get(
+                        "_categorias_secundarias_texto"
+                    ) or ""
+                ),
                     str(comercio_cartelera.get("ciudad") or ""),
                 ]),
                 peso=1
@@ -1589,6 +1634,11 @@ def inicio():
                     str(historia.get("texto") or ""),
                     str(nombre_negocio),
                     str(comercio_historia.get("categoria") or ""),
+                    str(
+                        comercio_historia.get(
+                            "_categorias_secundarias_texto"
+                        ) or ""
+                    ),
                     str(comercio_historia.get("ciudad") or ""),
                 ])
 
@@ -1771,6 +1821,352 @@ def cartelera_demo():
     return render_template("cartelera_demo.html")
 
 
+
+# ============================================================
+# CLICKLOCAL: CATEGORÍAS MÚLTIPLES V1
+#
+# La categoría principal continúa en comercios.categoria.
+# Las categorías opcionales se guardan en comercio_categorias.
+# ============================================================
+
+CATEGORIA_CINE_TEATRO = "Cine y Teatro"
+
+CATEGORIAS_COMERCIO = (
+    "Gastronomía",
+    "Alimentos y bebidas",
+    "Indumentaria",
+    "Calzado y accesorios",
+    "Hogar, bazar y decoración",
+    "Tecnología",
+    "Autos y motos",
+    "Salud y bienestar",
+    "Belleza y cuidado personal",
+    "Servicios para el hogar",
+    "Gráfica, diseño y personalizados",
+    "Educación y cursos",
+    "Regalos, juguetes y artesanías",
+    "Mercería y manualidades",
+    "Librería, papelería e insumos comerciales",
+    "Deportes",
+    CATEGORIA_CINE_TEATRO,
+    "Otros",
+)
+
+CATEGORIAS_SECUNDARIAS_PERMITIDAS = tuple(
+    categoria
+    for categoria in CATEGORIAS_COMERCIO
+    if categoria != CATEGORIA_CINE_TEATRO
+)
+
+CATEGORIAS_AUTOGESTION = tuple(
+    categoria
+    for categoria in CATEGORIAS_COMERCIO
+    if categoria != CATEGORIA_CINE_TEATRO
+)
+
+CATEGORIAS_HOME = tuple(
+    categoria
+    for categoria in CATEGORIAS_COMERCIO
+    if categoria != "Otros"
+)
+
+app.jinja_env.globals.update({
+    "CATEGORIAS_COMERCIO": CATEGORIAS_COMERCIO,
+    "CATEGORIAS_AUTOGESTION": CATEGORIAS_AUTOGESTION,
+    "CATEGORIAS_SECUNDARIAS_PERMITIDAS": (
+        CATEGORIAS_SECUNDARIAS_PERMITIDAS
+    ),
+    "CATEGORIAS_HOME": CATEGORIAS_HOME,
+    "CATEGORIA_CINE_TEATRO": CATEGORIA_CINE_TEATRO,
+})
+
+
+def validar_categorias_comercio(
+    categoria_principal,
+    categoria_secundaria_2="",
+    categoria_secundaria_3="",
+):
+    principal = str(
+        categoria_principal or ""
+    ).strip()
+
+    secundarias_recibidas = [
+        str(categoria_secundaria_2 or "").strip(),
+        str(categoria_secundaria_3 or "").strip(),
+    ]
+
+    secundarias = [
+        categoria
+        for categoria in secundarias_recibidas
+        if categoria
+    ]
+
+    if not principal:
+        return None, (
+            "Tenés que seleccionar una categoría principal."
+        )
+
+    if principal not in CATEGORIAS_COMERCIO:
+        return None, (
+            "La categoría principal seleccionada no es válida."
+        )
+
+    for categoria in secundarias:
+        if (
+            categoria
+            not in CATEGORIAS_SECUNDARIAS_PERMITIDAS
+        ):
+            return None, (
+                "Una de las categorías secundarias "
+                "seleccionadas no es válida."
+            )
+
+    categorias_elegidas = [principal] + secundarias
+
+    if len(set(categorias_elegidas)) != len(
+        categorias_elegidas
+    ):
+        return None, (
+            "No se puede repetir la misma categoría."
+        )
+
+    if (
+        principal == CATEGORIA_CINE_TEATRO
+        and secundarias
+    ):
+        return None, (
+            "Cine y Teatro no admite categorías secundarias."
+        )
+
+    return {
+        "principal": principal,
+        "secundarias": secundarias,
+    }, None
+
+
+
+def validar_categorias_registro(
+    categoria_principal,
+    categoria_secundaria_2="",
+    categoria_secundaria_3="",
+):
+    principal = str(
+        categoria_principal or ""
+    ).strip()
+
+    if principal == CATEGORIA_CINE_TEATRO:
+        return None, (
+            "Cine y Teatro es una categoría reservada. "
+            "Debe ser habilitada por administración."
+        )
+
+    return validar_categorias_comercio(
+        principal,
+        categoria_secundaria_2,
+        categoria_secundaria_3,
+    )
+
+
+def validar_categorias_panel(
+    comercio,
+    categoria_principal,
+    categoria_secundaria_2="",
+    categoria_secundaria_3="",
+):
+    categoria_actual = str(
+        (comercio or {}).get("categoria") or ""
+    ).strip()
+
+    principal = str(
+        categoria_principal or ""
+    ).strip()
+
+    secundaria_2 = str(
+        categoria_secundaria_2 or ""
+    ).strip()
+
+    secundaria_3 = str(
+        categoria_secundaria_3 or ""
+    ).strip()
+
+    if categoria_actual == CATEGORIA_CINE_TEATRO:
+        if (
+            principal != CATEGORIA_CINE_TEATRO
+            or secundaria_2
+            or secundaria_3
+        ):
+            return None, (
+                "Cine y Teatro es una categoría especial "
+                "y no puede modificarse desde el panel."
+            )
+
+        return {
+            "principal": CATEGORIA_CINE_TEATRO,
+            "secundarias": [],
+        }, None
+
+    if principal == CATEGORIA_CINE_TEATRO:
+        return None, (
+            "Cine y Teatro es una categoría reservada. "
+            "Debe ser habilitada por administración."
+        )
+
+    return validar_categorias_comercio(
+        principal,
+        secundaria_2,
+        secundaria_3,
+    )
+
+
+def obtener_categorias_secundarias_por_comercio(
+    comercio_ids
+):
+    ids = list(dict.fromkeys(
+        comercio_id
+        for comercio_id in (comercio_ids or [])
+        if comercio_id
+    ))
+
+    if not ids:
+        return {}
+
+    try:
+        respuesta = (
+            supabase_admin
+            .table("comercio_categorias")
+            .select(
+                "id,comercio_id,categoria,orden,created_at"
+            )
+            .in_("comercio_id", ids)
+            .order("orden")
+            .execute()
+        )
+
+        filas = respuesta.data or []
+
+    except Exception as error:
+        print(
+            "AVISO CARGANDO CATEGORÍAS SECUNDARIAS:",
+            error,
+            flush=True
+        )
+        return {}
+
+    resultado = {}
+
+    for fila in filas:
+        comercio_id = fila.get("comercio_id")
+        categoria = str(
+            fila.get("categoria") or ""
+        ).strip()
+
+        if not comercio_id or not categoria:
+            continue
+
+        resultado.setdefault(
+            comercio_id,
+            []
+        ).append(categoria)
+
+    return resultado
+
+
+def obtener_filas_categorias_secundarias(
+    comercio_id
+):
+    if not comercio_id:
+        return []
+
+    respuesta = (
+        supabase_admin
+        .table("comercio_categorias")
+        .select(
+            "id,comercio_id,categoria,orden,created_at"
+        )
+        .eq("comercio_id", comercio_id)
+        .order("orden")
+        .execute()
+    )
+
+    return respuesta.data or []
+
+
+def reemplazar_categorias_secundarias(
+    comercio_id,
+    categorias_secundarias,
+):
+    categorias = [
+        str(categoria or "").strip()
+        for categoria in (
+            categorias_secundarias or []
+        )
+        if str(categoria or "").strip()
+    ]
+
+    filas_anteriores = (
+        obtener_filas_categorias_secundarias(
+            comercio_id
+        )
+    )
+
+    nuevas_filas = [
+        {
+            "comercio_id": comercio_id,
+            "categoria": categoria,
+            "orden": posicion,
+        }
+        for posicion, categoria in enumerate(
+            categorias,
+            start=2
+        )
+    ]
+
+    try:
+        (
+            supabase_admin
+            .table("comercio_categorias")
+            .delete()
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+
+        if nuevas_filas:
+            (
+                supabase_admin
+                .table("comercio_categorias")
+                .insert(nuevas_filas)
+                .execute()
+            )
+
+    except Exception:
+        try:
+            (
+                supabase_admin
+                .table("comercio_categorias")
+                .delete()
+                .eq("comercio_id", comercio_id)
+                .execute()
+            )
+
+            if filas_anteriores:
+                (
+                    supabase_admin
+                    .table("comercio_categorias")
+                    .insert(filas_anteriores)
+                    .execute()
+                )
+
+        except Exception as error_restaurando:
+            print(
+                "ERROR RESTAURANDO CATEGORÍAS "
+                "SECUNDARIAS:",
+                error_restaurando,
+                flush=True
+            )
+
+        raise
+
+
 # REGISTRO COMERCIO
 @app.route("/registro", methods=["GET", "POST"])
 @app.route("/registro.html", methods=["GET", "POST"])
@@ -1783,6 +2179,14 @@ def registro():
         venta_online = request.form.get("venta_online") == "on"
         ciudad = request.form.get("ciudad", "Paraná").strip()
         categoria = request.form.get("categoria", "").strip()
+        categoria_secundaria_2 = request.form.get(
+            "categoria_secundaria_2",
+            ""
+        ).strip()
+        categoria_secundaria_3 = request.form.get(
+            "categoria_secundaria_3",
+            ""
+        ).strip()
         descripcion = request.form.get("descripcion", "").strip()
         password = request.form.get("password", "").strip()
         repetir_password = request.form.get("repetir_password", "").strip()
@@ -1790,8 +2194,21 @@ def registro():
         if not nombre_negocio or not email or not whatsapp or not direccion or not password:
             return "Faltan datos obligatorios: nombre del negocio, email, WhatsApp, dirección o contraseña.", 400
 
-        if not categoria:
-            return "Tenés que seleccionar una categoría.", 400
+        categorias_validadas, error_categorias = (
+            validar_categorias_registro(
+                categoria,
+                categoria_secundaria_2,
+                categoria_secundaria_3,
+            )
+        )
+
+        if error_categorias:
+            return error_categorias, 400
+
+        categoria = categorias_validadas["principal"]
+        categorias_secundarias = (
+            categorias_validadas["secundarias"]
+        )
 
         if password != repetir_password:
             return "Las contraseñas no coinciden.", 400
@@ -1830,6 +2247,61 @@ def registro():
             insert_res = supabase_admin.table("comercios").insert(comercio_nuevo).execute()
 
             comercio_guardado = insert_res.data[0] if insert_res.data else comercio_nuevo
+
+            if categorias_secundarias:
+                comercio_id_nuevo = comercio_guardado.get("id")
+
+                if not comercio_id_nuevo:
+                    comercio_creado_res = (
+                        supabase_admin
+                        .table("comercios")
+                        .select("*")
+                        .eq("user_id", user.id)
+                        .limit(1)
+                        .execute()
+                    )
+
+                    if comercio_creado_res.data:
+                        comercio_guardado = (
+                            comercio_creado_res.data[0]
+                        )
+                        comercio_id_nuevo = (
+                            comercio_guardado.get("id")
+                        )
+
+                if not comercio_id_nuevo:
+                    raise RuntimeError(
+                        "El comercio se creó, pero no se pudo "
+                        "obtener su identificador para guardar "
+                        "las categorías secundarias."
+                    )
+
+                try:
+                    reemplazar_categorias_secundarias(
+                        comercio_id_nuevo,
+                        categorias_secundarias,
+                    )
+
+                except Exception:
+                    try:
+                        (
+                            supabase_admin
+                            .table("comercios")
+                            .delete()
+                            .eq("id", comercio_id_nuevo)
+                            .execute()
+                        )
+                    except Exception:
+                        pass
+
+                    try:
+                        supabase_admin.auth.admin.delete_user(
+                            str(user.id)
+                        )
+                    except Exception:
+                        pass
+
+                    raise
 
             session["user_id"] = user.id
             session["comercio"] = comercio_guardado
@@ -2353,11 +2825,37 @@ def panel():
         session.pop("publicaciones", None)
         return "Esta cuenta fue bloqueada por administración.", 403
 
+    categorias_secundarias_panel = (
+        obtener_categorias_secundarias_por_comercio(
+            [comercio_id]
+        ).get(comercio_id, [])
+    )
+
+    comercio["categoria_secundaria_2"] = (
+        categorias_secundarias_panel[0]
+        if len(categorias_secundarias_panel) >= 1
+        else ""
+    )
+    comercio["categoria_secundaria_3"] = (
+        categorias_secundarias_panel[1]
+        if len(categorias_secundarias_panel) >= 2
+        else ""
+    )
+
     if request.method == "POST" and request.form.get("accion") == "actualizar_mis_datos":
         nombre_negocio = request.form.get("nombre_negocio", "").strip()
         whatsapp = request.form.get("whatsapp", "").strip()
         direccion = request.form.get("direccion", "").strip()
         descripcion = request.form.get("descripcion", "").strip()
+        categoria = request.form.get("categoria", "").strip()
+        categoria_secundaria_2 = request.form.get(
+            "categoria_secundaria_2",
+            ""
+        ).strip()
+        categoria_secundaria_3 = request.form.get(
+            "categoria_secundaria_3",
+            ""
+        ).strip()
 
         if not nombre_negocio or not whatsapp or not direccion:
             return "Faltan datos obligatorios: nombre del comercio, WhatsApp o dirección.", 400
@@ -2367,28 +2865,163 @@ def panel():
         if not whatsapp_limpio:
             return "El WhatsApp no es válido. Ingresá solo números, por ejemplo 3430000000.", 400
 
+        categorias_validadas, error_categorias = (
+            validar_categorias_panel(
+                comercio,
+                categoria,
+                categoria_secundaria_2,
+                categoria_secundaria_3,
+            )
+        )
+
+        if error_categorias:
+            return error_categorias, 400
+
+        categoria = categorias_validadas["principal"]
+        categorias_secundarias = (
+            categorias_validadas["secundarias"]
+        )
+
         datos_actualizados = {
             "nombre_negocio": nombre_negocio,
             "whatsapp": whatsapp_limpio,
             "direccion": direccion,
             "direccion_mostrar": direccion,
             "descripcion": descripcion,
+            "categoria": categoria,
         }
 
-        try:
-            supabase_admin.table("comercios").update(datos_actualizados).eq("id", comercio_id).execute()
+        datos_anteriores = {
+            "nombre_negocio": comercio.get("nombre_negocio"),
+            "whatsapp": comercio.get("whatsapp"),
+            "direccion": comercio.get("direccion"),
+            "direccion_mostrar": comercio.get(
+                "direccion_mostrar"
+            ),
+            "descripcion": comercio.get("descripcion"),
+            "categoria": comercio.get("categoria"),
+        }
 
-            # Mantener sincronizada la dirección visible de las publicaciones existentes.
-            # Si el comercio corrige su dirección, la galería pública no debe seguir mostrando la vieja.
-            supabase_admin.table("publicaciones").update({
-                "direccion_mostrar": direccion
-            }).eq("comercio_id", comercio_id).execute()
+        categorias_anteriores = list(
+            categorias_secundarias_panel
+        )
+
+        try:
+            (
+                supabase_admin
+                .table("comercios")
+                .update(datos_actualizados)
+                .eq("id", comercio_id)
+                .execute()
+            )
+
+            reemplazar_categorias_secundarias(
+                comercio_id,
+                categorias_secundarias,
+            )
+
+            # Mantener sincronizada la dirección visible
+            # de las publicaciones existentes.
+            (
+                supabase_admin
+                .table("publicaciones")
+                .update({
+                    "direccion_mostrar": direccion
+                })
+                .eq("comercio_id", comercio_id)
+                .execute()
+            )
 
             comercio.update(datos_actualizados)
+            comercio["categoria_secundaria_2"] = (
+                categorias_secundarias[0]
+                if len(categorias_secundarias) >= 1
+                else ""
+            )
+            comercio["categoria_secundaria_3"] = (
+                categorias_secundarias[1]
+                if len(categorias_secundarias) >= 2
+                else ""
+            )
+
             session["comercio"] = comercio
-            return redirect(url_for("panel", datos_actualizados="1"))
-        except Exception as e:
-            return f"Error actualizando datos del comercio: {e}", 400
+            session.modified = True
+
+            return redirect(
+                url_for(
+                    "panel",
+                    datos_actualizados="1"
+                ) + "#datos"
+            )
+
+        except Exception as error:
+            errores_restauracion = []
+
+            try:
+                (
+                    supabase_admin
+                    .table("comercios")
+                    .update(datos_anteriores)
+                    .eq("id", comercio_id)
+                    .execute()
+                )
+            except Exception as error_restaurando:
+                errores_restauracion.append(
+                    f"comercio: {error_restaurando}"
+                )
+
+            try:
+                reemplazar_categorias_secundarias(
+                    comercio_id,
+                    categorias_anteriores,
+                )
+            except Exception as error_restaurando:
+                errores_restauracion.append(
+                    f"categorías: {error_restaurando}"
+                )
+
+            try:
+                (
+                    supabase_admin
+                    .table("publicaciones")
+                    .update({
+                        "direccion_mostrar": (
+                            datos_anteriores.get(
+                                "direccion_mostrar"
+                            )
+                            or datos_anteriores.get(
+                                "direccion"
+                            )
+                            or ""
+                        )
+                    })
+                    .eq("comercio_id", comercio_id)
+                    .execute()
+                )
+            except Exception as error_restaurando:
+                errores_restauracion.append(
+                    f"publicaciones: {error_restaurando}"
+                )
+
+            print(
+                "ERROR ACTUALIZANDO DATOS Y CATEGORÍAS:",
+                error,
+                flush=True
+            )
+
+            if errores_restauracion:
+                print(
+                    "ERRORES DURANTE LA RESTAURACIÓN:",
+                    errores_restauracion,
+                    flush=True
+                )
+
+            return (
+                "No se pudieron actualizar los datos del "
+                "comercio. Se conservaron los datos "
+                "anteriores.",
+                400
+            )
 
     plan_actual = str(comercio.get("plan") or "gratis").strip().lower()
 

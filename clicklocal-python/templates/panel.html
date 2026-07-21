@@ -1674,6 +1674,89 @@
               <input type="text" name="direccion" value="{{ comercio.direccion or comercio.direccion_mostrar or '' }}" required />
             </div>
 
+            {% if comercio.categoria == CATEGORIA_CINE_TEATRO %}
+              <div class="campo">
+                <label>Categoría principal</label>
+                <input
+                  type="text"
+                  value="{{ CATEGORIA_CINE_TEATRO }}"
+                  readonly
+                />
+                <input
+                  type="hidden"
+                  name="categoria"
+                  value="{{ CATEGORIA_CINE_TEATRO }}"
+                />
+                <input
+                  type="hidden"
+                  name="categoria_secundaria_2"
+                  value=""
+                />
+                <input
+                  type="hidden"
+                  name="categoria_secundaria_3"
+                  value=""
+                />
+                <small>
+                  Categoría especial administrada por ClickLocal.
+                </small>
+              </div>
+            {% else %}
+              <div class="campo">
+                <label>Categoría principal</label>
+                <select name="categoria" required>
+                  {% for categoria_opcion in CATEGORIAS_AUTOGESTION %}
+                    <option
+                      value="{{ categoria_opcion }}"
+                      {% if comercio.categoria == categoria_opcion %}
+                        selected
+                      {% endif %}
+                    >
+                      {{ categoria_opcion }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="campo">
+                <label>Segunda categoría (opcional)</label>
+                <select name="categoria_secundaria_2">
+                  <option value="">Sin segunda categoría</option>
+                  {% for categoria_opcion in CATEGORIAS_SECUNDARIAS_PERMITIDAS %}
+                    <option
+                      value="{{ categoria_opcion }}"
+                      {% if comercio.categoria_secundaria_2 == categoria_opcion %}
+                        selected
+                      {% endif %}
+                    >
+                      {{ categoria_opcion }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="campo">
+                <label>Tercera categoría (opcional)</label>
+                <select name="categoria_secundaria_3">
+                  <option value="">Sin tercera categoría</option>
+                  {% for categoria_opcion in CATEGORIAS_SECUNDARIAS_PERMITIDAS %}
+                    <option
+                      value="{{ categoria_opcion }}"
+                      {% if comercio.categoria_secundaria_3 == categoria_opcion %}
+                        selected
+                      {% endif %}
+                    >
+                      {{ categoria_opcion }}
+                    </option>
+                  {% endfor %}
+                </select>
+
+                <small>
+                  Podés elegir hasta tres categorías diferentes.
+                </small>
+              </div>
+            {% endif %}
+
             <div class="campo">
               <label>Descripción breve</label>
               <textarea name="descripcion">{{ comercio.descripcion or '' }}</textarea>

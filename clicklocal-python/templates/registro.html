@@ -87,21 +87,46 @@
         </div>
 
         <div class="campo">
-          <label>Rubro o categoría</label>
-          <select name="categoria">
-            <option value="" selected disabled>Seleccionar categoría</option>
-            <option>Gastronomía</option>
-            <option>Indumentaria</option>
-            <option>Hogar</option>
-            <option>Tecnología</option>
-            <option>Autos y motos</option>
-            <option>Salud</option>
-            <option>Servicios</option>
-            <option>Deportes</option>
-            <option>Educación y Cursos</option>
-            <option>Cine y Teatro</option>
-            <option>Otros</option>
+          <label>Categoría principal *</label>
+          <select name="categoria" required>
+            <option value="" selected disabled>
+              Seleccionar categoría principal
+            </option>
+            {% for categoria_opcion in CATEGORIAS_AUTOGESTION %}
+              <option value="{{ categoria_opcion }}">
+                {{ categoria_opcion }}
+              </option>
+            {% endfor %}
           </select>
+        </div>
+
+        <div class="campo">
+          <label>Segunda categoría (opcional)</label>
+          <select name="categoria_secundaria_2">
+            <option value="">Sin segunda categoría</option>
+            {% for categoria_opcion in CATEGORIAS_SECUNDARIAS_PERMITIDAS %}
+              <option value="{{ categoria_opcion }}">
+                {{ categoria_opcion }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="campo">
+          <label>Tercera categoría (opcional)</label>
+          <select name="categoria_secundaria_3">
+            <option value="">Sin tercera categoría</option>
+            {% for categoria_opcion in CATEGORIAS_SECUNDARIAS_PERMITIDAS %}
+              <option value="{{ categoria_opcion }}">
+                {{ categoria_opcion }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <small>
+            No repitas categorías. Cine y Teatro funciona
+            como categoría única.
+          </small>
         </div>
 
         <div class="campo">

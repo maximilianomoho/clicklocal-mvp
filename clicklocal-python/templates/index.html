@@ -1506,49 +1506,14 @@
 
           <div class="grilla-categorias categorias-scroll" id="categoriasHome">
 
-            <a href="/index.html?q=gastronomía" class="categoria-card">
-              Gastronomía
-            </a>
-
-            <a href="/index.html?q=alimentos" class="categoria-card">
-              Alimentos
-            </a>
-
-            <a href="/index.html?q=indumentaria" class="categoria-card">
-              Indumentaria
-            </a>
-
-            <a href="/index.html?q=cine teatro" class="categoria-card">
-              Cine y Teatro
-            </a>
-
-            <a href="/index.html?q=hogar" class="categoria-card">
-              Hogar
-            </a>
-
-            <a href="/index.html?q=tecnología" class="categoria-card">
-              Tecnología
-            </a>
-
-            <a href="/index.html?q=autos" class="categoria-card">
-              Autos y motos
-            </a>
-
-            <a href="/index.html?q=salud bienestar" class="categoria-card">
-              Salud / Bienestar
-            </a>
-
-            <a href="/index.html?q=servicios" class="categoria-card">
-              Servicios
-            </a>
-
-            <a href="/index.html?q=deportes" class="categoria-card">
-              Deportes
-            </a>
-
-            <a href="/index.html?q=educación" class="categoria-card">
-              Educación
-            </a>
+            {% for categoria_opcion in CATEGORIAS_HOME %}
+              <a
+                href="{{ url_for('inicio', q=categoria_opcion) }}"
+                class="categoria-card"
+              >
+                {{ categoria_opcion }}
+              </a>
+            {% endfor %}
 
           </div>
 
