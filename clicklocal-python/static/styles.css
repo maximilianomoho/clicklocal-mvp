@@ -363,6 +363,15 @@ img {
   font-weight: 800;
 }
 
+.busqueda-volver-barra {
+  padding: 28px 0 22px;
+  background: #f5f7fb;
+}
+
+.busqueda-volver-barra .volver-link {
+  margin-bottom: 0;
+}
+
 /* Layout principal del detalle */
 .detalle-layout {
   display: grid;

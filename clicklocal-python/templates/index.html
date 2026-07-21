@@ -1247,6 +1247,10 @@
       </div>
 
       <nav class="nav">
+        {% if busqueda %}
+          <a href="/index.html" class="nav-link">Galería pública</a>
+        {% endif %}
+
         {% if session.get("user_id") and session.get("comercio") %}
           <span class="nav-link">👤 {{ session.get("comercio").get("nombre_negocio") or session.get("comercio").get("nombre") or "Mi comercio" }}</span>
           <a href="/panel" class="boton-secundario">Mi panel</a>
@@ -1259,6 +1263,14 @@
     </div>
   </header>
 
+
+  {% if busqueda %}
+  <div class="busqueda-volver-barra">
+    <div class="contenedor">
+      <a href="/index.html" class="volver-link">← Volver a la galería</a>
+    </div>
+  </div>
+  {% endif %}
 
   <section class="hero">
     <div class="hero-contenedor">
