@@ -126,6 +126,19 @@
       opacity: 0.7;
       cursor: wait;
     }
+
+    .detalle-acciones-secundarias {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .detalle-acciones-secundarias .detalle-compartir {
+      width: 100%;
+      padding-left: 10px;
+      padding-right: 10px;
+      text-decoration: none;
+    }
   </style>
 </head>
 
@@ -251,13 +264,34 @@
               </a>
             {% endif %}
 
-            <button
-              type="button"
-              id="compartirPublicacion"
-              class="detalle-compartir"
-            >
-              Compartir publicación
-            </button>
+            {% if comercio.direccion_mostrar or comercio.direccion %}
+              <div class="detalle-acciones-secundarias">
+                <a
+                  href="https://www.google.com/maps/search/?api=1&query={{ ((comercio.direccion_mostrar or comercio.direccion) ~ ', ' ~ (comercio.ciudad or 'Paraná') ~ ', Entre Ríos') | urlencode }}"
+                  class="detalle-compartir"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  📍 Cómo llegar
+                </a>
+
+                <button
+                  type="button"
+                  id="compartirPublicacion"
+                  class="detalle-compartir"
+                >
+                  Compartir publicación
+                </button>
+              </div>
+            {% else %}
+              <button
+                type="button"
+                id="compartirPublicacion"
+                class="detalle-compartir"
+              >
+                Compartir publicación
+              </button>
+            {% endif %}
           </div>
 
         </aside>

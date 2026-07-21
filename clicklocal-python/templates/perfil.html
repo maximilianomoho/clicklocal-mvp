@@ -240,6 +240,17 @@
               </a>
             {% endif %}
 
+            {% if comercio.direccion_mostrar or comercio.direccion %}
+              <a
+                href="https://www.google.com/maps/search/?api=1&query={{ ((comercio.direccion_mostrar or comercio.direccion) ~ ', ' ~ (comercio.ciudad or 'Paraná') ~ ', Entre Ríos') | urlencode }}"
+                class="perfil-compartir"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                📍 Cómo llegar
+              </a>
+            {% endif %}
+
             <button
               type="button"
               id="compartirNegocio"
