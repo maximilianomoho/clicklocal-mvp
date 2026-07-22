@@ -1511,7 +1511,7 @@
                 href="{{ url_for('inicio', q=categoria_opcion) }}"
                 class="categoria-card"
               >
-                {{ categoria_opcion }}
+                <span class="categoria-card-texto">{{ categoria_opcion }}</span>
               </a>
             {% endfor %}
 
@@ -2323,5 +2323,57 @@
 
 .seccion.categorias + .seccion {
   padding-top: 18px !important;
+}
+</style>
+
+<style>
+/* CLICKLOCAL: CATEGORÍAS EN DOS LÍNEAS
+   Conserva la tipografía original y el mismo tamaño exterior. */
+
+.categorias-scroll .categoria-card {
+  box-sizing: border-box !important;
+  padding: 0 12px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.12 !important;
+
+  text-align: center !important;
+  white-space: normal !important;
+
+  overflow: hidden !important;
+  text-overflow: clip !important;
+}
+
+.categorias-scroll .categoria-card-texto {
+  display: -webkit-box;
+  width: 100%;
+  max-height: 2.24em;
+
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+
+  overflow: hidden;
+
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+@media (max-width: 600px) {
+  .categorias-scroll .categoria-card {
+    padding: 0 10px !important;
+    font-size: 13px !important;
+  }
 }
 </style>
