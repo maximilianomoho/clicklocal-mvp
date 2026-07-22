@@ -2167,6 +2167,25 @@ def reemplazar_categorias_secundarias(
         raise
 
 
+
+# VERSIÓN VIGENTE DE LOS TÉRMINOS Y CONDICIONES
+TERMINOS_VERSION = "2026-07-22"
+
+
+@app.context_processor
+def contexto_terminos():
+    return {
+        "TERMINOS_VERSION": TERMINOS_VERSION,
+    }
+
+
+# TÉRMINOS Y CONDICIONES
+@app.route("/terminos")
+@app.route("/terminos.html")
+def terminos():
+    return render_template("terminos.html")
+
+
 # REGISTRO COMERCIO
 @app.route("/registro", methods=["GET", "POST"])
 @app.route("/registro.html", methods=["GET", "POST"])
@@ -2190,6 +2209,16 @@ def registro():
         descripcion = request.form.get("descripcion", "").strip()
         password = request.form.get("password", "").strip()
         repetir_password = request.form.get("repetir_password", "").strip()
+        acepta_terminos = (
+            request.form.get("acepta_terminos") == "on"
+        )
+
+        if not acepta_terminos:
+            return (
+                "Debés leer y aceptar los Términos y Condiciones "
+                "para crear una cuenta.",
+                400,
+            )
 
         if not nombre_negocio or not email or not whatsapp or not direccion or not password:
             return "Faltan datos obligatorios: nombre del negocio, email, WhatsApp, dirección o contraseña.", 400
@@ -2242,6 +2271,12 @@ def registro():
                 "categoria": categoria,
                 "descripcion": descripcion,
                 "plan": "gratis",
+                "terminos_aceptados_at": (
+                    datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat()
+                ),
+                "terminos_version": TERMINOS_VERSION,
             }
 
             insert_res = supabase_admin.table("comercios").insert(comercio_nuevo).execute()
@@ -2313,6 +2348,75 @@ def registro():
             return f"Error registrando comercio: {e}", 400
 
     return render_template("registro.html")
+
+
+
+# ACEPTAR TÉRMINOS DESDE EL PANEL
+@app.route("/terminos/aceptar", methods=["POST"])
+def aceptar_terminos():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect(url_for("login"))
+
+    confirmacion = (
+        request.form.get("acepta_terminos_panel") == "on"
+    )
+
+    if not confirmacion:
+        return redirect(url_for("panel"))
+
+    fecha_aceptacion = datetime.datetime.now(
+        datetime.timezone.utc
+    ).isoformat()
+
+    try:
+        respuesta = (
+            supabase_admin
+            .table("comercios")
+            .update({
+                "terminos_aceptados_at": fecha_aceptacion,
+                "terminos_version": TERMINOS_VERSION,
+            })
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        filas = respuesta.data or []
+
+        if filas:
+            comercio_actualizado = filas[0]
+        else:
+            comercio_res = (
+                supabase_admin
+                .table("comercios")
+                .select("*")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+
+            if not comercio_res.data:
+                return "No se encontró el comercio.", 404
+
+            comercio_actualizado = comercio_res.data[0]
+
+        session["comercio"] = comercio_actualizado
+
+        return redirect(url_for("panel"))
+
+    except Exception as error:
+        print(
+            "ERROR aceptando términos:",
+            error,
+            flush=True,
+        )
+
+        return (
+            "No se pudo registrar la aceptación. "
+            "Intentá nuevamente.",
+            500,
+        )
 
 
 # LOGIN COMERCIO

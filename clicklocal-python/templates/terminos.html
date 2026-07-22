@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Términos y Condiciones | ClickLocal</title>
+
+  <link rel="stylesheet" href="/styles.css" />
+
+  <style>
+    body {
+      margin: 0;
+      background: #f6f6f6;
+      color: #222;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .legal-header {
+      background: #ffffff;
+      border-bottom: 1px solid rgba(0, 0, 0, .10);
+    }
+
+    .legal-header-contenido {
+      width: min(920px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 18px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .legal-marca {
+      text-decoration: none;
+      color: #222;
+    }
+
+    .legal-marca strong {
+      display: block;
+      font-size: 22px;
+    }
+
+    .legal-marca span {
+      display: block;
+      margin-top: 3px;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .legal-volver {
+      padding: 10px 16px;
+      border: 1px solid #dddddd;
+      border-radius: 10px;
+      background: #ffffff;
+      color: #222;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .legal-contenedor {
+      width: min(920px, calc(100% - 32px));
+      margin: 28px auto;
+      padding: 34px;
+      box-sizing: border-box;
+      border: 1px solid rgba(0, 0, 0, .08);
+      border-radius: 18px;
+      background: #ffffff;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .05);
+    }
+
+    .legal-contenedor h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 1.1;
+    }
+
+    .legal-actualizacion {
+      margin: 0 0 28px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .legal-introduccion {
+      padding: 18px;
+      border-radius: 12px;
+      background: #f7f7f7;
+      line-height: 1.65;
+    }
+
+    .legal-contenedor h2 {
+      margin-top: 32px;
+      margin-bottom: 12px;
+      font-size: 21px;
+    }
+
+    .legal-contenedor p,
+    .legal-contenedor li {
+      line-height: 1.7;
+    }
+
+    .legal-contenedor ul {
+      padding-left: 24px;
+    }
+
+    .legal-contacto {
+      margin-top: 34px;
+      padding: 20px;
+      border-radius: 12px;
+      background: #f7f7f7;
+    }
+
+    .legal-footer {
+      padding: 20px 16px 30px;
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+    }
+
+    @media (max-width: 650px) {
+      .legal-header-contenido {
+        align-items: flex-start;
+      }
+
+      .legal-volver {
+        padding: 9px 12px;
+        font-size: 14px;
+      }
+
+      .legal-contenedor {
+        margin-top: 18px;
+        padding: 22px 18px;
+        border-radius: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  {% if request.args.get("modo") != "panel" %}
+  <header class="legal-header">
+    <div class="legal-header-contenido">
+
+      <a href="/" class="legal-marca">
+        <strong>ClickLocal</strong>
+        <span>Paraná</span>
+      </a>
+
+      <a href="/" class="legal-volver">
+        Volver al inicio
+      </a>
+
+    </div>
+  </header>
+  {% endif %}
+
+  <main class="legal-contenedor">
+
+    <h1>Términos y Condiciones de Uso</h1>
+
+    <p class="legal-actualizacion">
+      Última actualización: 22 de julio de 2026
+    </p>
+
+    <div class="legal-introduccion">
+      Los presentes Términos y Condiciones regulan el acceso
+      y la utilización de ClickLocal por parte de visitantes,
+      usuarios, comercios, emprendimientos y prestadores.
+
+      Al registrarse, publicar contenido o utilizar la
+      plataforma, el usuario declara haber leído, comprendido
+      y aceptado estas condiciones.
+    </div>
+
+    <h2>1. Descripción de ClickLocal</h2>
+
+    <p>
+      ClickLocal es una plataforma digital que funciona como
+      vidriera, guía y buscador de comercios, productos,
+      servicios, promociones, publicaciones y actividades
+      locales.
+    </p>
+
+    <p>
+      Su finalidad es facilitar el contacto entre personas
+      interesadas y los comercios o prestadores publicados.
+    </p>
+
+    <p>
+      Salvo que se informe expresamente lo contrario,
+      ClickLocal no es una tienda en línea, vendedor,
+      revendedor, intermediario financiero ni parte de la
+      operación realizada entre el usuario y el comercio.
+    </p>
+
+    <p>
+      Las consultas, reservas, compras, pagos, entregas,
+      devoluciones, garantías y demás condiciones comerciales
+      se acuerdan directamente entre el usuario y el comercio.
+    </p>
+
+    <h2>2. Responsabilidad de los comercios</h2>
+
+    <p>
+      Cada comercio es responsable por la información,
+      imágenes y contenido que publique o proporcione a
+      ClickLocal.
+    </p>
+
+    <p>
+      El comercio deberá procurar que la siguiente
+      información sea verdadera, clara y se encuentre
+      actualizada:
+    </p>
+
+    <ul>
+      <li>Nombre, descripción y datos de contacto.</li>
+      <li>Domicilio y horarios.</li>
+      <li>Productos y servicios ofrecidos.</li>
+      <li>Precios y promociones.</li>
+      <li>Fotografías y características.</li>
+      <li>Disponibilidad y condiciones de venta.</li>
+      <li>Medios de pago, entrega, cambio o devolución.</li>
+    </ul>
+
+    <p>
+      La publicación de información falsa, engañosa,
+      incompleta o desactualizada será responsabilidad del
+      comercio que la hubiera proporcionado.
+    </p>
+
+    <h2>3. Precios y disponibilidad</h2>
+
+    <p>
+      Los precios, promociones, condiciones y existencias
+      publicados son informados por cada comercio.
+    </p>
+
+    <p>
+      ClickLocal no verifica permanentemente el inventario,
+      la disponibilidad ni la vigencia de los precios.
+    </p>
+
+    <p>
+      Antes de concretar una operación, el usuario deberá
+      confirmar directamente con el comercio el precio final,
+      la disponibilidad, las características, los medios de
+      pago y las condiciones de entrega.
+    </p>
+
+    <h2>4. Operaciones entre usuarios y comercios</h2>
+
+    <p>
+      Las operaciones comerciales se realizan directamente
+      entre el usuario y el comercio.
+    </p>
+
+    <p>
+      ClickLocal no recibe ni administra el dinero de esas
+      operaciones, salvo que en el futuro se habilite una
+      función específica que indique expresamente lo
+      contrario.
+    </p>
+
+    <p>
+      ClickLocal no interviene en:
+    </p>
+
+    <ul>
+      <li>Pagos realizados entre las partes.</li>
+      <li>Entregas y demoras.</li>
+      <li>Diferencias de precio.</li>
+      <li>Falta de disponibilidad.</li>
+      <li>Calidad o defectos de productos y servicios.</li>
+      <li>Cambios, devoluciones y garantías.</li>
+      <li>Desacuerdos entre usuarios y comercios.</li>
+    </ul>
+
+    <p>
+      Los reclamos relacionados con una compra, producto,
+      servicio, pago o entrega deberán dirigirse en primer
+      término al comercio correspondiente.
+    </p>
+
+    <p>
+      Esta disposición no limita las responsabilidades que
+      legalmente pudieran corresponder a ClickLocal por hechos
+      propios o por obligaciones que no puedan excluirse.
+    </p>
+
+    <h2>5. WhatsApp y servicios externos</h2>
+
+    <p>
+      ClickLocal puede permitir que los usuarios contacten a
+      los comercios mediante WhatsApp, teléfono, redes
+      sociales, páginas externas u otros canales.
+    </p>
+
+    <p>
+      Una vez que el usuario continúa la comunicación mediante
+      un servicio externo, esa comunicación también queda
+      sujeta a las condiciones y políticas del servicio
+      utilizado.
+    </p>
+
+    <p>
+      ClickLocal no controla el contenido de las conversaciones
+      privadas entre usuarios y comercios.
+    </p>
+
+    <h2>6. Registro y seguridad de las cuentas</h2>
+
+    <p>
+      El comercio deberá proporcionar información verdadera y
+      mantener actualizados sus datos.
+    </p>
+
+    <p>
+      Cada titular es responsable de proteger su contraseña,
+      controlar el acceso a su cuenta y comunicar cualquier
+      acceso no autorizado.
+    </p>
+
+    <p>
+      Las cuentas no podrán utilizarse para suplantar a otra
+      persona, comercio, organización o marca.
+    </p>
+
+    <h2>7. Contenido prohibido</h2>
+
+    <p>No está permitido publicar contenido que:</p>
+
+    <ul>
+      <li>Sea falso, engañoso o fraudulento.</li>
+      <li>Infrinja derechos de autor o marcas.</li>
+      <li>Utilice fotografías sin autorización.</li>
+      <li>Promocione actividades ilegales.</li>
+      <li>Contenga amenazas o discriminación.</li>
+      <li>Afecte la privacidad de terceros.</li>
+      <li>Contenga programas o enlaces maliciosos.</li>
+      <li>Suplante identidades.</li>
+      <li>Perjudique la seguridad de ClickLocal.</li>
+    </ul>
+
+    <p>
+      ClickLocal podrá rechazar, ocultar, pausar o eliminar
+      contenido que incumpla estas reglas.
+    </p>
+
+    <h2>8. Fotografías, textos y marcas</h2>
+
+    <p>
+      El comercio declara que cuenta con autorización para
+      utilizar las fotografías, logotipos, nombres, marcas,
+      textos y demás materiales que publique.
+    </p>
+
+    <p>
+      Al publicar contenido, el comercio autoriza a ClickLocal
+      a almacenarlo, adaptarlo técnicamente, comprimirlo,
+      mostrarlo y difundirlo dentro de la plataforma y en
+      comunicaciones destinadas a promocionar ClickLocal o al
+      propio comercio.
+    </p>
+
+    <p>
+      El comercio será responsable frente a reclamos de
+      terceros relacionados con materiales publicados sin
+      autorización.
+    </p>
+
+    <h2>9. Moderación y suspensión</h2>
+
+    <p>
+      ClickLocal podrá advertir, limitar, pausar, bloquear o
+      eliminar una cuenta o publicación cuando:
+    </p>
+
+    <ul>
+      <li>Incumpla estas condiciones.</li>
+      <li>Existan indicios razonables de fraude.</li>
+      <li>Se reciban reclamos fundados.</li>
+      <li>Se afecte la seguridad de la plataforma.</li>
+      <li>Se suplante una identidad.</li>
+      <li>Exista una orden de autoridad competente.</li>
+    </ul>
+
+    <h2>10. Servicios gratuitos y Premium</h2>
+
+    <p>
+      ClickLocal podrá ofrecer modalidades gratuitas y
+      servicios pagos o Premium.
+    </p>
+
+    <p>
+      Las características, límites, duración y precio de cada
+      modalidad serán informados antes de su contratación.
+    </p>
+
+    <p>
+      La contratación de un servicio Premium no garantiza una
+      cantidad determinada de visitas, consultas, contactos o
+      ventas.
+    </p>
+
+    <h2>11. Posicionamiento de publicaciones</h2>
+
+    <p>
+      La posición de una publicación puede depender de la
+      coincidencia con la búsqueda, la fecha de publicación o
+      actualización, su actividad, visualizaciones, categoría,
+      ubicación, modalidad contratada y otros criterios
+      destinados a mejorar la experiencia de los usuarios.
+    </p>
+
+    <p>
+      ClickLocal podrá modificar sus criterios de ordenamiento.
+      La modalidad Premium no autoriza a mostrar resultados que
+      no sean relevantes para una búsqueda.
+    </p>
+
+    <h2>12. Disponibilidad de la plataforma</h2>
+
+    <p>
+      ClickLocal procura mantener la plataforma disponible y
+      funcionando correctamente, pero no garantiza un servicio
+      permanente, ininterrumpido o libre de errores.
+    </p>
+
+    <p>
+      El funcionamiento puede verse afectado por tareas de
+      mantenimiento, fallas técnicas, conectividad,
+      proveedores externos, actualizaciones, ataques
+      informáticos, fuerza mayor o circunstancias fuera del
+      control razonable de ClickLocal.
+    </p>
+
+    <h2>13. Servicios tecnológicos de terceros</h2>
+
+    <p>
+      ClickLocal puede utilizar proveedores externos para
+      alojamiento, base de datos, almacenamiento de imágenes,
+      autenticación, estadísticas y otras funciones.
+    </p>
+
+    <p>
+      Aunque se procurará utilizar servicios adecuados,
+      ClickLocal no controla completamente su disponibilidad
+      ni sus decisiones operativas.
+    </p>
+
+    <h2>14. Privacidad y datos personales</h2>
+
+    <p>
+      ClickLocal podrá recopilar y tratar los datos necesarios
+      para registrar usuarios y comercios, administrar cuentas,
+      mostrar información pública, permitir publicaciones,
+      prevenir abusos, analizar el funcionamiento y mejorar
+      sus servicios.
+    </p>
+
+    <p>
+      Los titulares podrán solicitar acceso, actualización,
+      rectificación o supresión de sus datos mediante los
+      canales de contacto habilitados por ClickLocal, de
+      acuerdo con la normativa aplicable.
+    </p>
+
+    <h2>15. Información pública de los comercios</h2>
+
+    <p>
+      El comercio comprende que cierta información será
+      mostrada públicamente para permitir que las personas
+      puedan encontrarlo y contactarlo.
+    </p>
+
+    <p>
+      Esto puede incluir nombre, logo, categoría, descripción,
+      domicilio comercial, ciudad, horarios, WhatsApp,
+      fotografías, publicaciones, promociones y enlaces.
+    </p>
+
+    <h2>16. Baja y eliminación de cuenta</h2>
+
+    <p>
+      El titular podrá solicitar la baja de su cuenta mediante
+      el canal de contacto habilitado.
+    </p>
+
+    <p>
+      ClickLocal podrá conservar temporalmente cierta
+      información cuando resulte necesario para cumplir
+      obligaciones legales, atender reclamos, prevenir fraude,
+      mantener registros de seguridad o resolver controversias.
+    </p>
+
+    <h2>17. Reclamos sobre publicaciones</h2>
+
+    <p>
+      Las personas que consideren que una publicación utiliza
+      contenido sin autorización, contiene información falsa,
+      suplanta una identidad, viola su privacidad o promociona
+      una actividad ilegal podrán comunicarse con ClickLocal.
+    </p>
+
+    <p>
+      ClickLocal podrá adoptar medidas preventivas mientras
+      evalúa el reclamo.
+    </p>
+
+    <h2>18. Uso responsable</h2>
+
+    <p>Los usuarios se comprometen a no:</p>
+
+    <ul>
+      <li>Interferir con el funcionamiento de ClickLocal.</li>
+      <li>Intentar ingresar a cuentas ajenas.</li>
+      <li>Extraer información de manera masiva.</li>
+      <li>Ejecutar ataques automatizados.</li>
+      <li>Difundir archivos dañinos.</li>
+      <li>Crear cuentas falsas.</li>
+      <li>Manipular métricas, visitas o resultados.</li>
+    </ul>
+
+    <h2>19. Modificaciones</h2>
+
+    <p>
+      ClickLocal podrá actualizar estas condiciones para
+      reflejar cambios legales, técnicos, comerciales o
+      funcionales.
+    </p>
+
+    <p>
+      La fecha de actualización será informada al comienzo del
+      documento.
+    </p>
+
+    <h2>20. Legislación aplicable</h2>
+
+    <p>
+      Estos Términos y Condiciones se interpretarán conforme a
+      las leyes de la República Argentina y respetando las
+      normas de orden público que resulten aplicables.
+    </p>
+
+    <h2>21. Contacto</h2>
+
+    <div class="legal-contacto">
+      <p>
+        <strong>Plataforma:</strong>
+        ClickLocal Paraná
+      </p>
+
+      <p>
+        <strong>Responsable:</strong>
+        Alejandro Maximiliano Mohor
+      </p>
+
+      <p>
+        <strong>Domicilio:</strong>
+        Paraná, Entre Ríos, Argentina
+      </p>
+
+      <p>
+        Para consultas, reclamos, solicitudes de baja o
+        correcciones podrán utilizarse los canales de contacto
+        publicados oficialmente por ClickLocal.
+      </p>
+    </div>
+
+    <h2>22. Aceptación</h2>
+
+    <p>
+      Al crear una cuenta, publicar contenido o continuar
+      utilizando ClickLocal, el usuario reconoce haber tenido
+      acceso a estos Términos y Condiciones.
+    </p>
+
+    <p>
+      La aceptación electrónica se produce cuando el usuario
+      marca la casilla correspondiente y envía el formulario
+      de registro.
+    </p>
+
+  </main>
+
+  {% if request.args.get("modo") != "panel" %}
+  <footer class="legal-footer">
+    ClickLocal Paraná · Términos y Condiciones
+  </footer>
+  {% endif %}
+
+</body>
+</html>

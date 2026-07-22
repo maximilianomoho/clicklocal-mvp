@@ -17,6 +17,300 @@
 
 <body>
 
+  {% set version_aceptada = comercio.terminos_version or "" %}
+
+  {% if version_aceptada != TERMINOS_VERSION %}
+  <!-- CLICKLOCAL: ACEPTACIÓN OBLIGATORIA DE TÉRMINOS -->
+  <div
+    id="modal-terminos"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-terminos-titulo"
+    style="
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      box-sizing:border-box;
+      background:rgba(0,0,0,.72);
+    "
+  >
+    <section
+      style="
+        width:min(900px, 100%);
+        height:min(92vh, 860px);
+        display:flex;
+        flex-direction:column;
+        overflow:hidden;
+        border-radius:18px;
+        background:white;
+        box-shadow:0 24px 80px rgba(0,0,0,.38);
+      "
+    >
+      <div
+        style="
+          padding:18px 22px;
+          border-bottom:1px solid #e4e4e4;
+          background:white;
+        "
+      >
+        <p
+          style="
+            margin:0 0 4px;
+            color:#006aa6;
+            font-size:12px;
+            font-weight:800;
+            letter-spacing:.08em;
+          "
+        >
+          CLICKLOCAL
+        </p>
+
+        <h2
+          id="modal-terminos-titulo"
+          style="
+            margin:0;
+            font-size:clamp(21px, 4vw, 28px);
+          "
+        >
+          Términos y Condiciones
+        </h2>
+
+        <p
+          style="
+            margin:8px 0 0;
+            color:#555;
+            line-height:1.45;
+          "
+        >
+          Leé el documento y confirmá tu aceptación para
+          continuar utilizando el panel.
+        </p>
+      </div>
+
+      <iframe
+        id="documento-terminos-panel"
+        src="/terminos?modo=panel"
+        title="Términos y Condiciones de ClickLocal"
+        style="
+          width:100%;
+          flex:1;
+          min-height:0;
+          border:0;
+          background:#f6f6f6;
+        "
+      ></iframe>
+
+      <form
+        method="POST"
+        action="/terminos/aceptar"
+        style="
+          padding:18px 22px;
+          border-top:1px solid #e4e4e4;
+          background:white;
+        "
+      >
+        <label
+          style="
+            display:flex;
+            align-items:flex-start;
+            gap:10px;
+            line-height:1.45;
+            cursor:pointer;
+          "
+        >
+          <input
+            type="checkbox"
+            id="acepta-terminos-panel"
+            name="acepta_terminos_panel"
+            required
+            disabled
+            style="
+              width:18px;
+              height:18px;
+              margin-top:2px;
+              flex:0 0 auto;
+            "
+          />
+
+          <span>
+            Leí y acepto los Términos y Condiciones de
+            ClickLocal.
+          </span>
+        </label>
+
+        <small
+          id="aviso-scroll-terminos"
+          style="
+            display:block;
+            margin-top:7px;
+            color:#666;
+            line-height:1.4;
+          "
+        >
+          Desplazate hasta el final del documento para
+          habilitar la aceptación.
+        </small>
+
+        <button
+          type="submit"
+          id="boton-aceptar-terminos"
+          disabled
+          style="
+            width:100%;
+            margin-top:16px;
+            padding:13px 18px;
+            border:0;
+            border-radius:12px;
+            background:#cccccc;
+            color:white;
+            font-size:16px;
+            font-weight:800;
+            cursor:not-allowed;
+          "
+        >
+          Aceptar y continuar
+        </button>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    document.addEventListener(
+      "DOMContentLoaded",
+      function () {
+        const casilla = document.getElementById(
+          "acepta-terminos-panel"
+        );
+
+        const boton = document.getElementById(
+          "boton-aceptar-terminos"
+        );
+
+        const iframe = document.getElementById(
+          "documento-terminos-panel"
+        );
+
+        const aviso = document.getElementById(
+          "aviso-scroll-terminos"
+        );
+
+        if (!casilla || !boton || !iframe) {
+          return;
+        }
+
+        document.body.style.overflow = "hidden";
+
+        let llegoAlFinal = false;
+
+        function actualizarBoton() {
+          boton.disabled =
+            !llegoAlFinal || !casilla.checked;
+
+          if (!boton.disabled) {
+            boton.style.background = "#006aa6";
+            boton.style.cursor = "pointer";
+          } else {
+            boton.style.background = "#cccccc";
+            boton.style.cursor = "not-allowed";
+          }
+        }
+
+        function habilitarAceptacion() {
+          if (llegoAlFinal) {
+            return;
+          }
+
+          llegoAlFinal = true;
+          casilla.disabled = false;
+
+          if (aviso) {
+            aviso.textContent =
+              "Ya podés aceptar los Términos y Condiciones.";
+
+            aviso.style.color = "#17632e";
+            aviso.style.fontWeight = "700";
+          }
+
+          actualizarBoton();
+        }
+
+        function revisarFinalDocumento() {
+          try {
+            const ventana = iframe.contentWindow;
+            const documento = iframe.contentDocument;
+
+            if (!ventana || !documento) {
+              return;
+            }
+
+            const desplazamiento =
+              ventana.scrollY ||
+              documento.documentElement.scrollTop ||
+              documento.body.scrollTop ||
+              0;
+
+            const altoVisible =
+              ventana.innerHeight ||
+              iframe.clientHeight;
+
+            const altoTotal = Math.max(
+              documento.documentElement.scrollHeight,
+              documento.body.scrollHeight
+            );
+
+            if (
+              desplazamiento + altoVisible
+              >= altoTotal - 40
+            ) {
+              habilitarAceptacion();
+            }
+          } catch (error) {
+            console.error(
+              "No se pudo verificar el desplazamiento "
+              + "de los términos.",
+              error
+            );
+          }
+        }
+
+        iframe.addEventListener(
+          "load",
+          function () {
+            try {
+              iframe.contentWindow.addEventListener(
+                "scroll",
+                revisarFinalDocumento,
+                { passive: true }
+              );
+
+              revisarFinalDocumento();
+            } catch (error) {
+              console.error(
+                "No se pudo iniciar el control "
+                + "de desplazamiento.",
+                error
+              );
+            }
+          }
+        );
+
+        casilla.addEventListener(
+          "change",
+          actualizarBoton
+        );
+
+        actualizarBoton();
+      }
+    );
+  </script>
+  <!-- FIN CLICKLOCAL: ACEPTACIÓN OBLIGATORIA DE TÉRMINOS -->
+  {% endif %}
+
+
   <header class="header">
     <div class="header-contenedor">
       <div class="logo-zona">
