@@ -1230,6 +1230,166 @@
 }
 </style>
 
+
+<style>
+/* ==========================================================
+   CLICKLOCAL: MACROCATEGORÍAS HOME
+   Clases propias para no alterar las categorías actuales.
+   ========================================================== */
+
+.macrocategorias-home {
+  padding-bottom: 14px;
+}
+
+.macrocategorias-etiqueta {
+  color: #7A1F2B;
+}
+
+.macrocategorias-titulo {
+  margin-bottom: 18px;
+}
+
+.macrocategorias-grilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.macrocategoria-card {
+  box-sizing: border-box;
+  min-height: 82px;
+  padding: 14px 16px;
+
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+
+  background: #F6D98A;
+  color: #7A1F2B;
+
+  border: 1px solid #E9C96F;
+  border-radius: 18px;
+
+  text-decoration: none;
+  box-shadow: 0 6px 14px rgba(76, 40, 12, 0.12);
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.macrocategoria-card:hover,
+.macrocategoria-card:focus-visible {
+  background: #F1CF72;
+  border-color: #7A1F2B;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(76, 40, 12, 0.18);
+}
+
+.macrocategoria-card-activa {
+  border: 2px solid #7A1F2B;
+}
+
+.macrocategoria-icono {
+  width: 30px;
+  text-align: center;
+  color: #7A1F2B;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.macrocategoria-nombre {
+  color: #7A1F2B;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.22;
+}
+
+.macrocategoria-flecha {
+  color: #7A1F2B;
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: right;
+}
+
+.macrocategoria-seleccionada {
+  margin-top: 15px;
+  padding: 12px 15px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  border: 1px solid #E9C96F;
+  border-radius: 14px;
+
+  background: #FFF8E4;
+  color: #5E1721;
+
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.macrocategoria-seleccionada a {
+  color: #7A1F2B;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .macrocategorias-home {
+    padding-top: 28px;
+    padding-bottom: 10px;
+  }
+
+  .macrocategorias-titulo {
+    margin-bottom: 15px;
+  }
+
+  .macrocategorias-grilla {
+    gap: 10px;
+  }
+
+  .macrocategoria-card {
+    min-height: 78px;
+    padding: 12px 10px;
+
+    grid-template-columns: 24px minmax(0, 1fr) 13px;
+    gap: 7px;
+
+    border-radius: 15px;
+  }
+
+  .macrocategoria-icono {
+    width: 24px;
+    font-size: 19px;
+  }
+
+  .macrocategoria-nombre {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .macrocategoria-flecha {
+    font-size: 22px;
+  }
+
+  .macrocategoria-seleccionada {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+</style>
+
 </head>
 
 <body>
@@ -1493,7 +1653,58 @@
 
   <main>
 
-    {% if not busqueda %}\n    <!-- CATEGORÍAS -->
+    {% if not busqueda %}\n
+    <!-- CLICKLOCAL: MACROCATEGORÍAS -->
+    <section class="seccion macrocategorias-home">
+      <div class="contenedor">
+
+        <p class="titulo-chico macrocategorias-etiqueta">
+          MACROCATEGORÍAS
+        </p>
+
+        <h2 class="titulo-seccion macrocategorias-titulo">
+          Elegí qué querés explorar
+        </h2>
+
+        <div class="macrocategorias-grilla">
+          {% for macro in macrocategorias %}
+            <a
+              href="{{ url_for('inicio', macro=macro.slug) }}"
+              class="macrocategoria-card{% if macro_slug == macro.slug %} macrocategoria-card-activa{% endif %}"
+            >
+              <span class="macrocategoria-icono" aria-hidden="true">
+                {{ macro.icono }}
+              </span>
+
+              <span class="macrocategoria-nombre">
+                {{ macro.nombre }}
+              </span>
+
+              <span class="macrocategoria-flecha" aria-hidden="true">
+                ›
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+
+        {% if macro_activa %}
+          <div class="macrocategoria-seleccionada">
+            <span>
+              Estás viendo:
+              <strong>{{ macro_activa.nombre }}</strong>
+            </span>
+
+            <a href="{{ url_for('inicio') }}">
+              Ver todo ClickLocal
+            </a>
+          </div>
+        {% endif %}
+
+      </div>
+    </section>
+    <!-- FIN CLICKLOCAL: MACROCATEGORÍAS -->
+
+    <!-- CATEGORÍAS -->
     <section class="seccion categorias">
       <div class="contenedor">
 
@@ -1768,6 +1979,8 @@ document.addEventListener("DOMContentLoaded", function () {
   let cargando = false;
   let hayMas = true;
 
+  const macroSeleccionada = {{ macro_slug | tojson }};
+
   function texto(tag, clase, contenido) {
     const nodo = document.createElement(tag);
 
@@ -1854,7 +2067,13 @@ document.addEventListener("DOMContentLoaded", function () {
       while (hayMas) {
         const respuesta = await fetch(
           "/api/publicaciones-recientes?offset=" +
-            encodeURIComponent(offset),
+            encodeURIComponent(offset) +
+            (
+              macroSeleccionada
+                ? "&macro=" +
+                  encodeURIComponent(macroSeleccionada)
+                : ""
+            ),
           {
             credentials: "same-origin",
             headers: {

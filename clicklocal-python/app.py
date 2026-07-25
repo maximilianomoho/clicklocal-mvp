@@ -962,6 +962,18 @@ def inicio():
 
     busqueda = request.args.get("q", "").strip()
 
+    macro_slug = request.args.get(
+        "macro",
+        ""
+    ).strip()
+
+    macro_activa = MACROCATEGORIAS_POR_SLUG.get(
+        macro_slug
+    )
+
+    if not macro_activa:
+        macro_slug = ""
+
     def normalizar_texto(valor):
         import re
 
@@ -974,16 +986,80 @@ def inicio():
     busqueda_normalizada = normalizar_texto(busqueda)
 
     PALABRAS_IGNORADAS_BUSCADOR = {
-        "a", "al", "algo", "aca", "ahi", "ante", "con", "como", "comprar",
+        "a", "al", "algo", "aca", "ahi", "algun", "alguna", "algunos",
+        "algunas", "ante", "busco", "buscar", "con", "como", "comprar",
         "consigo", "conseguir", "cuanto", "de", "del", "donde", "el", "en",
-        "encuentro", "encontrar", "hay", "ir", "la", "las", "lo", "los",
-        "me", "mi", "para", "por", "puedo", "que", "quiero", "se", "si",
-        "sin", "sobre", "te", "tener", "tenes", "tiene", "tienen", "un",
-        "una", "unas", "unos", "venden", "vende", "ver", "y"
+        "encuentro", "encontrar", "esta", "estas", "este", "estos",
+        "hacer", "hacen", "hago", "hay", "ir", "la", "las", "lo", "los",
+        "lugar", "lugares", "me", "mi", "necesita", "necesito", "para",
+        "parana", "por", "puedo", "que", "quiero", "se", "si", "sin",
+        "sobre", "te",
+        "tener", "tenes", "tiene", "tienen", "un", "una", "unas", "unos",
+        "venden", "vende", "ver", "y"
+    }
+
+    # Equivalencias acotadas. No determinan rubros ni comercios:
+    # solo permiten reconocer distintas maneras de expresar
+    # un mismo concepto.
+    EQUIVALENCIAS_BUSCADOR = (
+        {
+            "quinceanera",
+            "quince",
+            "15 anos",
+            "cumple de 15",
+        },
+        {
+            "recuerdo",
+            "recuerdos",
+            "souvenir",
+            "souvenirs",
+            "regional",
+            "artesania",
+            "artesanias",
+        },
+        {
+            "romantica",
+            "romantico",
+            "pareja",
+        },
+        {
+            "partido",
+            "futbol",
+        },
+        {
+            "chicos",
+            "ninos",
+            "ninas",
+            "familia",
+            "familiar",
+        },
+    )
+
+    REEMPLAZOS_FRASES_BUSCADOR = {
+        "cumple de 15": "quinceanera",
+        "cumple 15": "quinceanera",
+        "15 anos": "quinceanera",
+        "quince anos": "quinceanera",
     }
 
     def extraer_palabras_clave(texto):
+        import re
+
         texto_normalizado = normalizar_texto(texto)
+
+        # Convierte algunas expresiones compuestas en un único
+        # concepto antes de separar la consulta en palabras.
+        for frase, concepto in sorted(
+            REEMPLAZOS_FRASES_BUSCADOR.items(),
+            key=lambda item: len(item[0]),
+            reverse=True
+        ):
+            texto_normalizado = re.sub(
+                r"\\b" + re.escape(frase) + r"\\b",
+                concepto,
+                texto_normalizado
+            )
+
         palabras = []
 
         for token in texto_normalizado.split():
@@ -1003,10 +1079,16 @@ def inicio():
     def variantes_token(token):
         variantes = {token}
 
-        # MVP: permite que "hamburguesas" encuentre "hamburguesa",
-        # "mates" encuentre "mate", "cierres" encuentre "cierre", etc.
+        # Permite plurales simples:
+        # hamburguesas -> hamburguesa, mates -> mate, etc.
         if len(token) > 3 and token.endswith("s"):
             variantes.add(token[:-1])
+
+        variantes_base = set(variantes)
+
+        for grupo in EQUIVALENCIAS_BUSCADOR:
+            if variantes_base.intersection(grupo):
+                variantes.update(grupo)
 
         return variantes
 
@@ -1034,6 +1116,36 @@ def inicio():
                     resultado.append(item)
 
         return resultado
+
+    def bonus_cobertura_busqueda(coincidencias):
+        total_conceptos = len(palabras_clave_busqueda)
+        conceptos_encontrados = len(set(coincidencias or []))
+
+        if total_conceptos <= 1 or conceptos_encontrados <= 1:
+            return 0
+
+        # Premia que un mismo resultado responda a varios
+        # conceptos de la consulta.
+        bonus = (conceptos_encontrados - 1) * 3
+
+        # Si responde a todos los conceptos importantes,
+        # recibe un bonus adicional.
+        if conceptos_encontrados >= total_conceptos:
+            bonus += 5
+
+        return bonus
+
+    def cumple_minimo_coincidencias_busqueda(coincidencias):
+        if not busqueda_normalizada:
+            return True
+
+        total_conceptos = len(palabras_clave_busqueda)
+        conceptos_encontrados = len(set(coincidencias or []))
+
+        if total_conceptos <= 1:
+            return conceptos_encontrados >= 1
+
+        return conceptos_encontrados >= 2
 
     def imagen_publica_de_publicacion(pub):
         imagenes = pub.get("imagenes") or []
@@ -1183,6 +1295,15 @@ def inicio():
             if not comercio_pub or comercio_pub.get("activo") is False:
                 continue
 
+            if (
+                macro_slug
+                and not comercio_pertenece_a_macro(
+                    comercio_pub,
+                    macro_slug
+                )
+            ):
+                continue
+
             texto_para_buscar = " ".join([
                 str(pub.get("nombre") or ""),
                 str(pub.get("descripcion") or ""),
@@ -1231,7 +1352,14 @@ def inicio():
                 coincidencias_comercio
             )
 
-            if busqueda_normalizada and score_total <= 0:
+            score_total += bonus_cobertura_busqueda(coincidencias)
+
+            if (
+                busqueda_normalizada
+                and not cumple_minimo_coincidencias_busqueda(
+                    coincidencias
+                )
+            ):
                 continue
 
             publicaciones_finales.append({
@@ -1283,6 +1411,15 @@ def inicio():
             comercio_cartelera = comercios_carteleras_por_id.get(comercio_id, {})
 
             if not comercio_cartelera or comercio_cartelera.get("activo") is False:
+                continue
+
+            if (
+                macro_slug
+                and not comercio_pertenece_a_macro(
+                    comercio_cartelera,
+                    macro_slug
+                )
+            ):
                 continue
 
             texto_para_buscar = " ".join([
@@ -1337,7 +1474,14 @@ def inicio():
                 coincidencias_comercio
             )
 
-            if busqueda_normalizada and score_total <= 0:
+            score_total += bonus_cobertura_busqueda(coincidencias)
+
+            if (
+                busqueda_normalizada
+                and not cumple_minimo_coincidencias_busqueda(
+                    coincidencias
+                )
+            ):
                 continue
 
             imagen_publica = imagen_publica_de_cartelera(item)
@@ -1410,9 +1554,18 @@ def inicio():
                 score_atributos, coincidencias_atributos = calcular_score_busqueda(texto_atributos, peso=3)
 
                 score_lista = score_producto + score_atributos
-                coincidencias_lista = unir_coincidencias(coincidencias_producto, coincidencias_atributos)
+                coincidencias_lista = unir_coincidencias(
+                    coincidencias_producto,
+                    coincidencias_atributos
+                )
 
-                if score_lista <= 0:
+                score_lista += bonus_cobertura_busqueda(
+                    coincidencias_lista
+                )
+
+                if not cumple_minimo_coincidencias_busqueda(
+                    coincidencias_lista
+                ):
                     continue
 
                 lista["_score_busqueda"] = score_lista
@@ -1811,7 +1964,10 @@ def inicio():
         publicaciones_mas_vistas=publicaciones_mas_vistas,
         comercios_relacionados=comercios_relacionados,
         historias_publicas=historias_publicas,
-        busqueda=busqueda
+        busqueda=busqueda,
+        macrocategorias=MACROCATEGORIAS_HOME,
+        macro_slug=macro_slug,
+        macro_activa=macro_activa
     )
 
 
@@ -1828,6 +1984,14 @@ def publicaciones_recientes_api():
             )
         except (TypeError, ValueError):
             offset = 80
+
+        macro_slug = request.args.get(
+            "macro",
+            ""
+        ).strip()
+
+        if macro_slug not in MACROCATEGORIAS_POR_SLUG:
+            macro_slug = ""
 
         publicaciones_res = (
             supabase_admin
@@ -1876,6 +2040,24 @@ def publicaciones_recientes_api():
                 and comercio.get("activo") is not False
             }
 
+        categorias_por_comercio = (
+            obtener_categorias_secundarias_por_comercio(
+                list(comercios_por_id.keys())
+            )
+            if comercios_por_id
+            else {}
+        )
+
+        for comercio_id, comercio_data in (
+            comercios_por_id.items()
+        ):
+            comercio_data["categorias_secundarias"] = (
+                categorias_por_comercio.get(
+                    comercio_id,
+                    []
+                )
+            )
+
         def imagen_publica(pub):
             imagenes = pub.get("imagenes") or []
             primera = ""
@@ -1919,6 +2101,15 @@ def publicaciones_recientes_api():
             comercio = comercios_por_id.get(comercio_id)
 
             if not comercio:
+                continue
+
+            if (
+                macro_slug
+                and not comercio_pertenece_a_macro(
+                    comercio,
+                    macro_slug
+                )
+            ):
                 continue
 
             items.append({
@@ -2011,6 +2202,113 @@ CATEGORIAS_HOME = tuple(
     for categoria in CATEGORIAS_COMERCIO
     if categoria != "Otros"
 )
+
+
+# ============================================================
+# CLICKLOCAL: MACROCATEGORÍAS DE LA PORTADA
+#
+# No reemplazan las categorías actuales.
+# Una categoría puede aparecer en más de una macro.
+# ============================================================
+
+MACROCATEGORIAS_HOME = (
+    {
+        "slug": "moda-belleza-bienestar",
+        "nombre": "Moda, Belleza y Bienestar",
+        "icono": "✦",
+        "categorias": (
+            "Indumentaria",
+            "Calzado y accesorios",
+            "Salud y bienestar",
+            "Belleza y cuidado personal",
+            "Deportes",
+        ),
+    },
+    {
+        "slug": "hogar-deco-regalos",
+        "nombre": "Hogar, Deco y Regalos",
+        "icono": "⌂",
+        "categorias": (
+            "Hogar, bazar y decoración",
+            "Gráfica, diseño y personalizados",
+            "Regalos, juguetes y artesanías",
+            "Mercería y manualidades",
+            "Librería, papelería e insumos comerciales",
+        ),
+    },
+    {
+        "slug": "gastronomia-alimentos",
+        "nombre": "Gastronomía y Alimentos",
+        "icono": "◆",
+        "categorias": (
+            "Gastronomía",
+            "Alimentos y bebidas",
+        ),
+    },
+    {
+        "slug": "tecnologia-servicios",
+        "nombre": "Tecnología y Servicios",
+        "icono": "▣",
+        "categorias": (
+            "Tecnología",
+            "Servicios para el hogar",
+            "Gráfica, diseño y personalizados",
+            "Educación y cursos",
+            "Librería, papelería e insumos comerciales",
+        ),
+    },
+    {
+        "slug": "autos-motos-movilidad",
+        "nombre": "Autos, Motos y Movilidad",
+        "icono": "●",
+        "categorias": (
+            "Autos y motos",
+        ),
+    },
+    {
+        "slug": "ocio-experiencias",
+        "nombre": "Ocio y Experiencias",
+        "icono": "★",
+        "categorias": (
+            "Cine y Teatro",
+            "Deportes",
+            "Educación y cursos",
+            "Regalos, juguetes y artesanías",
+        ),
+    },
+)
+
+MACROCATEGORIAS_POR_SLUG = {
+    macro["slug"]: macro
+    for macro in MACROCATEGORIAS_HOME
+}
+
+
+def comercio_pertenece_a_macro(comercio, macro_slug):
+    macro = MACROCATEGORIAS_POR_SLUG.get(
+        str(macro_slug or "").strip()
+    )
+
+    if not macro:
+        return True
+
+    categorias_comercio = {
+        str(comercio.get("categoria") or "").strip()
+    }
+
+    categorias_comercio.update({
+        str(categoria or "").strip()
+        for categoria in (
+            comercio.get("categorias_secundarias") or []
+        )
+        if str(categoria or "").strip()
+    })
+
+    return bool(
+        categorias_comercio.intersection(
+            set(macro["categorias"])
+        )
+    )
 
 app.jinja_env.globals.update({
     "CATEGORIAS_COMERCIO": CATEGORIAS_COMERCIO,
