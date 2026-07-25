@@ -1669,7 +1669,10 @@
         <p class="titulo-chico">RECIENTES</p>
         <h2 class="titulo-seccion">Publicaciones recientes</h2>
 
-        <div class="grilla-publicaciones">
+        <div
+          class="grilla-publicaciones"
+          id="grillaPublicacionesRecientes"
+        >
 
           {% if publicaciones %}
 
@@ -1715,6 +1718,25 @@
       </div>
     </section>
 
+    {% if not busqueda %}
+      <div
+        id="scrollPublicacionesSentinel"
+        aria-hidden="true"
+        style="height:1px"
+      ></div>
+
+      <p
+        id="scrollPublicacionesEstado"
+        style="
+          text-align:center;
+          padding:12px 0;
+          display:none;
+        "
+      >
+        Cargando publicaciones...
+      </p>
+    {% endif %}
+
   </main>
 
 
@@ -1722,6 +1744,200 @@
     <p>ClickLocal Paraná</p>
     <p>La forma más simple de mostrar y encontrar comercios locales.</p>
   </footer>
+
+{% if not busqueda %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const grilla = document.getElementById(
+    "grillaPublicacionesRecientes"
+  );
+
+  const sentinel = document.getElementById(
+    "scrollPublicacionesSentinel"
+  );
+
+  const estado = document.getElementById(
+    "scrollPublicacionesEstado"
+  );
+
+  if (!grilla || !sentinel) {
+    return;
+  }
+
+  let offset = 80;
+  let cargando = false;
+  let hayMas = true;
+
+  function texto(tag, clase, contenido) {
+    const nodo = document.createElement(tag);
+
+    if (clase) {
+      nodo.className = clase;
+    }
+
+    nodo.textContent = contenido || "";
+    return nodo;
+  }
+
+  function crearCard(item) {
+    const enlace = document.createElement("a");
+
+    enlace.href =
+      "/detalle/" + encodeURIComponent(item.id);
+
+    enlace.className = "publicacion-card";
+
+    const imagen = document.createElement("img");
+    imagen.src = item.imagen_url || "/img/mate1.jpg";
+    imagen.alt = item.nombre || "";
+
+    enlace.appendChild(imagen);
+
+    const info = document.createElement("div");
+    info.className = "publicacion-info";
+
+    info.appendChild(
+      texto(
+        "p",
+        "nombre-comercio",
+        item.comercio || "Comercio local"
+      )
+    );
+
+    info.appendChild(
+      texto(
+        "h3",
+        "",
+        item.nombre || ""
+      )
+    );
+
+    info.appendChild(
+      texto(
+        "p",
+        "precio",
+        item.precio || ""
+      )
+    );
+
+    info.appendChild(
+      texto(
+        "p",
+        "ubicacion",
+        item.direccion_mostrar || ""
+      )
+    );
+
+    enlace.appendChild(info);
+
+    return enlace;
+  }
+
+  async function cargarMas() {
+    if (cargando || !hayMas) {
+      return;
+    }
+
+    cargando = true;
+
+    if (estado) {
+      estado.style.display = "block";
+    }
+
+    try {
+      /*
+       * Puede ocurrir que un bloque contenga publicaciones
+       * pertenecientes a comercios actualmente inactivos.
+       * En ese caso seguimos avanzando hasta encontrar
+       * publicaciones visibles o hasta llegar al final.
+       */
+      while (hayMas) {
+        const respuesta = await fetch(
+          "/api/publicaciones-recientes?offset=" +
+            encodeURIComponent(offset),
+          {
+            credentials: "same-origin",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest"
+            }
+          }
+        );
+
+        if (!respuesta.ok) {
+          throw new Error(
+            "HTTP " + respuesta.status
+          );
+        }
+
+        const datos = await respuesta.json();
+
+        offset =
+          Number(datos.siguiente_offset) || offset;
+
+        hayMas = datos.hay_mas === true;
+
+        const items = Array.isArray(datos.items)
+          ? datos.items
+          : [];
+
+        if (items.length > 0) {
+          const fragmento =
+            document.createDocumentFragment();
+
+          items.forEach(function (item) {
+            fragmento.appendChild(
+              crearCard(item)
+            );
+          });
+
+          grilla.appendChild(fragmento);
+          break;
+        }
+      }
+
+      if (!hayMas) {
+        observador.disconnect();
+      }
+
+    } catch (error) {
+      console.error(
+        "Error cargando más publicaciones:",
+        error
+      );
+
+      observador.disconnect();
+
+    } finally {
+      cargando = false;
+
+      if (estado) {
+        estado.style.display = "none";
+      }
+    }
+  }
+
+  const observador = new IntersectionObserver(
+    function (entradas) {
+      if (
+        entradas.some(function (entrada) {
+          return entrada.isIntersecting;
+        })
+      ) {
+        cargarMas();
+      }
+    },
+    {
+      root: null,
+      rootMargin: "700px 0px",
+      threshold: 0
+    }
+  );
+
+  observador.observe(sentinel);
+});
+</script>
+{% endif %}
+
 
   <script src="/static/pwa.js"></script>
 

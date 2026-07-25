@@ -1816,6 +1816,148 @@ def inicio():
 
 
 
+@app.route("/api/publicaciones-recientes")
+def publicaciones_recientes_api():
+    try:
+        TAMANO_BLOQUE = 40
+
+        try:
+            offset = max(
+                0,
+                int(request.args.get("offset", 80))
+            )
+        except (TypeError, ValueError):
+            offset = 80
+
+        publicaciones_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select(
+                "id,nombre,precio,descripcion,imagenes,"
+                "imagen_principal,imagen_url,activa,comercio_id,"
+                "direccion_mostrar,created_at,orden_grilla_at"
+            )
+            .eq("activa", True)
+            .order("orden_grilla_at", desc=True)
+            .range(
+                offset,
+                offset + TAMANO_BLOQUE - 1
+            )
+            .execute()
+        )
+
+        publicaciones = publicaciones_res.data or []
+
+        comercio_ids = list({
+            pub.get("comercio_id")
+            for pub in publicaciones
+            if pub.get("comercio_id")
+        })
+
+        comercios_por_id = {}
+
+        if comercio_ids:
+            comercios_res = (
+                supabase_admin
+                .table("comercios")
+                .select(
+                    "id,nombre_negocio,direccion,"
+                    "direccion_mostrar,venta_online,ciudad,"
+                    "categoria,activo,plan"
+                )
+                .in_("id", comercio_ids)
+                .execute()
+            )
+
+            comercios_por_id = {
+                comercio.get("id"): comercio
+                for comercio in (comercios_res.data or [])
+                if comercio.get("id")
+                and comercio.get("activo") is not False
+            }
+
+        def imagen_publica(pub):
+            imagenes = pub.get("imagenes") or []
+            primera = ""
+
+            if isinstance(imagenes, list) and imagenes:
+                primera = imagenes[0]
+
+            return (
+                pub.get("imagen_principal")
+                or pub.get("imagen_url")
+                or primera
+                or ""
+            )
+
+        def ubicacion_publica(comercio, direccion_publicacion=None):
+            direccion = (
+                direccion_publicacion
+                or comercio.get("direccion_mostrar")
+                or comercio.get("direccion")
+                or comercio.get("ciudad")
+                or ""
+            )
+
+            venta_online = bool(comercio.get("venta_online"))
+
+            if direccion and venta_online:
+                return f"{direccion} · Venta online"
+
+            if direccion:
+                return direccion
+
+            if venta_online:
+                return "Venta online"
+
+            return "Consultar ubicación"
+
+        items = []
+
+        for pub in publicaciones:
+            comercio_id = pub.get("comercio_id")
+            comercio = comercios_por_id.get(comercio_id)
+
+            if not comercio:
+                continue
+
+            items.append({
+                "id": pub.get("id"),
+                "comercio_id": comercio_id,
+                "nombre": pub.get("nombre") or "",
+                "precio": formatear_precio(pub.get("precio")),
+                "imagen_url": imagen_publica(pub),
+                "comercio": (
+                    comercio.get("nombre_negocio")
+                    or "Comercio local"
+                ),
+                "direccion_mostrar": ubicacion_publica(
+                    comercio,
+                    pub.get("direccion_mostrar")
+                ),
+                "categoria": comercio.get("categoria") or "",
+            })
+
+        return {
+            "items": items,
+            "siguiente_offset": offset + len(publicaciones),
+            "hay_mas": len(publicaciones) == TAMANO_BLOQUE,
+        }
+
+    except Exception as e:
+        print(
+            "ERROR cargando publicaciones recientes:",
+            e,
+            flush=True
+        )
+
+        return {
+            "items": [],
+            "hay_mas": False,
+            "error": True,
+        }, 500
+
+
 @app.route("/cartelera-demo")
 def cartelera_demo():
     return render_template("cartelera_demo.html")
