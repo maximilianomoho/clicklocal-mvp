@@ -250,7 +250,7 @@
   }
 
   .buscador-frase-secundaria {
-    font-size: 18px;
+    font-size: 24px;
     line-height: 1.55;
     color: #475569;
     max-width: 980px;
@@ -321,7 +321,7 @@
     color: #334155;
     line-height: 1.5;
     margin: 0 0 10px;
-    font-size: 16px;
+    font-size: 20px;
   }
 
   .local-texto-secundario {
@@ -1544,6 +1544,187 @@
 }
 </style>
 
+
+<style>
+/* ==========================================================
+   CLICKLOCAL: MACROCATEGORIAS COMPACTAS V1
+   Reduce el espacio ocupado antes de las publicaciones.
+   ========================================================== */
+
+.macrocategorias-home {
+  padding-top: 24px;
+  padding-bottom: 6px;
+}
+
+.macrocategorias-etiqueta {
+  margin-bottom: 5px;
+}
+
+.macrocategorias-titulo {
+  margin-bottom: 12px;
+}
+
+.macrocategorias-grilla {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.macrocategoria-card {
+  min-height: 56px;
+  padding: 8px 12px;
+
+  grid-template-columns: 20px minmax(0, 1fr) 12px;
+  gap: 7px;
+
+  border-radius: 13px;
+  box-shadow: 0 3px 8px rgba(76, 40, 12, 0.10);
+}
+
+.macrocategoria-card:hover,
+.macrocategoria-card:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 11px rgba(76, 40, 12, 0.14);
+}
+
+.macrocategoria-icono {
+  width: 20px;
+  font-size: 16px;
+}
+
+.macrocategoria-nombre {
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.macrocategoria-flecha {
+  font-size: 19px;
+}
+
+.macrocategoria-seleccionada {
+  margin-top: 9px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  font-size: 13px;
+}
+
+.seccion.macrocategorias-home + .seccion.categorias {
+  padding-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .macrocategorias-home {
+    padding-top: 20px;
+    padding-bottom: 5px;
+  }
+
+  .macrocategorias-grilla {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .macrocategoria-card {
+    min-height: 54px;
+    padding: 7px 9px;
+
+    grid-template-columns: 17px minmax(0, 1fr) 10px;
+    gap: 5px;
+
+    border-radius: 12px;
+  }
+
+  .macrocategoria-icono {
+    width: 17px;
+    font-size: 14px;
+  }
+
+  .macrocategoria-nombre {
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .macrocategoria-flecha {
+    font-size: 17px;
+  }
+
+  .macrocategoria-seleccionada {
+    margin-top: 8px;
+    padding: 7px 9px;
+
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+
+    font-size: 12px;
+  }
+}
+</style>
+
+
+<style>
+/* ==========================================================
+   CLICKLOCAL: ROTULOS EDITORIALES PARANA V1
+   Identidad local para destacados y publicaciones recientes.
+   ========================================================== */
+
+.titulo-editorial-local {
+  margin-bottom: 9px;
+
+  color: #7A1F2B;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 18px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+@media (max-width: 600px) {
+  .titulo-editorial-local {
+    margin-bottom: 7px;
+    font-size: 16px;
+  }
+}
+</style>
+
+
+<style>
+/* ==========================================================
+   CLICKLOCAL: ROTULOS EDITORIALES PROTAGONISTAS V1
+   Regla final específica para que el tamaño sea visible.
+   ========================================================== */
+
+.titulo-chico.titulo-editorial-local {
+  margin-bottom: 10px !important;
+
+  color: #7A1F2B !important;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif !important;
+
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  font-style: italic !important;
+  line-height: 1.12 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+@media (max-width: 600px) {
+  .titulo-chico.titulo-editorial-local {
+    margin-bottom: 8px !important;
+    font-size: 22px !important;
+  }
+}
+</style>
+
 </head>
 
 <body>
@@ -1855,7 +2036,8 @@
 
   <main>
 
-    {% if not busqueda %}\n
+    {% if not busqueda %}
+
     <!-- CLICKLOCAL: MACROCATEGORÍAS -->
     <section class="seccion macrocategorias-home">
       <div class="contenedor">
@@ -1938,16 +2120,29 @@
     </section>
 
 
-    {% endif %}\n\n    <!-- LO MÁS VISTO -->
+    {% endif %}
+
+    <!-- CLICKLOCAL: DESTACADOS SOLO POR MACROCATEGORIA V1 -->
+    {% if busqueda or macro_activa %}
+    <!-- LO MÁS VISTO / RESULTADOS -->
     <section class="seccion">
       <div class="contenedor">
 
-        <p class="titulo-chico">DESTACADOS</p>
+        {% if busqueda %}
+          <p class="titulo-chico">
+            RESULTADOS
+          </p>
+        {% else %}
+          <p class="titulo-chico titulo-editorial-local">
+            Destacados en Paraná
+          </p>
+        {% endif %}
+
         <h2 class="titulo-seccion">
           {% if busqueda %}
             Resultados para "{{ busqueda }}"
           {% else %}
-            Lo más visto esta semana
+            Lo más visto en {{ macro_activa.nombre }}
           {% endif %}
         </h2>
 
@@ -1965,8 +2160,9 @@
                     Historia
                   </span>
                 {% endif %}
+
                 {% if pub.categoria == 'Cine y Teatro' %}
-                <div class="cartelera-header">CARTELERA</div>
+                  <div class="cartelera-header">CARTELERA</div>
                 {% endif %}
 
                 {% if pub.imagen_url %}
@@ -1978,8 +2174,7 @@
                 <div class="publicacion-info">
                   <p class="nombre-comercio">{{ pub.comercio }}</p>
                   <h3>{{ pub.nombre }}</h3>
-                    <p class="precio">{{ pub.precio|precio_arg }}</p>
-
+                  <p class="precio">{{ pub.precio|precio_arg }}</p>
                   <p class="ubicacion">{{ pub.direccion_mostrar }}</p>
                 </div>
               </a>
@@ -1994,9 +2189,9 @@
               {% elif busqueda %}
                 Por ahora no encontramos locales ni publicaciones para "{{ busqueda }}". Probá con otra búsqueda.
               {% elif publicaciones %}
-                Todavía no hay publicaciones visitadas para mostrar en esta sección.
+                Todavía no hay publicaciones visitadas en {{ macro_activa.nombre }} durante esta semana.
               {% else %}
-                Todavía no hay publicaciones cargadas. Entrá como comercio y cargá la primera.
+                Todavía no hay publicaciones cargadas en {{ macro_activa.nombre }}.
               {% endif %}
             </div>
 
@@ -2006,6 +2201,8 @@
 
       </div>
     </section>
+    <!-- FIN LO MÁS VISTO / RESULTADOS -->
+    {% endif %}
 
     <!-- LOCALES COMPACTOS POR LISTAS BUSCABLES -->
     {% if busqueda and comercios_relacionados %}
@@ -2075,12 +2272,16 @@
 
 
 
+    <!-- CLICKLOCAL: RECIENTES SOLO POR MACROCATEGORIA V1 -->
+    {% if not busqueda and macro_activa %}
     <!-- PUBLICACIONES RECIENTES -->
     <section class="seccion">
       <div class="contenedor">
 
-        <p class="titulo-chico">RECIENTES</p>
-        <h2 class="titulo-seccion">Publicaciones recientes</h2>
+        <p class="titulo-chico titulo-editorial-local">Lo más reciente en Paraná</p>
+        <h2 class="titulo-seccion">
+          Publicaciones recientes en {{ macro_activa.nombre }}
+        </h2>
 
         <div
           class="grilla-publicaciones"
@@ -2150,6 +2351,8 @@
       </p>
     {% endif %}
 
+    {% endif %}
+
   </main>
 
 
@@ -2158,7 +2361,7 @@
     <p>La forma más simple de mostrar y encontrar comercios locales.</p>
   </footer>
 
-{% if not busqueda %}
+{% if not busqueda and macro_activa %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const grilla = document.getElementById(
