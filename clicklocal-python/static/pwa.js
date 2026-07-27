@@ -4,6 +4,18 @@ function clickLocalIsStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
 
+
+// CLICKLOCAL: MODO DE ACCESO ANALYTICS V1
+function clickLocalGuardarModoAcceso() {
+  const modo = clickLocalIsStandalone() ? "pwa" : "web";
+  const secure =
+    window.location.protocol === "https:" ? "; Secure" : "";
+
+  document.cookie =
+    `clicklocal_modo_acceso=${modo}; ` +
+    `Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+}
+
 async function clickLocalRegisterServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
@@ -66,6 +78,7 @@ window.addEventListener("appinstalled", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  clickLocalGuardarModoAcceso();
   clickLocalRegisterServiceWorker();
 
   const path = window.location.pathname;

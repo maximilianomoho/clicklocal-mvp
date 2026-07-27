@@ -1,4 +1,4 @@
-from flask import Flask, render_template, send_from_directory, send_file, request, redirect, url_for, session
+from flask import Flask, render_template, send_from_directory, send_file, request, redirect, url_for, session, g, has_request_context
 from werkzeug.utils import secure_filename
 import os
 from decimal import Decimal, InvalidOperation
@@ -124,6 +124,164 @@ app.jinja_env.filters["precio_arg"] = formatear_precio
 
 # Clave temporal para session en desarrollo local
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clicklocal-mvp-dev")
+
+
+# ============================================================
+# CLICKLOCAL: IDENTIDAD ANALYTICS ANONIMA V1
+# ============================================================
+ANALYTICS_COOKIE_VISITANTE = "clicklocal_visitante_id"
+ANALYTICS_COOKIE_SESION = "clicklocal_sesion_id"
+ANALYTICS_COOKIE_ULTIMA_ACTIVIDAD = "clicklocal_sesion_ultima"
+ANALYTICS_COOKIE_MODO = "clicklocal_modo_acceso"
+
+ANALYTICS_VISITANTE_MAX_AGE = 365 * 24 * 60 * 60
+ANALYTICS_SESION_INACTIVIDAD = 30 * 60
+ANALYTICS_SESION_COOKIE_MAX_AGE = 2 * 60 * 60
+
+
+def _analytics_uuid_valido_o_nuevo(valor):
+    try:
+        return str(uuid.UUID(str(valor)))
+    except (ValueError, TypeError, AttributeError):
+        return str(uuid.uuid4())
+
+
+def _analytics_entero_o_none(valor):
+    try:
+        return int(str(valor))
+    except (ValueError, TypeError):
+        return None
+
+
+@app.before_request
+def analytics_preparar_identidad_anonima():
+    """
+    Prepara una identidad analítica anónima por navegador y sesión.
+
+    No utiliza nombre, correo, teléfono, IP ni fingerprint.
+    """
+    if request.path.startswith("/static/"):
+        return None
+
+    ahora = int(time.time())
+
+    visitante_id = _analytics_uuid_valido_o_nuevo(
+        request.cookies.get(ANALYTICS_COOKIE_VISITANTE)
+    )
+
+    sesion_cookie = request.cookies.get(
+        ANALYTICS_COOKIE_SESION
+    )
+
+    sesion_id = _analytics_uuid_valido_o_nuevo(
+        sesion_cookie
+    )
+
+    ultima_actividad = _analytics_entero_o_none(
+        request.cookies.get(
+            ANALYTICS_COOKIE_ULTIMA_ACTIVIDAD
+        )
+    )
+
+    sesion_cookie_valida = False
+
+    try:
+        uuid.UUID(str(sesion_cookie))
+        sesion_cookie_valida = True
+    except (ValueError, TypeError, AttributeError):
+        sesion_cookie_valida = False
+
+    sesion_vencida = (
+        ultima_actividad is None
+        or ahora < ultima_actividad
+        or ahora - ultima_actividad
+        > ANALYTICS_SESION_INACTIVIDAD
+    )
+
+    if not sesion_cookie_valida or sesion_vencida:
+        sesion_id = str(uuid.uuid4())
+
+    modo_acceso = str(
+        request.cookies.get(ANALYTICS_COOKIE_MODO)
+        or "web"
+    ).strip().lower()
+
+    if modo_acceso not in {"web", "pwa"}:
+        modo_acceso = "web"
+
+    g.analytics_visitante_id = visitante_id
+    g.analytics_sesion_id = sesion_id
+    g.analytics_modo_acceso = modo_acceso
+
+    g.analytics_cookies_pendientes = {
+        ANALYTICS_COOKIE_VISITANTE: {
+            "value": visitante_id,
+            "max_age": ANALYTICS_VISITANTE_MAX_AGE,
+        },
+        ANALYTICS_COOKIE_SESION: {
+            "value": sesion_id,
+            "max_age": ANALYTICS_SESION_COOKIE_MAX_AGE,
+        },
+        ANALYTICS_COOKIE_ULTIMA_ACTIVIDAD: {
+            "value": str(ahora),
+            "max_age": ANALYTICS_SESION_COOKIE_MAX_AGE,
+        },
+    }
+
+    return None
+
+
+@app.after_request
+def analytics_persistir_identidad_anonima(respuesta):
+    pendientes = getattr(
+        g,
+        "analytics_cookies_pendientes",
+        None,
+    )
+
+    if not pendientes:
+        return respuesta
+
+    for nombre, configuracion in pendientes.items():
+        respuesta.set_cookie(
+            nombre,
+            configuracion["value"],
+            max_age=configuracion["max_age"],
+            httponly=True,
+            secure=request.is_secure,
+            samesite="Lax",
+            path="/",
+        )
+
+    return respuesta
+
+
+def analytics_contexto_actual():
+    if not has_request_context():
+        return {
+            "visitante_id": None,
+            "sesion_id": None,
+            "modo_acceso": "web",
+        }
+
+    return {
+        "visitante_id": getattr(
+            g,
+            "analytics_visitante_id",
+            None,
+        ),
+        "sesion_id": getattr(
+            g,
+            "analytics_sesion_id",
+            None,
+        ),
+        "modo_acceso": getattr(
+            g,
+            "analytics_modo_acceso",
+            "web",
+        ),
+    }
+
 
 # Carpeta donde guardamos fotos subidas en esta etapa local
 # Límite de seguridad para cargas desde celulares.
@@ -489,6 +647,7 @@ def analytics_crear_busqueda(
     total_publicaciones = int(total_publicaciones or 0)
     total_listas = int(total_listas or 0)
     total_resultados = total_publicaciones + total_listas
+    contexto_analytics = analytics_contexto_actual()
 
     nueva_busqueda = {
         "consulta": consulta_limpia,
@@ -499,6 +658,9 @@ def analytics_crear_busqueda(
         "total_resultados_listas": total_listas,
         "total_resultados": total_resultados,
         "tuvo_resultados": total_resultados > 0,
+        "visitante_id": contexto_analytics["visitante_id"],
+        "sesion_id": contexto_analytics["sesion_id"],
+        "modo_acceso": contexto_analytics["modo_acceso"],
     }
 
     try:
@@ -528,6 +690,8 @@ def analytics_registrar_evento(
     if not tipo_evento:
         return False
 
+    contexto_analytics = analytics_contexto_actual()
+
     evento = {
         "tipo_evento": tipo_evento,
         "comercio_id": uuid_o_none(comercio_id),
@@ -539,6 +703,9 @@ def analytics_registrar_evento(
         "consulta_normalizada": normalizar_texto_analytics(consulta_origen),
         "origen": origen,
         "metadata": metadata or {},
+        "visitante_id": contexto_analytics["visitante_id"],
+        "sesion_id": contexto_analytics["sesion_id"],
+        "modo_acceso": contexto_analytics["modo_acceso"],
     }
 
     try:
