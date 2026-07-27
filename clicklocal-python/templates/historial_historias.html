@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Historial de historias | ClickLocal</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4f7fb;
+      color: #1f2937;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+    }
+
+    .historial-contenedor {
+      width: min(1120px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    .historial-encabezado {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+      padding: 22px;
+      border: 1px solid #dfe4ea;
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 8px 24px rgba(31, 41, 55, 0.06);
+    }
+
+    .historial-titulo-chico {
+      margin: 0 0 7px;
+      color: #006aa6;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 4vw, 38px);
+      line-height: 1.1;
+    }
+
+    .historial-descripcion {
+      max-width: 680px;
+      margin: 12px 0 0;
+      color: #667180;
+      line-height: 1.55;
+    }
+
+    .historial-boton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 16px;
+      border: 1px solid #006aa6;
+      border-radius: 12px;
+      background: white;
+      color: #006aa6;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .historial-boton:hover {
+      background: #eef8fd;
+    }
+
+    .historial-vacio {
+      padding: 34px 22px;
+      border: 1px solid #dfe4ea;
+      border-radius: 18px;
+      background: white;
+      color: #667180;
+      text-align: center;
+    }
+
+    .historial-grilla {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+    }
+
+    .historial-tarjeta {
+      overflow: hidden;
+      border: 1px solid #dfe4ea;
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 8px 22px rgba(31, 41, 55, 0.05);
+    }
+
+    .historial-imagen {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      background: #edf1f5;
+    }
+
+    .historial-sin-imagen {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #edf1f5;
+      color: #667180;
+      font-weight: 700;
+    }
+
+    .historial-contenido {
+      padding: 18px;
+    }
+
+    .historial-superior {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .historial-estado {
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #616b78;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .historial-fecha {
+      color: #667180;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .historial-texto {
+      min-height: 48px;
+      margin: 16px 0;
+      line-height: 1.5;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+    }
+
+    .historial-vinculo {
+      margin: 0 0 14px;
+      color: #667180;
+      font-size: 14px;
+    }
+
+    .historial-metricas {
+      display: grid;
+      grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .historial-metrica {
+      padding: 10px 8px;
+      border-radius: 12px;
+      background: #f6f8fa;
+      text-align: center;
+    }
+
+    .historial-metrica strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 18px;
+    }
+
+    .historial-metrica span {
+      display: block;
+      color: #667180;
+      font-size: 11px;
+      line-height: 1.25;
+    }
+
+    .historial-paginacion {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    .historial-pagina {
+      color: #667180;
+      font-weight: 800;
+    }
+
+    @media (max-width: 560px) {
+      .historial-contenedor {
+        width: min(100% - 18px, 1120px);
+        padding-top: 14px;
+      }
+
+      .historial-encabezado {
+        padding: 18px;
+      }
+
+      .historial-grilla {
+        grid-template-columns: 1fr;
+      }
+
+      .historial-metricas {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="historial-contenedor">
+    <header class="historial-encabezado">
+      <div>
+        <p class="historial-titulo-chico">
+          HISTORIAS PREMIUM
+        </p>
+
+        <h1>Historial de historias</h1>
+
+        <p class="historial-descripcion">
+          Historias vencidas de
+          <strong>
+            {{ comercio.nombre or 'tu comercio' }}
+          </strong>.
+          Se conservan sus resultados y métricas,
+          pero ya no se muestran públicamente.
+        </p>
+      </div>
+
+      <a
+        href="{{ url_for('panel') }}#historias-premium"
+        class="historial-boton"
+      >
+        Volver a Historias
+      </a>
+    </header>
+
+    {% if historias %}
+      <section class="historial-grilla">
+        {% for historia in historias %}
+          <article class="historial-tarjeta">
+            {% if historia.imagen_url %}
+              <img
+                src="{{ historia.imagen_url }}"
+                alt="Historia vencida"
+                class="historial-imagen"
+              />
+            {% else %}
+              <div class="historial-sin-imagen">
+                Sin imagen
+              </div>
+            {% endif %}
+
+            <div class="historial-contenido">
+              <div class="historial-superior">
+                <span class="historial-estado">
+                  VENCIDA
+                </span>
+
+                <span class="historial-fecha">
+                  Venció:
+                  {{ historia.expires_at_mostrar }}
+                </span>
+              </div>
+
+              <p class="historial-texto">
+                {{ historia.texto or 'Sin texto' }}
+              </p>
+
+              <p class="historial-vinculo">
+                Publicada:
+                <strong>
+                  {{ historia.created_at_mostrar }}
+                </strong>
+              </p>
+
+              <p class="historial-vinculo">
+                {% if historia.publicacion_id %}
+                  Con publicación vinculada
+                {% else %}
+                  Sin publicación vinculada
+                {% endif %}
+              </p>
+
+              <div class="historial-metricas">
+                <div class="historial-metrica">
+                  <strong>
+                    {{ historia.metricas_vistas or 0 }}
+                  </strong>
+                  <span>Visualizaciones</span>
+                </div>
+
+                <div class="historial-metrica">
+                  <strong>
+                    {{ historia.metricas_click_comercio or 0 }}
+                  </strong>
+                  <span>Visitas al comercio</span>
+                </div>
+
+                <div class="historial-metrica">
+                  <strong>
+                    {{ historia.metricas_click_publicacion or 0 }}
+                  </strong>
+                  <span>Visitas a publicación</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </section>
+    {% else %}
+      <section class="historial-vacio">
+        <strong>
+          Todavía no tenés historias en el historial.
+        </strong>
+
+        <p>
+          Cuando una historia cumpla sus 24 horas,
+          aparecerá automáticamente en esta página.
+        </p>
+      </section>
+    {% endif %}
+
+    {% if hay_anterior or hay_siguiente %}
+      <nav
+        class="historial-paginacion"
+        aria-label="Paginación del historial"
+      >
+        {% if hay_anterior %}
+          <a
+            href="{{ url_for('historial_historias_panel', pagina=pagina - 1) }}"
+            class="historial-boton"
+          >
+            Anterior
+          </a>
+        {% endif %}
+
+        <span class="historial-pagina">
+          Página {{ pagina }}
+        </span>
+
+        {% if hay_siguiente %}
+          <a
+            href="{{ url_for('historial_historias_panel', pagina=pagina + 1) }}"
+            class="historial-boton"
+          >
+            Siguiente
+          </a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </main>
+</body>
+</html>

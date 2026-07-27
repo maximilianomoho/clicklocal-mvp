@@ -4409,6 +4409,16 @@ def panel():
                 historia["metricas_click_publicacion"] = 0
                 historia["metricas_click_comercio"] = 0
 
+            # La lista principal muestra solamente historias que
+            # todavía están dentro de sus 24 horas de vigencia.
+            # Las vencidas permanecen guardadas para conservar
+            # su historial y sus métricas.
+            historias = [
+                historia
+                for historia in historias
+                if historia.get("vigente") is True
+            ]
+
             ids_historias_metricas = [
                 historia.get("id")
                 for historia in historias
@@ -4534,6 +4544,240 @@ def panel():
         limite_historias_activas=2
     )
 
+
+
+# ============================================================
+# HISTORIAL DE HISTORIAS PREMIUM
+# Página privada, paginada y solamente informativa.
+# ============================================================
+
+@app.route("/panel/historias/historial")
+def historial_historias_panel():
+    comercio, comercio_id, error_contexto = (
+        _contexto_comercio_para_historias()
+    )
+
+    if error_contexto == "login":
+        return redirect(url_for("login"))
+
+    if error_contexto == "bloqueado":
+        return "Esta cuenta fue bloqueada por administración.", 403
+
+    if error_contexto == "premium":
+        return redirect(
+            url_for("panel", historia_error="solo_premium")
+            + "#historias-premium"
+        )
+
+    if error_contexto or not comercio_id:
+        return redirect(
+            url_for("panel", historia_error="servidor")
+            + "#historias-premium"
+        )
+
+    pagina_raw = str(
+        request.args.get("pagina", "1") or "1"
+    ).strip()
+
+    try:
+        pagina = max(1, int(pagina_raw))
+    except (TypeError, ValueError):
+        pagina = 1
+
+    historias_por_pagina = 12
+    desde = (pagina - 1) * historias_por_pagina
+
+    # PostgREST usa un rango inclusivo. Se solicita un registro
+    # adicional para saber si existe una página siguiente.
+    hasta = desde + historias_por_pagina
+
+    historias = []
+    hay_siguiente = False
+
+    try:
+        ahora_utc = datetime.datetime.now(
+            datetime.timezone.utc
+        )
+
+        historias_res = (
+            supabase_admin
+            .table("historias")
+            .select(
+                "id,comercio_id,imagen_url,texto,"
+                "publicacion_id,activa,eliminada,"
+                "expires_at,created_at"
+            )
+            .eq("comercio_id", comercio_id)
+            .eq("eliminada", False)
+            .lt("expires_at", ahora_utc.isoformat())
+            .order("expires_at", desc=True)
+            .range(desde, hasta)
+            .execute()
+        )
+
+        historias_consultadas = historias_res.data or []
+        hay_siguiente = (
+            len(historias_consultadas)
+            > historias_por_pagina
+        )
+
+        historias = historias_consultadas[
+            :historias_por_pagina
+        ]
+
+        for historia in historias:
+            historia["metricas_vistas"] = 0
+            historia["metricas_click_publicacion"] = 0
+            historia["metricas_click_comercio"] = 0
+
+        ids_historias = [
+            historia.get("id")
+            for historia in historias
+            if historia.get("id")
+        ]
+
+        if ids_historias:
+            metricas_por_historia = {
+                str(historia_id): {
+                    "vista_historia": 0,
+                    "click_historia_publicacion": 0,
+                    "click_historia_comercio": 0,
+                }
+                for historia_id in ids_historias
+            }
+
+            inicio_metricas = 0
+            tamanio_pagina_metricas = 1000
+
+            while True:
+                eventos_res = (
+                    supabase_admin
+                    .table("eventos_analytics")
+                    .select("historia_id,tipo_evento")
+                    .in_("historia_id", ids_historias)
+                    .range(
+                        inicio_metricas,
+                        inicio_metricas
+                        + tamanio_pagina_metricas
+                        - 1
+                    )
+                    .execute()
+                )
+
+                eventos = eventos_res.data or []
+
+                for evento in eventos:
+                    historia_id_evento = str(
+                        evento.get("historia_id") or ""
+                    )
+
+                    tipo_evento = str(
+                        evento.get("tipo_evento") or ""
+                    )
+
+                    if (
+                        historia_id_evento
+                        in metricas_por_historia
+                        and tipo_evento
+                        in metricas_por_historia[
+                            historia_id_evento
+                        ]
+                    ):
+                        metricas_por_historia[
+                            historia_id_evento
+                        ][tipo_evento] += 1
+
+                if len(eventos) < tamanio_pagina_metricas:
+                    break
+
+                inicio_metricas += tamanio_pagina_metricas
+
+            for historia in historias:
+                historia_id_actual = str(
+                    historia.get("id") or ""
+                )
+
+                metricas = metricas_por_historia.get(
+                    historia_id_actual,
+                    {}
+                )
+
+                historia["metricas_vistas"] = int(
+                    metricas.get("vista_historia", 0)
+                )
+
+                historia["metricas_click_publicacion"] = int(
+                    metricas.get(
+                        "click_historia_publicacion",
+                        0
+                    )
+                )
+
+                historia["metricas_click_comercio"] = int(
+                    metricas.get(
+                        "click_historia_comercio",
+                        0
+                    )
+                )
+
+        zona_argentina = datetime.timezone(
+            datetime.timedelta(hours=-3)
+        )
+
+        def fecha_historia_mostrar(valor):
+            valor_raw = str(valor or "").strip()
+
+            if not valor_raw:
+                return "Sin fecha"
+
+            try:
+                fecha = datetime.datetime.fromisoformat(
+                    valor_raw.replace("Z", "+00:00")
+                )
+
+                if fecha.tzinfo is None:
+                    fecha = fecha.replace(
+                        tzinfo=datetime.timezone.utc
+                    )
+
+                fecha = fecha.astimezone(zona_argentina)
+
+                return fecha.strftime("%d/%m/%Y · %H:%M")
+
+            except Exception:
+                return valor_raw
+
+        for historia in historias:
+            historia["created_at_mostrar"] = (
+                fecha_historia_mostrar(
+                    historia.get("created_at")
+                )
+            )
+
+            historia["expires_at_mostrar"] = (
+                fecha_historia_mostrar(
+                    historia.get("expires_at")
+                )
+            )
+
+    except Exception as e:
+        print(
+            "ERROR CARGANDO HISTORIAL DE HISTORIAS:",
+            e,
+            flush=True
+        )
+
+        historias = []
+        hay_siguiente = False
+
+    return render_template(
+        "historial_historias.html",
+        comercio=comercio,
+        historias=historias,
+        pagina=pagina,
+        hay_anterior=pagina > 1,
+        hay_siguiente=hay_siguiente
+    )
 
 
 # ============================================================

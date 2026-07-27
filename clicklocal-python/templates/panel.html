@@ -1072,9 +1072,24 @@
               </div>
             {% else %}
               <p style="margin:0; color:#667180;">
-                Todavía no publicaste ninguna historia.
+                No tenés historias vigentes en este momento.
               </p>
             {% endif %}
+
+            <div style="margin-top:16px;">
+              <a
+                href="{{ url_for('historial_historias_panel') }}"
+                class="boton-secundario"
+                style="
+                  display:inline-flex;
+                  align-items:center;
+                  justify-content:center;
+                  text-decoration:none;
+                "
+              >
+                Ver historial de historias
+              </a>
+            </div>
           </div>
         </article>
         {% endif %}
@@ -1087,6 +1102,26 @@
               <p class="titulo-chico">VIDRIERA</p>
               <h2>Mis publicaciones</h2>
             </div>
+          </div>
+
+          <div
+            style="
+              margin:0 0 18px;
+              padding:14px 16px;
+              border:1px solid #b8dcec;
+              border-radius:14px;
+              background:#f0f9fd;
+              color:#24566d;
+              line-height:1.5;
+            "
+          >
+            <strong style="display:block; margin-bottom:4px;">
+              Mantené tu vidriera actualizada
+            </strong>
+
+            Si hacés un cambio real en una publicación activa y pasaron
+            al menos 24 horas desde la última vez que subió, volverá a
+            aparecer entre las más recientes de la galería.
           </div>
 
           <div class="panel-publicaciones-lista">
