@@ -3,6 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 from decimal import Decimal, InvalidOperation
 import uuid
+import hashlib
 from PIL import Image, ImageOps, ImageDraw, ImageFont
 from io import BytesIO
 try:
@@ -281,6 +282,91 @@ def analytics_contexto_actual():
             "web",
         ),
     }
+
+
+# ============================================================
+# CLICKLOCAL: VISITAS UNICAS POR SESION V1
+# ============================================================
+ANALYTICS_VISITAS_SESION_CLAVE = "analytics_visitas_unicas"
+ANALYTICS_VISITAS_SESION_MAX = 240
+
+
+def _analytics_clave_visita(tipo_recurso, recurso_id):
+    tipo = str(tipo_recurso or "").strip().lower()
+    recurso = uuid_o_none(recurso_id)
+
+    if tipo not in {"publicacion", "comercio"} or not recurso:
+        return None
+
+    texto = f"{tipo}:{recurso}"
+
+    return hashlib.sha256(
+        texto.encode("utf-8")
+    ).hexdigest()[:24]
+
+
+def analytics_visita_ya_registrada(tipo_recurso, recurso_id):
+    contexto = analytics_contexto_actual()
+    sesion_id = contexto.get("sesion_id")
+    clave = _analytics_clave_visita(
+        tipo_recurso,
+        recurso_id,
+    )
+
+    if not sesion_id or not clave:
+        return False
+
+    estado = session.get(
+        ANALYTICS_VISITAS_SESION_CLAVE
+    ) or {}
+
+    if estado.get("sesion_id") != sesion_id:
+        return False
+
+    claves = estado.get("claves") or []
+
+    return clave in claves
+
+
+def analytics_marcar_visita_registrada(
+    tipo_recurso,
+    recurso_id,
+):
+    contexto = analytics_contexto_actual()
+    sesion_id = contexto.get("sesion_id")
+    clave = _analytics_clave_visita(
+        tipo_recurso,
+        recurso_id,
+    )
+
+    if not sesion_id or not clave:
+        return False
+
+    estado = session.get(
+        ANALYTICS_VISITAS_SESION_CLAVE
+    ) or {}
+
+    if estado.get("sesion_id") != sesion_id:
+        claves = []
+    else:
+        claves = [
+            item
+            for item in (estado.get("claves") or [])
+            if item
+        ]
+
+    if clave not in claves:
+        claves.append(clave)
+
+    claves = claves[-ANALYTICS_VISITAS_SESION_MAX:]
+
+    session[ANALYTICS_VISITAS_SESION_CLAVE] = {
+        "sesion_id": sesion_id,
+        "claves": claves,
+    }
+
+    session.modified = True
+    return True
 
 
 # Carpeta donde guardamos fotos subidas en esta etapa local
@@ -6262,8 +6348,14 @@ def detalle(publicacion_id):
         else:
             comercio["whatsapp_url"] = ""
 
-        if comercio_id:
-            analytics_registrar_evento(
+        if (
+            comercio_id
+            and not analytics_visita_ya_registrada(
+                "publicacion",
+                publicacion_id,
+            )
+        ):
+            visita_registrada = analytics_registrar_evento(
                 "visita_publicacion",
                 comercio_id=comercio_id,
                 publicacion_id=publicacion_id,
@@ -6272,8 +6364,15 @@ def detalle(publicacion_id):
                 origen="detalle_publicacion",
                 metadata={
                     "publicacion_nombre": publicacion_encontrada.get("nombre"),
+                    "medicion": "una_visita_por_publicacion_y_sesion",
                 }
             )
+
+            if visita_registrada:
+                analytics_marcar_visita_registrada(
+                    "publicacion",
+                    publicacion_id,
+                )
 
     except Exception as e:
         print("ERROR cargando detalle de publicación:", e, flush=True)
@@ -6871,16 +6970,27 @@ def perfil_comercio(comercio_id):
         else:
             comercio["whatsapp_url"] = ""
 
-        analytics_registrar_evento(
-            "visita_comercio",
-            comercio_id=comercio_id,
-            busqueda_id=busqueda_id_origen,
-            consulta_origen=consulta_origen,
-            origen="perfil_comercio",
-            metadata={
-                "nombre_negocio": nombre_negocio,
-            }
-        )
+        if not analytics_visita_ya_registrada(
+            "comercio",
+            comercio_id,
+        ):
+            visita_registrada = analytics_registrar_evento(
+                "visita_comercio",
+                comercio_id=comercio_id,
+                busqueda_id=busqueda_id_origen,
+                consulta_origen=consulta_origen,
+                origen="perfil_comercio",
+                metadata={
+                    "nombre_negocio": nombre_negocio,
+                    "medicion": "una_visita_por_comercio_y_sesion",
+                }
+            )
+
+            if visita_registrada:
+                analytics_marcar_visita_registrada(
+                    "comercio",
+                    comercio_id,
+                )
 
         publicaciones_res = (
             supabase_admin
