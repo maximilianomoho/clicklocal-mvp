@@ -962,17 +962,29 @@ def inicio():
 
     busqueda = request.args.get("q", "").strip()
 
+    # CLICKLOCAL: MACROCATEGORIA INICIAL POR DEFECTO V1
+    # Sin búsqueda ni macro explícita, la portada abre
+    # automáticamente la primera macrocategoría disponible.
     macro_slug = request.args.get(
         "macro",
         ""
     ).strip()
+
+    if not macro_slug and not busqueda:
+        macro_slug = MACROCATEGORIAS_HOME[0]["slug"]
 
     macro_activa = MACROCATEGORIAS_POR_SLUG.get(
         macro_slug
     )
 
     if not macro_activa:
-        macro_slug = ""
+        if busqueda:
+            macro_slug = ""
+        else:
+            macro_slug = MACROCATEGORIAS_HOME[0]["slug"]
+            macro_activa = MACROCATEGORIAS_POR_SLUG.get(
+                macro_slug
+            )
 
     def normalizar_texto(valor):
         import re
