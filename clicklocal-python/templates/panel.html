@@ -3096,5 +3096,174 @@
 </script>
 <!-- FIN CLICKLOCAL: LOGO DEL NEGOCIO V1 -->
 
+
+      {% if es_premium and not es_cine_teatro %}
+  <!-- CLICKLOCAL: MODO HISTORIAS EXCLUSIVO V3 -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const botonPublicacion =
+        document.getElementById("modo-publicacion");
+
+      const botonHistoria =
+        document.getElementById("modo-historia");
+
+      const seccionesModoPublicacion = [
+        document.getElementById("mis-publicaciones"),
+        document.getElementById("listas"),
+        document.getElementById("datos"),
+        document.getElementById("plan")
+      ];
+
+      const enlacesMenu = Array.from(
+        document.querySelectorAll(".panel-menu-link")
+      );
+
+      if (
+        !botonPublicacion ||
+        !botonHistoria ||
+        seccionesModoPublicacion.some(function (seccion) {
+          return !seccion;
+        })
+      ) {
+        return;
+      }
+
+      function mostrarSeccionesModoPublicacion() {
+        seccionesModoPublicacion.forEach(function (seccion) {
+          seccion.style.display = "";
+        });
+      }
+
+      function ocultarSeccionesModoPublicacion() {
+        seccionesModoPublicacion.forEach(function (seccion) {
+          seccion.style.display = "none";
+        });
+      }
+
+      function limpiarMenuActivo() {
+        enlacesMenu.forEach(function (enlace) {
+          enlace.classList.remove("activo");
+        });
+      }
+
+      function activarMenuPorHash(hash) {
+        limpiarMenuActivo();
+
+        const enlaceObjetivo = enlacesMenu.find(function (enlace) {
+          return enlace.getAttribute("href") === hash;
+        });
+
+        if (enlaceObjetivo) {
+          enlaceObjetivo.classList.add("activo");
+        }
+      }
+
+      function actualizarHash(hash) {
+        const nuevaUrl =
+          window.location.pathname +
+          window.location.search +
+          hash;
+
+        window.history.replaceState(
+          null,
+          "",
+          nuevaUrl
+        );
+      }
+
+      function activarModoHistorias() {
+        ocultarSeccionesModoPublicacion();
+        limpiarMenuActivo();
+        actualizarHash("#historias-premium");
+      }
+
+      function activarModoPublicacion() {
+        mostrarSeccionesModoPublicacion();
+
+        const hashesValidos = [
+          "#publicacion",
+          "#mis-publicaciones",
+          "#listas",
+          "#datos",
+          "#plan"
+        ];
+
+        const hashActual = window.location.hash;
+
+        if (hashesValidos.includes(hashActual)) {
+          activarMenuPorHash(hashActual);
+        } else {
+          actualizarHash("#publicacion");
+          activarMenuPorHash("#publicacion");
+        }
+      }
+
+      /*
+       * Los scripts existentes continúan alternando los dos
+       * formularios y los colores de los botones superiores.
+       * Este bloque sincroniza el resto del panel, la URL
+       * y el estado visual del menú lateral.
+       */
+      botonPublicacion.addEventListener(
+        "click",
+        function () {
+          mostrarSeccionesModoPublicacion();
+          actualizarHash("#publicacion");
+          activarMenuPorHash("#publicacion");
+        }
+      );
+
+      botonHistoria.addEventListener(
+        "click",
+        activarModoHistorias
+      );
+
+      /*
+       * Toda opción lateral pertenece al modo Publicación normal.
+       * Primero activamos ese modo y luego dejamos que el enlace
+       * navegue normalmente hacia su sección.
+       */
+      enlacesMenu.forEach(function (enlace) {
+        const destino = enlace.getAttribute("href");
+
+        if (
+          ![
+            "#publicacion",
+            "#mis-publicaciones",
+            "#listas",
+            "#datos",
+            "#plan"
+          ].includes(destino)
+        ) {
+          return;
+        }
+
+        enlace.addEventListener("click", function () {
+          botonPublicacion.click();
+          activarMenuPorHash(destino);
+        });
+      });
+
+      /*
+       * Al volver desde el historial o desde una operación
+       * de historias, mantenemos el modo exclusivo de historias.
+       */
+      const parametros =
+        new URLSearchParams(window.location.search);
+
+      const abrirHistorias =
+        window.location.hash === "#historias-premium" ||
+        parametros.has("historia_ok") ||
+        parametros.has("historia_error");
+
+      if (abrirHistorias) {
+        activarModoHistorias();
+      } else {
+        activarModoPublicacion();
+      }
+    });
+  </script>
+  {% endif %}
+
 </body>
 </html>
