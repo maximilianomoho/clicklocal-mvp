@@ -12,13 +12,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  {# CLICKLOCAL: VISTA PREVIA PARA COMPARTIR PUBLICACIÓN V1 #}
+  {# CLICKLOCAL: VISTA PREVIA PARA COMPARTIR PUBLICACIÓN V2 #}
+  {% set dominio_oficial = 'https://clicklocal.com.ar' %}
   {% set imagen_compartir =
-    url_for(
+    dominio_oficial
+    ~ url_for(
       'imagen_compartir_publicacion',
       publicacion_id=publicacion.id,
-      v=3,
-      _external=True
+      v=3
     )
   %}
 
@@ -44,7 +45,7 @@
   />
   <meta
     property="og:url"
-    content="{{ request.url }}"
+    content="{{ dominio_oficial }}{{ request.path }}"
   />
 
   {% if imagen_compartir %}
@@ -427,7 +428,10 @@
     );
 
     function obtenerUrlPublicacion() {
-      const urlPublicacion = new URL(window.location.href);
+      const urlPublicacion = new URL(
+        window.location.pathname,
+        "https://clicklocal.com.ar"
+      );
 
       urlPublicacion.search = "";
       urlPublicacion.searchParams.set(

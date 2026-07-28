@@ -12,13 +12,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  {# CLICKLOCAL: VISTA PREVIA PROFESIONAL DEL NEGOCIO V1 #}
+  {# CLICKLOCAL: VISTA PREVIA PROFESIONAL DEL NEGOCIO V2 #}
+  {% set dominio_oficial = 'https://clicklocal.com.ar' %}
   {% set imagen_compartir =
     comercio.logo_url
-    or url_for(
-      'imagen_compartir_negocio',
-      comercio_id=comercio.id,
-      _external=True
+    or (
+      dominio_oficial
+      ~ url_for(
+        'imagen_compartir_negocio',
+        comercio_id=comercio.id
+      )
     )
   %}
 
@@ -44,7 +47,7 @@
   />
   <meta
     property="og:url"
-    content="{{ request.base_url }}"
+    content="{{ dominio_oficial }}{{ request.path }}"
   />
   <meta
     property="og:image"
@@ -407,7 +410,10 @@
       botonCompartir.textContent.trim();
 
     function obtenerUrlPerfil() {
-      const urlPerfil = new URL(window.location.href);
+      const urlPerfil = new URL(
+        window.location.pathname,
+        "https://clicklocal.com.ar"
+      );
       urlPerfil.search = "";
       urlPerfil.hash = "";
       return urlPerfil.toString();
