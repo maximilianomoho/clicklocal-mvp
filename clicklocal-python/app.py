@@ -7484,6 +7484,47 @@ def admin():
 # CLICKLOCAL: MODERACIÓN DE PUBLICACIONES V1
 # ============================================================
 
+def formatear_fecha_argentina(valor):
+    """
+    Convierte una fecha ISO de Supabase, normalmente UTC,
+    a la hora local de Argentina.
+
+    Ejemplo:
+    2026-07-28T17:09:53+00:00
+    -> 28/07/2026 a las 14:09
+    """
+    if not valor:
+        return "-"
+
+    try:
+        from zoneinfo import ZoneInfo
+
+        texto = str(valor).strip().replace(
+            "Z",
+            "+00:00"
+        )
+
+        fecha = datetime.datetime.fromisoformat(
+            texto
+        )
+
+        if fecha.tzinfo is None:
+            fecha = fecha.replace(
+                tzinfo=datetime.timezone.utc
+            )
+
+        fecha_argentina = fecha.astimezone(
+            ZoneInfo("America/Argentina/Cordoba")
+        )
+
+        return fecha_argentina.strftime(
+            "%d/%m/%Y a las %H:%M"
+        )
+
+    except Exception:
+        return "-"
+
+
 def obtener_modo_moderacion_publicaciones():
     """
     Devuelve:
@@ -7661,6 +7702,11 @@ def admin_moderacion():
                     comercio_nuevo = False
 
             publicacion["comercio_nuevo"] = comercio_nuevo
+            publicacion["created_at_mostrar"] = (
+                formatear_fecha_argentina(
+                    publicacion.get("created_at")
+                )
+            )
 
     except Exception as excepcion:
         print(
@@ -8345,7 +8391,9 @@ def admin_analytics():
     eventos_recientes = []
     for e in eventos[:40]:
         eventos_recientes.append({
-            "fecha": e.get("created_at", ""),
+            "fecha": formatear_fecha_argentina(
+                e.get("created_at")
+            ),
             "tipo": _tipo_evento(e) or "sin_tipo",
             "comercio": _nombre_comercio(comercios_por_id, e.get("comercio_id")),
             "consulta": (
