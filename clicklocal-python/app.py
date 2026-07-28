@@ -2434,6 +2434,7 @@ CATEGORIAS_COMERCIO = (
     "Alimentos y bebidas",
     "Indumentaria",
     "Calzado y accesorios",
+    "Joyería, relojería y accesorios",
     "Hogar, bazar y decoración",
     "Tecnología",
     "Autos y motos",
@@ -2485,6 +2486,7 @@ MACROCATEGORIAS_HOME = (
         "categorias": (
             "Indumentaria",
             "Calzado y accesorios",
+            "Joyería, relojería y accesorios",
             "Salud y bienestar",
             "Belleza y cuidado personal",
             "Deportes",
@@ -2496,6 +2498,7 @@ MACROCATEGORIAS_HOME = (
         "icono": "⌂",
         "categorias": (
             "Hogar, bazar y decoración",
+            "Joyería, relojería y accesorios",
             "Gráfica, diseño y personalizados",
             "Regalos, juguetes y artesanías",
             "Mercería y manualidades",
