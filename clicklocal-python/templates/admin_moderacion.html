@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>Moderación · ClickLocal</title>
+
+  <style>
+    :root {
+      --fondo: #f7f4ee;
+      --tarjeta: #ffffff;
+      --texto: #1f2937;
+      --suave: #6b7280;
+      --borde: #e5e7eb;
+      --bordo: #7a1f2b;
+      --verde: #166534;
+      --verde-fondo: #dcfce7;
+      --rojo: #991b1b;
+      --rojo-fondo: #fee2e2;
+      --naranja: #9a3412;
+      --naranja-fondo: #ffedd5;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--fondo);
+      color: var(--texto);
+      font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+    }
+
+    .contenedor {
+      width: min(1180px, calc(100% - 28px));
+      margin: 28px auto 60px;
+    }
+
+    .cabecera {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 4px 0 6px;
+      font-size: clamp(28px, 4vw, 42px);
+    }
+
+    .subtitulo {
+      margin: 0;
+      color: var(--suave);
+    }
+
+    .volver {
+      display: inline-flex;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: white;
+      border: 1px solid var(--borde);
+      color: var(--texto);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .modo {
+      background: var(--tarjeta);
+      border: 1px solid var(--borde);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .modo h2 {
+      margin: 0 0 8px;
+    }
+
+    .modo-actual {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--bordo);
+    }
+
+    .modo-botones,
+    .acciones,
+    .filtros {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      align-items: center;
+    }
+
+    button,
+    .boton,
+    .filtro {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 13px;
+      font: inherit;
+      font-weight: 750;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .filtro {
+      background: white;
+      color: var(--texto);
+      border: 1px solid var(--borde);
+    }
+
+    .filtro.activo {
+      background: var(--bordo);
+      color: white;
+      border-color: var(--bordo);
+    }
+
+    .aprobar {
+      background: var(--verde-fondo);
+      color: var(--verde);
+    }
+
+    .ocultar {
+      background: var(--rojo-fondo);
+      color: var(--rojo);
+    }
+
+    .bloquear {
+      background: var(--rojo);
+      color: white;
+    }
+
+    .ver {
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .modo-suave {
+      background: var(--naranja-fondo);
+      color: var(--naranja);
+    }
+
+    .modo-seguro {
+      background: var(--rojo-fondo);
+      color: var(--rojo);
+    }
+
+    .filtros {
+      margin-bottom: 18px;
+    }
+
+    .grilla {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fill, minmax(285px, 1fr));
+      gap: 17px;
+    }
+
+    .tarjeta {
+      overflow: hidden;
+      background: var(--tarjeta);
+      border: 1px solid var(--borde);
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .05);
+    }
+
+    .imagen {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      display: block;
+      background: #e5e7eb;
+    }
+
+    .sin-imagen {
+      display: grid;
+      place-items: center;
+      color: var(--suave);
+      min-height: 210px;
+      background: #f3f4f6;
+    }
+
+    .contenido {
+      padding: 16px;
+    }
+
+    .etiquetas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .etiqueta {
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      background: #f3f4f6;
+    }
+
+    .pendiente {
+      color: var(--naranja);
+      background: var(--naranja-fondo);
+    }
+
+    .aprobada {
+      color: var(--verde);
+      background: var(--verde-fondo);
+    }
+
+    .oculta {
+      color: var(--rojo);
+      background: var(--rojo-fondo);
+    }
+
+    .tarjeta h3 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .comercio {
+      margin: 0 0 5px;
+      font-weight: 800;
+    }
+
+    .detalle {
+      margin: 5px 0;
+      color: var(--suave);
+      font-size: 14px;
+    }
+
+    .descripcion {
+      margin: 12px 0;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .acciones {
+      margin-top: 14px;
+    }
+
+    .acciones form {
+      margin: 0;
+    }
+
+    .vacio,
+    .error {
+      background: white;
+      border: 1px solid var(--borde);
+      padding: 24px;
+      border-radius: 16px;
+    }
+
+    .error {
+      color: var(--rojo);
+      border-color: #fecaca;
+      background: #fff1f2;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="contenedor">
+
+    <header class="cabecera">
+      <div>
+        <p class="subtitulo">CLICKLOCAL · ADMINISTRACIÓN</p>
+        <h1>Moderación de publicaciones</h1>
+        <p class="subtitulo">
+          Revisá contenido nuevo antes de que se convierta
+          en un dolor de cabeza con Wi-Fi.
+        </p>
+      </div>
+
+      <a class="volver" href="{{ url_for('admin') }}">
+        Volver al administrador
+      </a>
+    </header>
+
+    {% if request.args.get('modo_actualizado') %}
+      <div class="modo">
+        El modo de moderación fue actualizado.
+      </div>
+    {% endif %}
+
+    {% if request.args.get('aprobada') %}
+      <div class="modo">
+        Publicación aprobada correctamente.
+      </div>
+    {% endif %}
+
+    {% if request.args.get('ocultada') %}
+      <div class="modo">
+        Publicación ocultada correctamente.
+      </div>
+    {% endif %}
+
+    {% if request.args.get('accion_error')
+          or request.args.get('modo_error') %}
+      <div class="error">
+        No se pudo completar la acción.
+      </div>
+    {% endif %}
+
+    {% if error %}
+      <div class="error">
+        Error cargando moderación: {{ error }}
+      </div>
+    {% endif %}
+
+    <section class="modo">
+      <h2>Modo actual</h2>
+
+      <p class="modo-actual">
+        {% if modo_actual == 'segura' %}
+          Seguro
+        {% else %}
+          Suave
+        {% endif %}
+      </p>
+
+      <p>
+        <strong>Suave:</strong>
+        las publicaciones nuevas quedan pendientes,
+        pero aparecen públicamente.
+      </p>
+
+      <p>
+        <strong>Seguro:</strong>
+        quedan pendientes e invisibles hasta que
+        presiones Aprobar.
+      </p>
+
+      <div class="modo-botones">
+        <form
+          method="POST"
+          action="{{ url_for('admin_moderacion_cambiar_modo') }}"
+          onsubmit="return confirm(
+            '¿Activar el modo suave para las publicaciones nuevas?'
+          );"
+        >
+          <input type="hidden" name="modo" value="suave">
+
+          <button class="modo-suave" type="submit">
+            Activar modo suave
+          </button>
+        </form>
+
+        <form
+          method="POST"
+          action="{{ url_for('admin_moderacion_cambiar_modo') }}"
+          onsubmit="return confirm(
+            '¿Activar el modo seguro? Las publicaciones nuevas quedarán invisibles hasta su aprobación.'
+          );"
+        >
+          <input type="hidden" name="modo" value="segura">
+
+          <button class="modo-seguro" type="submit">
+            Activar modo seguro
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <nav class="filtros">
+      <a
+        class="filtro {% if estado == 'pendiente' %}activo{% endif %}"
+        href="{{ url_for('admin_moderacion', estado='pendiente') }}"
+      >
+        Pendientes ({{ conteos.pendiente }})
+      </a>
+
+      <a
+        class="filtro {% if estado == 'oculta' %}activo{% endif %}"
+        href="{{ url_for('admin_moderacion', estado='oculta') }}"
+      >
+        Ocultas ({{ conteos.oculta }})
+      </a>
+
+      <a
+        class="filtro {% if estado == 'aprobada' %}activo{% endif %}"
+        href="{{ url_for('admin_moderacion', estado='aprobada') }}"
+      >
+        Aprobadas ({{ conteos.aprobada }})
+      </a>
+
+      <a
+        class="filtro {% if estado == 'todas' %}activo{% endif %}"
+        href="{{ url_for('admin_moderacion', estado='todas') }}"
+      >
+        Todas
+      </a>
+    </nav>
+
+    {% if publicaciones %}
+      <section class="grilla">
+        {% for publicacion in publicaciones %}
+          <article class="tarjeta">
+
+            {% if publicacion.imagen_mostrar %}
+              <img
+                class="imagen"
+                src="{{ publicacion.imagen_mostrar }}"
+                alt="{{ publicacion.nombre }}"
+                loading="lazy"
+              >
+            {% else %}
+              <div class="sin-imagen">
+                Sin imagen
+              </div>
+            {% endif %}
+
+            <div class="contenido">
+              <div class="etiquetas">
+                <span
+                  class="etiqueta {{ publicacion.estado_revision }}"
+                >
+                  {{ publicacion.estado_revision|capitalize }}
+                </span>
+
+                {% if publicacion.activa %}
+                  <span class="etiqueta aprobada">
+                    Visible
+                  </span>
+                {% else %}
+                  <span class="etiqueta oculta">
+                    Invisible
+                  </span>
+                {% endif %}
+
+                {% if publicacion.comercio_nuevo %}
+                  <span class="etiqueta pendiente">
+                    Comercio nuevo
+                  </span>
+                {% endif %}
+              </div>
+
+              <h3>{{ publicacion.nombre }}</h3>
+
+              <p class="comercio">
+                {{ publicacion.comercio_nombre }}
+              </p>
+
+              <p class="detalle">
+                {{ publicacion.comercio.categoria or 'Sin categoría' }}
+                ·
+                {{ publicacion.comercio.ciudad or 'Sin ciudad' }}
+              </p>
+
+              <p class="detalle">
+                Creada: {{ publicacion.created_at or '-' }}
+              </p>
+
+              {% if publicacion.descripcion %}
+                <p class="descripcion">
+                  {{ publicacion.descripcion }}
+                </p>
+              {% endif %}
+
+              <div class="acciones">
+
+                {% if publicacion.estado_revision != 'aprobada' %}
+                  <form
+                    method="POST"
+                    action="{{ url_for(
+                      'admin_moderacion_aprobar',
+                      publicacion_id=publicacion.id
+                    ) }}"
+                    onsubmit="return confirm(
+                      '¿Aprobar y hacer visible esta publicación?'
+                    );"
+                  >
+                    <button class="aprobar" type="submit">
+                      Aprobar
+                    </button>
+                  </form>
+                {% endif %}
+
+                {% if publicacion.estado_revision != 'oculta' %}
+                  <form
+                    method="POST"
+                    action="{{ url_for(
+                      'admin_moderacion_ocultar',
+                      publicacion_id=publicacion.id
+                    ) }}"
+                    onsubmit="return confirm(
+                      '¿Ocultar esta publicación?'
+                    );"
+                  >
+                    <button class="ocultar" type="submit">
+                      Ocultar
+                    </button>
+                  </form>
+                {% endif %}
+
+                <a
+                  class="boton ver"
+                  href="{{ publicacion.detalle_url }}"
+                  target="_blank"
+                >
+                  Ver publicación
+                </a>
+
+                <a
+                  class="boton ver"
+                  href="{{ publicacion.perfil_url }}"
+                  target="_blank"
+                >
+                  Ver perfil
+                </a>
+
+                {% if publicacion.comercio_id
+                      and publicacion.comercio.activo %}
+                  <form
+                    method="POST"
+                    action="{{ url_for(
+                      'admin_bloquear_comercio',
+                      comercio_id=publicacion.comercio_id
+                    ) }}"
+                    onsubmit="return confirm(
+                      '¿Bloquear el comercio y ocultar todo su contenido?'
+                    );"
+                  >
+                    <button class="bloquear" type="submit">
+                      Bloquear comercio
+                    </button>
+                  </form>
+                {% endif %}
+
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </section>
+
+    {% else %}
+      <div class="vacio">
+        No hay publicaciones para este filtro.
+      </div>
+    {% endif %}
+
+  </main>
+</body>
+</html>

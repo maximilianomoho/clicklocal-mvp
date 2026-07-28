@@ -4169,9 +4169,12 @@ def panel():
                     .table("publicaciones")
                     .select(
                         "id,nombre,precio,descripcion,activa,"
+                        "activa_solicitada,"
                         "pausada_por_limite_plan,imagenes,"
                         "imagen_principal,imagen_url,"
-                        "created_at,orden_grilla_at"
+                        "created_at,orden_grilla_at,"
+                        "estado_revision,revisada_at,revisada_por,"
+                        "ocultada_por_moderacion"
                     )
                     .eq("id", publicacion_id)
                     .eq("comercio_id", comercio_id)
@@ -4272,7 +4275,51 @@ def panel():
                 != imagen_principal_editada,
             ])
 
-            if hubo_cambio_real and activa:
+            estaba_oculta_por_moderacion = (
+                publicacion_actual.get(
+                    "ocultada_por_moderacion"
+                ) is True
+                or publicacion_actual.get(
+                    "estado_revision"
+                ) == "oculta"
+            )
+
+            if hubo_cambio_real:
+                cambios_publicacion[
+                    "activa_solicitada"
+                ] = activa
+
+                if estaba_oculta_por_moderacion:
+                    # Una edición no libera contenido que
+                    # fue ocultado expresamente por el admin.
+                    cambios_publicacion.update({
+                        "estado_revision": "oculta",
+                        "ocultada_por_moderacion": True,
+                        "activa": False,
+                    })
+
+                else:
+                    modo_moderacion = (
+                        obtener_modo_moderacion_publicaciones()
+                    )
+
+                    cambios_publicacion.update({
+                        "estado_revision": "pendiente",
+                        "revisada_at": None,
+                        "revisada_por": None,
+                        "ocultada_por_moderacion": False,
+                        "activa": (
+                            activa
+                            if modo_moderacion == "suave"
+                            else False
+                        ),
+                    })
+
+            if (
+                hubo_cambio_real
+                and activa
+                and not estaba_oculta_por_moderacion
+            ):
                 ahora_utc = datetime.datetime.now(
                     datetime.timezone.utc
                 )
@@ -4520,6 +4567,10 @@ def panel():
 
         imagenes_urls = [img["url"] for img in imagenes_urls]
 
+        modo_moderacion = (
+            obtener_modo_moderacion_publicaciones()
+        )
+
         nueva_publicacion = {
             "id": uuid.uuid4().hex,
             "nombre": nombre,
@@ -4528,10 +4579,19 @@ def panel():
             "imagenes": imagenes_urls,
             "imagen_principal": imagen_principal,
             "imagen_url": imagen_principal,
-            "activa": activa,
+            "activa": (
+                activa
+                if modo_moderacion == "suave"
+                else False
+            ),
+            "activa_solicitada": activa,
             "comercio_id": comercio_id,
             "direccion_mostrar": comercio.get("direccion_mostrar"),
-            "created_at": datetime.datetime.utcnow().isoformat()
+            "created_at": datetime.datetime.utcnow().isoformat(),
+            "estado_revision": "pendiente",
+            "revisada_at": None,
+            "revisada_por": None,
+            "ocultada_por_moderacion": False
         }
 
         try:
@@ -7388,6 +7448,16 @@ def admin():
         if not c.get("activo")
     )
 
+    total_moderacion_pendiente = sum(
+        1
+        for publicacion in publicaciones_raw
+        if (
+            publicacion.get("estado_revision")
+            == "pendiente"
+            and publicacion.get("eliminada") is not True
+        )
+    )
+
     resumen = {
         "total_comercios": len(comercios),
         "total_premium": total_premium,
@@ -7395,6 +7465,7 @@ def admin():
         "total_publicaciones_activas": total_publicaciones_activas,
         "total_solicitudes_premium": len(solicitudes_premium),
         "total_bloqueados": total_bloqueados,
+        "total_moderacion_pendiente": total_moderacion_pendiente,
     }
 
     return render_template(
@@ -7406,6 +7477,437 @@ def admin():
         admin_user=session.get("admin_user")
     )
 
+
+
+
+# ============================================================
+# CLICKLOCAL: MODERACIÓN DE PUBLICACIONES V1
+# ============================================================
+
+def obtener_modo_moderacion_publicaciones():
+    """
+    Devuelve:
+    - suave: pendiente pero visible
+    - segura: pendiente e invisible
+    """
+    try:
+        respuesta = (
+            supabase_admin
+            .table("configuracion_sistema")
+            .select("valor")
+            .eq("clave", "moderacion_publicaciones")
+            .limit(1)
+            .execute()
+        )
+
+        filas = respuesta.data or []
+
+        if filas:
+            valor = str(
+                filas[0].get("valor") or ""
+            ).strip().lower()
+
+            if valor in {"suave", "segura"}:
+                return valor
+
+    except Exception as error:
+        print(
+            "AVISO leyendo modo de moderación:",
+            error,
+            flush=True
+        )
+
+    # El fallback suave evita bloquear publicaciones
+    # accidentalmente si falla una lectura temporal.
+    return "suave"
+
+
+@app.route("/admin/moderacion")
+@admin_requerido
+def admin_moderacion():
+    estado = str(
+        request.args.get("estado") or "pendiente"
+    ).strip().lower()
+
+    estados_permitidos = {
+        "pendiente",
+        "aprobada",
+        "oculta",
+        "todas",
+    }
+
+    if estado not in estados_permitidos:
+        estado = "pendiente"
+
+    modo_actual = obtener_modo_moderacion_publicaciones()
+    error = None
+    publicaciones = []
+
+    try:
+        consulta = (
+            supabase_admin
+            .table("publicaciones")
+            .select(
+                "id,nombre,precio,descripcion,imagenes,"
+                "imagen_principal,imagen_url,activa,eliminada,"
+                "comercio_id,created_at,estado_revision,"
+                "revisada_at,revisada_por,"
+                "ocultada_por_moderacion"
+            )
+            .eq("eliminada", False)
+        )
+
+        if estado != "todas":
+            consulta = consulta.eq(
+                "estado_revision",
+                estado
+            )
+
+        respuesta = (
+            consulta
+            .order("created_at", desc=True)
+            .limit(250)
+            .execute()
+        )
+
+        publicaciones = respuesta.data or []
+
+        comercio_ids = sorted({
+            publicacion.get("comercio_id")
+            for publicacion in publicaciones
+            if publicacion.get("comercio_id")
+        })
+
+        comercios_por_id = {}
+
+        if comercio_ids:
+            comercios_res = (
+                supabase_admin
+                .table("comercios")
+                .select(
+                    "id,nombre_negocio,categoria,ciudad,"
+                    "activo,created_at"
+                )
+                .in_("id", comercio_ids)
+                .execute()
+            )
+
+            comercios_por_id = {
+                comercio.get("id"): comercio
+                for comercio in comercios_res.data or []
+            }
+
+        ahora = datetime.datetime.now(
+            datetime.timezone.utc
+        )
+
+        for publicacion in publicaciones:
+            comercio = comercios_por_id.get(
+                publicacion.get("comercio_id"),
+                {}
+            )
+
+            imagenes = publicacion.get("imagenes") or []
+
+            primera_imagen = (
+                imagenes[0]
+                if isinstance(imagenes, list) and imagenes
+                else ""
+            )
+
+            publicacion["imagen_mostrar"] = (
+                publicacion.get("imagen_principal")
+                or publicacion.get("imagen_url")
+                or primera_imagen
+                or ""
+            )
+
+            publicacion["comercio"] = comercio
+            publicacion["comercio_nombre"] = (
+                comercio.get("nombre_negocio")
+                or "Comercio sin nombre"
+            )
+
+            publicacion["perfil_url"] = url_for(
+                "perfil_comercio",
+                comercio_id=publicacion.get("comercio_id")
+            )
+
+            publicacion["detalle_url"] = url_for(
+                "detalle",
+                publicacion_id=publicacion.get("id")
+            )
+
+            comercio_nuevo = False
+            created_at = str(
+                comercio.get("created_at") or ""
+            ).strip()
+
+            if created_at:
+                try:
+                    fecha_comercio = datetime.datetime.fromisoformat(
+                        created_at.replace("Z", "+00:00")
+                    )
+
+                    if fecha_comercio.tzinfo is None:
+                        fecha_comercio = fecha_comercio.replace(
+                            tzinfo=datetime.timezone.utc
+                        )
+
+                    comercio_nuevo = (
+                        ahora - fecha_comercio
+                    ).days <= 7
+                except Exception:
+                    comercio_nuevo = False
+
+            publicacion["comercio_nuevo"] = comercio_nuevo
+
+    except Exception as excepcion:
+        print(
+            "ERROR CARGANDO MODERACIÓN:",
+            excepcion,
+            flush=True
+        )
+        error = str(excepcion)
+
+    conteos = {
+        "pendiente": 0,
+        "aprobada": 0,
+        "oculta": 0,
+    }
+
+    try:
+        estados_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select("estado_revision,eliminada")
+            .eq("eliminada", False)
+            .execute()
+        )
+
+        for fila in estados_res.data or []:
+            estado_fila = fila.get("estado_revision")
+
+            if estado_fila in conteos:
+                conteos[estado_fila] += 1
+
+    except Exception as excepcion:
+        print(
+            "AVISO CONTANDO MODERACIÓN:",
+            excepcion,
+            flush=True
+        )
+
+    return render_template(
+        "admin_moderacion.html",
+        publicaciones=publicaciones,
+        estado=estado,
+        conteos=conteos,
+        modo_actual=modo_actual,
+        error=error,
+        admin_user=session.get("admin_user"),
+    )
+
+
+@app.route(
+    "/admin/moderacion/cambiar-modo",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_moderacion_cambiar_modo():
+    nuevo_modo = str(
+        request.form.get("modo") or ""
+    ).strip().lower()
+
+    if nuevo_modo not in {"suave", "segura"}:
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                modo_error="1"
+            )
+        )
+
+    try:
+        (
+            supabase_admin
+            .table("configuracion_sistema")
+            .update({
+                "valor": nuevo_modo,
+                "updated_at": (
+                    datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat()
+                ),
+            })
+            .eq("clave", "moderacion_publicaciones")
+            .execute()
+        )
+
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                modo_actualizado="1"
+            )
+        )
+
+    except Exception as excepcion:
+        print(
+            "ERROR CAMBIANDO MODO:",
+            excepcion,
+            flush=True
+        )
+
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                modo_error="1"
+            )
+        )
+
+
+@app.route(
+    "/admin/moderacion/aprobar/<publicacion_id>",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_moderacion_aprobar(publicacion_id):
+    publicacion_id = uuid_o_none(publicacion_id)
+
+    if not publicacion_id:
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                accion_error="1"
+            )
+        )
+
+    try:
+        ahora = datetime.datetime.now(
+            datetime.timezone.utc
+        ).isoformat()
+
+        publicacion_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select("id,activa_solicitada")
+            .eq("id", publicacion_id)
+            .limit(1)
+            .execute()
+        )
+
+        filas_publicacion = publicacion_res.data or []
+
+        if not filas_publicacion:
+            return redirect(
+                url_for(
+                    "admin_moderacion",
+                    accion_error="1"
+                )
+            )
+
+        activa_solicitada = (
+            filas_publicacion[0].get(
+                "activa_solicitada"
+            ) is True
+        )
+
+        (
+            supabase_admin
+            .table("publicaciones")
+            .update({
+                "estado_revision": "aprobada",
+                "revisada_at": ahora,
+                "revisada_por": (
+                    session.get("admin_user")
+                    or "admin"
+                ),
+                "ocultada_por_moderacion": False,
+                "activa": activa_solicitada,
+            })
+            .eq("id", publicacion_id)
+            .execute()
+        )
+
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                aprobada="1"
+            )
+        )
+
+    except Exception as excepcion:
+        print(
+            "ERROR APROBANDO PUBLICACIÓN:",
+            excepcion,
+            flush=True
+        )
+
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                accion_error="1"
+            )
+        )
+
+
+@app.route(
+    "/admin/moderacion/ocultar/<publicacion_id>",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_moderacion_ocultar(publicacion_id):
+    publicacion_id = uuid_o_none(publicacion_id)
+
+    if not publicacion_id:
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                accion_error="1"
+            )
+        )
+
+    try:
+        ahora = datetime.datetime.now(
+            datetime.timezone.utc
+        ).isoformat()
+
+        (
+            supabase_admin
+            .table("publicaciones")
+            .update({
+                "estado_revision": "oculta",
+                "revisada_at": ahora,
+                "revisada_por": (
+                    session.get("admin_user")
+                    or "admin"
+                ),
+                "ocultada_por_moderacion": True,
+                "activa": False,
+            })
+            .eq("id", publicacion_id)
+            .execute()
+        )
+
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                ocultada="1"
+            )
+        )
+
+    except Exception as excepcion:
+        print(
+            "ERROR OCULTANDO PUBLICACIÓN:",
+            excepcion,
+            flush=True
+        )
+
+        return redirect(
+            url_for(
+                "admin_moderacion",
+                accion_error="1"
+            )
+        )
 
 
 @app.route("/admin/activar-premium/<comercio_id>", methods=["POST"])
@@ -7434,10 +7936,20 @@ def admin_activar_premium(comercio_id):
             "fecha_vencimiento_plan": vencimiento.isoformat()
         }).eq("id", comercio_id).execute()
 
-        supabase_admin.table("publicaciones").update({
-            "activa": True,
-            "pausada_por_limite_plan": False
-        }).eq("comercio_id", comercio_id).eq("pausada_por_limite_plan", True).execute()
+        (
+            supabase_admin
+            .table("publicaciones")
+            .update({
+                "activa": True,
+                "pausada_por_limite_plan": False
+            })
+            .eq("comercio_id", comercio_id)
+            .eq("pausada_por_limite_plan", True)
+            .eq("estado_revision", "aprobada")
+            .eq("ocultada_por_moderacion", False)
+            .eq("activa_solicitada", True)
+            .execute()
+        )
 
         supabase_admin.table("listas_buscables").update({
             "activa": True,
@@ -7539,9 +8051,19 @@ def admin_restaurar_contenido_comercio(comercio_id):
         if comercio_data[0].get("activo") is False:
             return redirect(url_for("admin", restaurar_bloqueado="1"))
 
-        supabase_admin.table("publicaciones").update({
-            "activa": True
-        }).eq("comercio_id", comercio_id).eq("eliminada", False).execute()
+        (
+            supabase_admin
+            .table("publicaciones")
+            .update({
+                "activa": True
+            })
+            .eq("comercio_id", comercio_id)
+            .eq("eliminada", False)
+            .eq("estado_revision", "aprobada")
+            .eq("ocultada_por_moderacion", False)
+            .eq("activa_solicitada", True)
+            .execute()
+        )
 
         try:
             supabase_admin.table("listas_buscables").update({

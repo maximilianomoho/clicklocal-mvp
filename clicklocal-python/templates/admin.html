@@ -123,6 +123,43 @@
 </head>
 
 <body>
+  <div style="
+    width: min(1180px, calc(100% - 28px));
+    margin: 16px auto 0;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  ">
+    <div>
+      <strong>Moderación de publicaciones</strong>
+      <div style="margin-top: 4px; color: #6b7280;">
+        Pendientes:
+        {{ resumen.total_moderacion_pendiente|default(0) }}
+      </div>
+    </div>
+
+    <a
+      href="{{ url_for('admin_moderacion') }}"
+      style="
+        display: inline-flex;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: #7a1f2b;
+        color: white;
+        text-decoration: none;
+        font-weight: 800;
+      "
+    >
+      Ir a Moderación
+    </a>
+  </div>
+
 
 <!-- Analytics admin V1 -->
 <div style="margin: 14px 0 18px; padding: 12px 14px; border: 1px solid #eee; border-radius: 14px; background: #fff;">
