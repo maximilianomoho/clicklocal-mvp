@@ -1266,6 +1266,89 @@ def obtener_historias_publicas_cache():
 
 
 # ============================================================
+# CLICKLOCAL: CACHE PUBLICACIONES PORTADA V1
+#
+# Reduce consultas repetidas a Supabase para la portada y
+# búsquedas públicas. Se invalida cuando cambia una publicación.
+# ============================================================
+
+import threading as _clicklocal_cache_threading
+import time as _clicklocal_cache_time
+
+
+CACHE_PORTADA_PUBLICACIONES_TTL_SEGUNDOS = 60
+
+CACHE_PORTADA_PUBLICACIONES = {
+    "version": 0,
+    "por_limite": {},
+}
+
+CACHE_PORTADA_PUBLICACIONES_LOCK = (
+    _clicklocal_cache_threading.Lock()
+)
+
+
+def invalidar_cache_publicaciones_portada():
+    with CACHE_PORTADA_PUBLICACIONES_LOCK:
+        CACHE_PORTADA_PUBLICACIONES["version"] += 1
+        CACHE_PORTADA_PUBLICACIONES["por_limite"].clear()
+
+
+def obtener_publicaciones_portada_cache(limite):
+    ahora = _clicklocal_cache_time.monotonic()
+
+    with CACHE_PORTADA_PUBLICACIONES_LOCK:
+        entrada = (
+            CACHE_PORTADA_PUBLICACIONES["por_limite"]
+            .get(limite)
+        )
+
+        if entrada:
+            antiguedad = ahora - entrada["actualizado_en"]
+
+            if (
+                antiguedad
+                < CACHE_PORTADA_PUBLICACIONES_TTL_SEGUNDOS
+            ):
+                return list(entrada["datos"]), True
+
+        version_consulta = (
+            CACHE_PORTADA_PUBLICACIONES["version"]
+        )
+
+    respuesta = (
+        supabase_admin
+        .table("publicaciones")
+        .select(
+            "id,nombre,precio,descripcion,imagenes,"
+            "imagen_principal,imagen_url,activa,"
+            "comercio_id,direccion_mostrar,created_at,"
+            "orden_grilla_at"
+        )
+        .eq("activa", True)
+        .order("orden_grilla_at", desc=True)
+        .limit(limite)
+        .execute()
+    )
+
+    datos = list(respuesta.data or [])
+
+    with CACHE_PORTADA_PUBLICACIONES_LOCK:
+        if (
+            CACHE_PORTADA_PUBLICACIONES["version"]
+            == version_consulta
+        ):
+            CACHE_PORTADA_PUBLICACIONES[
+                "por_limite"
+            ][limite] = {
+                "actualizado_en": ahora,
+                "datos": list(datos),
+            }
+
+    return list(datos), False
+
+
+# ============================================================
 # CLICKLOCAL: CINES Y TEATROS
 #
 # Sección preparada pero apagada hasta contar con
@@ -1558,7 +1641,7 @@ def inicio():
             origen="buscador_lista"
         )
 
-    def cargar_comercios_por_id(comercio_ids):
+    def _cargar_comercios_por_id_sin_cache(comercio_ids):
         comercio_ids = [
             comercio_id for comercio_id in comercio_ids
             if comercio_id
@@ -1611,6 +1694,39 @@ def inicio():
 
         return comercios_por_id
 
+    comercios_cache_peticion = {}
+
+
+    def cargar_comercios_por_id(comercio_ids):
+        ids_solicitados = list({
+            comercio_id
+            for comercio_id in comercio_ids
+            if comercio_id
+        })
+
+        ids_faltantes = [
+            comercio_id
+            for comercio_id in ids_solicitados
+            if comercio_id not in comercios_cache_peticion
+        ]
+
+        if ids_faltantes:
+            nuevos = (
+                _cargar_comercios_por_id_sin_cache(
+                    ids_faltantes
+                )
+            )
+
+            comercios_cache_peticion.update(nuevos)
+
+        return {
+            comercio_id: comercios_cache_peticion[comercio_id]
+            for comercio_id in ids_solicitados
+            if comercio_id in comercios_cache_peticion
+        }
+
+
+
     try:
         # ====================================================
         print("PORTADA preparación inicial: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
@@ -1620,20 +1736,22 @@ def inicio():
         # ====================================================
         limite = 200 if busqueda else 80
 
-        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1542
-        _clicklocal_consulta_inicio_1542 = _clicklocal_time.perf_counter()
-        publicaciones_res = (
-            supabase_admin
-            .table("publicaciones")
-            .select("id,nombre,precio,descripcion,imagenes,imagen_principal,imagen_url,activa,comercio_id,direccion_mostrar,created_at,orden_grilla_at")
-            .eq("activa", True)
-            .order("orden_grilla_at", desc=True)
-            .limit(limite)
-            .execute()
+        # CLICKLOCAL: CACHE PUBLICACIONES PORTADA V1
+        _clicklocal_consulta_inicio_1542 = (
+            _clicklocal_time.perf_counter()
         )
-        print("PORTADA CONSULTA L1542 publicaciones_res | tabla=publicaciones: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1542:.3f} s", flush=True)
 
-        publicaciones = publicaciones_res.data or []
+        (
+            publicaciones,
+            _clicklocal_publicaciones_desde_cache,
+        ) = obtener_publicaciones_portada_cache(limite)
+
+        print(
+            "PORTADA CACHE publicaciones "
+            f"{'HIT' if _clicklocal_publicaciones_desde_cache else 'MISS'}: "
+            f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1542:.3f} s",
+            flush=True
+        )
 
         comercio_ids_publicaciones = [
             pub.get("comercio_id")
@@ -3206,12 +3324,18 @@ def aplicar_limites_plan_comercio(comercio_id, comercio):
         )
         publicaciones = publicaciones_res.data or []
         publicaciones_activas = [p for p in publicaciones if p.get("activa") is True]
+        publicaciones_modificadas = False
 
         for pub in publicaciones_activas[limite_publicaciones:]:
             supabase_admin.table("publicaciones").update({
                 "activa": False,
                 "pausada_por_limite_plan": True
             }).eq("id", pub.get("id")).eq("comercio_id", comercio_id).execute()
+
+            publicaciones_modificadas = True
+
+        if publicaciones_modificadas:
+            invalidar_cache_publicaciones_portada()
 
     except Exception as e:
         print("ERROR aplicando límite de publicaciones:", e, flush=True)
@@ -3641,6 +3765,8 @@ def panel():
     )
 
     if request.method == "POST" and request.form.get("accion") == "actualizar_mis_datos":
+        invalidar_cache_publicaciones_portada()
+
         nombre_negocio = request.form.get("nombre_negocio", "").strip()
         whatsapp = request.form.get("whatsapp", "").strip()
         direccion = request.form.get("direccion", "").strip()
@@ -4011,6 +4137,8 @@ def panel():
             listas_buscables = []
 
     if request.method == "POST":
+        invalidar_cache_publicaciones_portada()
+
         nombre = request.form.get("nombre_publicacion", "").strip()
         precio = normalizar_precio(request.form.get("precio", ""))
         descripcion = request.form.get("descripcion_publicacion", "").strip()
@@ -6169,6 +6297,8 @@ def eliminar_lista_buscable(lista_id):
 # ELIMINAR PUBLICACIÓN COMPLETA
 @app.route("/publicacion/eliminar/<publicacion_id>", methods=["POST"])
 def eliminar_publicacion(publicacion_id):
+    invalidar_cache_publicaciones_portada()
+
     comercio = session.get("comercio") or comercio_default()
     user_id = session.get("user_id")
 
@@ -7760,6 +7890,8 @@ def admin_moderacion_cambiar_modo():
 )
 @admin_requerido
 def admin_moderacion_aprobar(publicacion_id):
+    invalidar_cache_publicaciones_portada()
+
     publicacion_id = uuid_o_none(publicacion_id)
 
     if not publicacion_id:
@@ -7845,6 +7977,8 @@ def admin_moderacion_aprobar(publicacion_id):
 )
 @admin_requerido
 def admin_moderacion_ocultar(publicacion_id):
+    invalidar_cache_publicaciones_portada()
+
     publicacion_id = uuid_o_none(publicacion_id)
 
     if not publicacion_id:
@@ -7902,6 +8036,8 @@ def admin_moderacion_ocultar(publicacion_id):
 @app.route("/admin/activar-premium/<comercio_id>", methods=["POST"])
 @admin_requerido
 def admin_activar_premium(comercio_id):
+    invalidar_cache_publicaciones_portada()
+
     import datetime
 
     hoy = datetime.date.today()
@@ -7965,6 +8101,8 @@ def admin_bloquear_comercio(comercio_id):
     - oculta sus listas buscables
     No borra datos ni imágenes.
     """
+    invalidar_cache_publicaciones_portada()
+
     try:
         supabase_admin.table("comercios").update({
             "activo": False
@@ -8022,6 +8160,8 @@ def admin_restaurar_contenido_comercio(comercio_id):
     - reactiva listas buscables
     No desbloquea la cuenta.
     """
+    invalidar_cache_publicaciones_portada()
+
     try:
         comercio_res = (
             supabase_admin
