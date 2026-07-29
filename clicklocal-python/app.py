@@ -1207,29 +1207,17 @@ def obtener_conteos_visitas_publicaciones():
 # normalmente en cada apertura de la portada.
 # ============================================================
 
-CACHE_PORTADA_CARTELERAS = {
-    "actualizado_en_por_limite": {},
-    "datos_por_limite": {},
-}
 
 CACHE_PORTADA_HISTORIAS = {
     "actualizado_en": 0.0,
     "datos": [],
 }
 
-CACHE_PORTADA_CARTELERAS_LOCK = Lock()
 CACHE_PORTADA_HISTORIAS_LOCK = Lock()
 
-CACHE_PORTADA_CARTELERAS_TTL = 60
 CACHE_PORTADA_HISTORIAS_TTL = 60
 
 
-def invalidar_cache_portada_carteleras():
-    with CACHE_PORTADA_CARTELERAS_LOCK:
-        CACHE_PORTADA_CARTELERAS[
-            "actualizado_en_por_limite"
-        ] = {}
-        CACHE_PORTADA_CARTELERAS["datos_por_limite"] = {}
 
 
 def invalidar_cache_portada_historias():
@@ -1238,59 +1226,6 @@ def invalidar_cache_portada_historias():
         CACHE_PORTADA_HISTORIAS["datos"] = []
 
 
-def obtener_carteleras_publicas_cache(limite):
-    ahora = time.monotonic()
-    limite_cache = int(limite or 0)
-
-    with CACHE_PORTADA_CARTELERAS_LOCK:
-        actualizado_en_por_limite = (
-            CACHE_PORTADA_CARTELERAS[
-                "actualizado_en_por_limite"
-            ]
-        )
-        datos_por_limite = (
-            CACHE_PORTADA_CARTELERAS["datos_por_limite"]
-        )
-
-        actualizado_en = actualizado_en_por_limite.get(
-            limite_cache,
-            0.0,
-        )
-
-        if (
-            actualizado_en
-            and ahora - actualizado_en
-            < CACHE_PORTADA_CARTELERAS_TTL
-            and limite_cache in datos_por_limite
-        ):
-            return list(datos_por_limite[limite_cache]), True
-
-    respuesta = (
-        supabase_admin
-        .table("carteleras")
-        .select(
-            "id,comercio_id,titulo,descripcion,genero,"
-            "clasificacion,direccion_mostrar,precio_general,"
-            "precios_detalle,promociones,imagen_url,imagenes,"
-            "imagen_principal,activa,created_at"
-        )
-        .eq("activa", True)
-        .order("created_at", desc=True)
-        .limit(limite_cache)
-        .execute()
-    )
-
-    datos = list(respuesta.data or [])
-
-    with CACHE_PORTADA_CARTELERAS_LOCK:
-        CACHE_PORTADA_CARTELERAS[
-            "actualizado_en_por_limite"
-        ][limite_cache] = ahora
-        CACHE_PORTADA_CARTELERAS[
-            "datos_por_limite"
-        ][limite_cache] = list(datos)
-
-    return list(datos), False
 
 
 def obtener_historias_publicas_cache():
@@ -1328,6 +1263,31 @@ def obtener_historias_publicas_cache():
 
     return list(datos), False
 
+
+
+# ============================================================
+# CLICKLOCAL: CINES Y TEATROS
+#
+# Sección preparada pero apagada hasta contar con
+# las autorizaciones correspondientes.
+# ============================================================
+
+MOSTRAR_CINES_TEATROS = False
+
+
+@app.context_processor
+def exponer_estado_cines_teatros():
+    return {
+        "mostrar_cines_teatros": MOSTRAR_CINES_TEATROS,
+    }
+
+
+@app.route("/cines-y-teatros")
+def cines_y_teatros():
+    if not MOSTRAR_CINES_TEATROS:
+        return "Página no disponible", 404
+
+    return render_template("cines_teatros.html")
 
 
 # INICIO / PLATAFORMA
@@ -1562,19 +1522,6 @@ def inicio():
             or ""
         )
 
-    def imagen_publica_de_cartelera(item):
-        imagenes = item.get("imagenes") or []
-        primera_imagen = ""
-
-        if isinstance(imagenes, list) and imagenes:
-            primera_imagen = imagenes[0]
-
-        return (
-            item.get("imagen_principal")
-            or item.get("imagen_url")
-            or primera_imagen
-            or ""
-        )
 
     def ubicacion_publica(comercio_data, direccion_publicacion=None):
         direccion_base = (
@@ -1793,133 +1740,6 @@ def inicio():
                 "_coincidencias": coincidencias,
             })
 
-        # ====================================================
-        # 1B) TIPO CARTELERA PUBLICA: CARTELERAS ACTIVAS
-        # ====================================================
-        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - CARTELERAS CACHE
-        _clicklocal_consulta_inicio_1662 = _clicklocal_time.perf_counter()
-
-        (
-            carteleras_publicas,
-            _clicklocal_carteleras_desde_cache,
-        ) = obtener_carteleras_publicas_cache(limite)
-
-        print(
-            "PORTADA CACHE carteleras "
-            f"{'HIT' if _clicklocal_carteleras_desde_cache else 'MISS'}: "
-            f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1662:.3f} s",
-            flush=True
-        )
-
-        comercio_ids_carteleras = [
-            item.get("comercio_id")
-            for item in carteleras_publicas
-            if item.get("comercio_id")
-        ]
-
-        comercios_carteleras_por_id = cargar_comercios_por_id(comercio_ids_carteleras)
-
-        for item in carteleras_publicas:
-            comercio_id = item.get("comercio_id")
-            comercio_cartelera = comercios_carteleras_por_id.get(comercio_id, {})
-
-            if not comercio_cartelera or comercio_cartelera.get("activo") is False:
-                continue
-
-            if (
-                macro_slug
-                and not comercio_pertenece_a_macro(
-                    comercio_cartelera,
-                    macro_slug
-                )
-            ):
-                continue
-
-            texto_para_buscar = " ".join([
-                str(item.get("titulo") or ""),
-                str(item.get("descripcion") or ""),
-                str(item.get("genero") or ""),
-                str(item.get("clasificacion") or ""),
-                str(item.get("promociones") or ""),
-                str(comercio_cartelera.get("nombre_negocio") or ""),
-                str(comercio_cartelera.get("categoria") or ""),
-                str(
-                    comercio_cartelera.get(
-                        "_categorias_secundarias_texto"
-                    ) or ""
-                ),
-                str(comercio_cartelera.get("ciudad") or ""),
-            ])
-
-            score_titulo, coincidencias_titulo = calcular_score_busqueda(item.get("titulo"), peso=5)
-            score_descripcion, coincidencias_descripcion = calcular_score_busqueda(
-                " ".join([
-                    str(item.get("descripcion") or ""),
-                    str(item.get("genero") or ""),
-                    str(item.get("clasificacion") or ""),
-                    str(item.get("promociones") or ""),
-                ]),
-                peso=2
-            )
-            score_comercio, coincidencias_comercio = calcular_score_busqueda(
-                " ".join([
-                    str(comercio_cartelera.get("nombre_negocio") or ""),
-                    str(comercio_cartelera.get("categoria") or ""),
-                str(
-                    comercio_cartelera.get(
-                        "_categorias_secundarias_texto"
-                    ) or ""
-                ),
-                    str(comercio_cartelera.get("ciudad") or ""),
-                ]),
-                peso=1
-            )
-
-            score_total = score_titulo + score_descripcion + score_comercio
-
-            titulo_normalizado = normalizar_texto(item.get("titulo"))
-            if busqueda_normalizada and busqueda_normalizada in titulo_normalizado:
-                score_total += 10
-
-            coincidencias = unir_coincidencias(
-                coincidencias_titulo,
-                coincidencias_descripcion,
-                coincidencias_comercio
-            )
-
-            score_total += bonus_cobertura_busqueda(coincidencias)
-
-            if (
-                busqueda_normalizada
-                and not cumple_minimo_coincidencias_busqueda(
-                    coincidencias
-                )
-            ):
-                continue
-
-            imagen_publica = imagen_publica_de_cartelera(item)
-
-            if comercio_id and imagen_publica and comercio_id not in imagen_por_comercio:
-                imagen_por_comercio[comercio_id] = imagen_publica
-
-            publicaciones_finales.append({
-                "id": item.get("id"),
-                "comercio_id": comercio_id,
-                "tipo": "cartelera",
-                "nombre": item.get("titulo"),
-                "precio": item.get("precio_general"),
-                "descripcion": item.get("descripcion"),
-                "imagen_url": imagen_publica,
-                "comercio": comercio_cartelera.get("nombre_negocio", "Comercio local"),
-                "direccion_mostrar": ubicacion_publica(comercio_cartelera, item.get("direccion_mostrar")),
-                "categoria": comercio_cartelera.get("categoria") or "Cine y Teatro",
-                "created_at": item.get("created_at"),
-                "orden_grilla_at": item.get("created_at"),
-                "_score_busqueda": score_total,
-                "_plan": str(comercio_cartelera.get("plan") or "gratis").lower(),
-                "_coincidencias": coincidencias,
-            })
-
         if busqueda_normalizada:
             publicaciones_finales.sort(
                 key=lambda item: (
@@ -2074,7 +1894,7 @@ def inicio():
         comercios_relacionados = []
 
     # ====================================================
-    print("PORTADA publicaciones/carteleras/listas: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
+    print("PORTADA publicaciones/listas: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
     _clicklocal_etapa_inicio = _clicklocal_time.perf_counter()
 
     # 3) HISTORIAS PREMIUM PÚBLICAS
@@ -4792,63 +4612,12 @@ def panel():
         return redirect(url_for("panel"))
 
     # ============================================================
-    # CARTELERA - SOLO PARA COMERCIOS CINE Y TEATRO
-    # Paso 5B: lectura para mostrar en panel, sin guardar todavía.
+    # ============================================================
+    # CINE Y TEATRO
+    # Se conserva la categoría para personalizar el panel,
+    # pero ya no se consultan carteleras ni funciones internas.
     # ============================================================
     es_cine_teatro = (comercio.get("categoria") or "").strip().lower() == "cine y teatro"
-    carteleras = []
-
-    if es_cine_teatro:
-        dias_cartelera = {
-            1: "Lunes",
-            2: "Martes",
-            3: "Miércoles",
-            4: "Jueves",
-            5: "Viernes",
-            6: "Sábado",
-            7: "Domingo",
-        }
-
-        try:
-            carteleras_res = (
-                supabase_admin
-                .table("carteleras")
-                .select("*")
-                .eq("comercio_id", comercio_id)
-                .eq("eliminada", False)
-                .order("created_at", desc=True)
-                .execute()
-            )
-
-            carteleras = carteleras_res.data or []
-
-            for cartelera in carteleras:
-                funciones_res = (
-                    supabase_admin
-                    .table("cartelera_funciones")
-                    .select("*")
-                    .eq("cartelera_id", cartelera.get("id"))
-                    .eq("activa", True)
-                    .order("dia_semana")
-                    .execute()
-                )
-
-                funciones = funciones_res.data or []
-
-                for funcion in funciones:
-                    dia = funcion.get("dia_semana")
-                    funcion["dia_nombre"] = dias_cartelera.get(dia, f"Día {dia}")
-
-                    horarios = funcion.get("horarios") or []
-                    if isinstance(horarios, str):
-                        horarios = [horarios]
-                    funcion["horarios"] = horarios
-
-                cartelera["funciones"] = funciones
-
-        except Exception as e:
-            print("\nERROR CARGANDO CARTELERAS EN PANEL:", e, flush=True)
-            carteleras = []
 
     # ============================================================
     # HISTORIAS PREMIUM - LECTURA PARA EL PANEL
@@ -5031,7 +4800,6 @@ def panel():
         publicaciones=publicaciones,
         listas_buscables=listas_buscables,
         es_cine_teatro=es_cine_teatro,
-        carteleras=carteleras,
         es_premium=es_premium,
         historias=historias,
         historias_activas=historias_activas,
@@ -6010,7 +5778,6 @@ def crear_cartelera_panel():
 
     try:
         supabase_admin.table("carteleras").insert(nueva_cartelera).execute()
-        invalidar_cache_portada_carteleras()
 
         if funciones:
             supabase_admin.table("cartelera_funciones").insert(funciones).execute()
@@ -6096,7 +5863,6 @@ def pausar_cartelera_panel(cartelera_id):
             .execute()
         )
 
-        invalidar_cache_portada_carteleras()
 
     except Exception as e:
         print("\nERROR PAUSANDO CARTELERA:", e, flush=True)
@@ -6129,7 +5895,6 @@ def activar_cartelera_panel(cartelera_id):
             .execute()
         )
 
-        invalidar_cache_portada_carteleras()
 
     except Exception as e:
         print("\nERROR ACTIVANDO CARTELERA:", e, flush=True)
@@ -6164,7 +5929,6 @@ def eliminar_cartelera_panel(cartelera_id):
             .execute()
         )
 
-        invalidar_cache_portada_carteleras()
 
     except Exception as e:
         print("\nERROR ELIMINANDO CARTELERA:", e, flush=True)

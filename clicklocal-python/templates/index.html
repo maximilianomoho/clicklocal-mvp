@@ -1729,6 +1729,111 @@
 }
 </style>
 
+
+<style>
+/* ==========================================================
+   CLICKLOCAL: ACCESO CINES Y TEATROS
+   Oculto mientras mostrar_cines_teatros sea False.
+   ========================================================== */
+
+.cines-teatros-home {
+  padding-top: 18px;
+  padding-bottom: 24px;
+}
+
+.cines-teatros-home-card {
+  overflow: hidden;
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 250px)
+    minmax(0, 1fr);
+  align-items: center;
+
+  color: #ffffff;
+  background:
+    linear-gradient(
+      120deg,
+      #16090c 0%,
+      #2c0d14 58%,
+      #741f2c 100%
+    );
+  border-radius: 25px;
+  box-shadow: 0 17px 42px rgba(69, 14, 25, 0.19);
+  text-decoration: none;
+}
+
+.cines-teatros-home-imagen {
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  object-position: center;
+}
+
+.cines-teatros-home-contenido {
+  padding: 28px 31px;
+}
+
+.cines-teatros-home-etiqueta {
+  margin: 0 0 9px;
+  color: #f1c85b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cines-teatros-home-titulo {
+  margin: 0;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: clamp(29px, 4vw, 45px);
+  line-height: 1.05;
+}
+
+.cines-teatros-home-texto {
+  max-width: 590px;
+  margin: 14px 0 0;
+  color: #f6e9df;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.cines-teatros-home-boton {
+  display: inline-flex;
+  margin-top: 19px;
+  padding: 12px 17px;
+  color: #32131a;
+  background: #f1c85b;
+  border-radius: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .cines-teatros-home-card {
+    grid-template-columns: 130px minmax(0, 1fr);
+  }
+
+  .cines-teatros-home-imagen {
+    height: 235px;
+  }
+
+  .cines-teatros-home-contenido {
+    padding: 20px 17px;
+  }
+
+  .cines-teatros-home-texto {
+    font-size: 14px;
+  }
+
+  .cines-teatros-home-boton {
+    padding: 10px 13px;
+    font-size: 14px;
+  }
+}
+</style>
+
 </head>
 
 <body>
@@ -2124,6 +2229,44 @@
     </section>
 
 
+    {% endif %}
+
+    {% if mostrar_cines_teatros and not busqueda %}
+    <!-- CLICKLOCAL: ACCESO CINES Y TEATROS -->
+    <section class="seccion cines-teatros-home">
+      <div class="contenedor">
+        <a
+          href="{{ url_for('cines_y_teatros') }}"
+          class="cines-teatros-home-card"
+        >
+          <img
+            src="{{ url_for('static', filename='cines-y-teatros-portada.png') }}"
+            alt="Cines y Teatros de Paraná"
+            class="cines-teatros-home-imagen"
+          >
+
+          <div class="cines-teatros-home-contenido">
+            <p class="cines-teatros-home-etiqueta">
+              Ocio y experiencias
+            </p>
+
+            <h2 class="cines-teatros-home-titulo">
+              Cines y Teatros
+            </h2>
+
+            <p class="cines-teatros-home-texto">
+              Accedé a las carteleras, funciones y entradas
+              desde los sitios oficiales.
+            </p>
+
+            <span class="cines-teatros-home-boton">
+              Ver cines y teatros →
+            </span>
+          </div>
+        </a>
+      </div>
+    </section>
+    <!-- FIN CLICKLOCAL: ACCESO CINES Y TEATROS -->
     {% endif %}
 
     <!-- CLICKLOCAL: DESTACADOS SOLO POR MACROCATEGORIA V1 -->
