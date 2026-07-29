@@ -1203,6 +1203,11 @@ def obtener_conteos_visitas_publicaciones():
 @app.route("/")
 @app.route("/index.html")
 def inicio():
+    # CLICKLOCAL: DIAGNOSTICO VELOCIDAD PORTADA V1
+    import time as _clicklocal_time
+    _clicklocal_portada_inicio = _clicklocal_time.perf_counter()
+    _clicklocal_etapa_inicio = _clicklocal_portada_inicio
+
     from urllib.parse import quote
     import unicodedata
 
@@ -1527,6 +1532,9 @@ def inicio():
 
     try:
         # ====================================================
+        print("PORTADA preparación inicial: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
+        _clicklocal_etapa_inicio = _clicklocal_time.perf_counter()
+
         # 1) PRIMER NIVEL: PUBLICACIONES ACTIVAS
         # ====================================================
         limite = 200 if busqueda else 80
@@ -1923,6 +1931,9 @@ def inicio():
         comercios_relacionados = []
 
     # ====================================================
+    print("PORTADA publicaciones/carteleras/listas: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
+    _clicklocal_etapa_inicio = _clicklocal_time.perf_counter()
+
     # 3) HISTORIAS PREMIUM PÚBLICAS
     # Un círculo por comercio, con hasta 2 historias vigentes.
     # Si existe logo_url se usa el logo; de lo contrario,
@@ -2156,6 +2167,9 @@ def inicio():
     # Una edición no puede modificar este ranking.
     # ====================================================
     if not busqueda_normalizada:
+        print("PORTADA historias: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
+        _clicklocal_etapa_inicio = _clicklocal_time.perf_counter()
+
         conteos_visitas = (
             obtener_conteos_visitas_publicaciones()
         )
@@ -2222,7 +2236,9 @@ def inicio():
             if len(publicaciones_mas_vistas) >= 12:
                 break
 
-    return render_template(
+    print("PORTADA más visto y preparación final: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
+    _clicklocal_render_inicio = _clicklocal_time.perf_counter()
+    _clicklocal_html = render_template(
         "index.html",
         comercio=comercio,
         publicaciones=publicaciones_finales,
@@ -2234,6 +2250,9 @@ def inicio():
         macro_slug=macro_slug,
         macro_activa=macro_activa
     )
+    print("PORTADA render HTML: "f"{_clicklocal_time.perf_counter() - _clicklocal_render_inicio:.3f} s", flush=True)
+    print("PORTADA TOTAL: "f"{_clicklocal_time.perf_counter() - _clicklocal_portada_inicio:.3f} s", flush=True)
+    return _clicklocal_html
 
 
 
