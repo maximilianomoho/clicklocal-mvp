@@ -1199,6 +1199,137 @@ def obtener_conteos_visitas_publicaciones():
     return dict(conteos)
 
 
+# ============================================================
+# CLICKLOCAL: CACHE PORTADA CARTELERAS E HISTORIAS V1
+#
+# Guarda temporalmente los resultados brutos de las consultas.
+# Los filtros, búsquedas y armado visual siguen ejecutándose
+# normalmente en cada apertura de la portada.
+# ============================================================
+
+CACHE_PORTADA_CARTELERAS = {
+    "actualizado_en_por_limite": {},
+    "datos_por_limite": {},
+}
+
+CACHE_PORTADA_HISTORIAS = {
+    "actualizado_en": 0.0,
+    "datos": [],
+}
+
+CACHE_PORTADA_CARTELERAS_LOCK = Lock()
+CACHE_PORTADA_HISTORIAS_LOCK = Lock()
+
+CACHE_PORTADA_CARTELERAS_TTL = 60
+CACHE_PORTADA_HISTORIAS_TTL = 60
+
+
+def invalidar_cache_portada_carteleras():
+    with CACHE_PORTADA_CARTELERAS_LOCK:
+        CACHE_PORTADA_CARTELERAS[
+            "actualizado_en_por_limite"
+        ] = {}
+        CACHE_PORTADA_CARTELERAS["datos_por_limite"] = {}
+
+
+def invalidar_cache_portada_historias():
+    with CACHE_PORTADA_HISTORIAS_LOCK:
+        CACHE_PORTADA_HISTORIAS["actualizado_en"] = 0.0
+        CACHE_PORTADA_HISTORIAS["datos"] = []
+
+
+def obtener_carteleras_publicas_cache(limite):
+    ahora = time.monotonic()
+    limite_cache = int(limite or 0)
+
+    with CACHE_PORTADA_CARTELERAS_LOCK:
+        actualizado_en_por_limite = (
+            CACHE_PORTADA_CARTELERAS[
+                "actualizado_en_por_limite"
+            ]
+        )
+        datos_por_limite = (
+            CACHE_PORTADA_CARTELERAS["datos_por_limite"]
+        )
+
+        actualizado_en = actualizado_en_por_limite.get(
+            limite_cache,
+            0.0,
+        )
+
+        if (
+            actualizado_en
+            and ahora - actualizado_en
+            < CACHE_PORTADA_CARTELERAS_TTL
+            and limite_cache in datos_por_limite
+        ):
+            return list(datos_por_limite[limite_cache]), True
+
+    respuesta = (
+        supabase_admin
+        .table("carteleras")
+        .select(
+            "id,comercio_id,titulo,descripcion,genero,"
+            "clasificacion,direccion_mostrar,precio_general,"
+            "precios_detalle,promociones,imagen_url,imagenes,"
+            "imagen_principal,activa,created_at"
+        )
+        .eq("activa", True)
+        .order("created_at", desc=True)
+        .limit(limite_cache)
+        .execute()
+    )
+
+    datos = list(respuesta.data or [])
+
+    with CACHE_PORTADA_CARTELERAS_LOCK:
+        CACHE_PORTADA_CARTELERAS[
+            "actualizado_en_por_limite"
+        ][limite_cache] = ahora
+        CACHE_PORTADA_CARTELERAS[
+            "datos_por_limite"
+        ][limite_cache] = list(datos)
+
+    return list(datos), False
+
+
+def obtener_historias_publicas_cache():
+    ahora = time.monotonic()
+
+    with CACHE_PORTADA_HISTORIAS_LOCK:
+        actualizado_en = CACHE_PORTADA_HISTORIAS["actualizado_en"]
+
+        if (
+            actualizado_en
+            and ahora - actualizado_en
+            < CACHE_PORTADA_HISTORIAS_TTL
+        ):
+            return list(CACHE_PORTADA_HISTORIAS["datos"]), True
+
+    respuesta = (
+        supabase_admin
+        .table("historias")
+        .select(
+            "id,comercio_id,imagen_url,texto,publicacion_id,"
+            "activa,eliminada,expires_at,created_at"
+        )
+        .eq("activa", True)
+        .eq("eliminada", False)
+        .order("created_at", desc=True)
+        .limit(100)
+        .execute()
+    )
+
+    datos = list(respuesta.data or [])
+
+    with CACHE_PORTADA_HISTORIAS_LOCK:
+        CACHE_PORTADA_HISTORIAS["actualizado_en"] = ahora
+        CACHE_PORTADA_HISTORIAS["datos"] = list(datos)
+
+    return list(datos), False
+
+
+
 # INICIO / PLATAFORMA
 @app.route("/")
 @app.route("/index.html")
@@ -1665,20 +1796,20 @@ def inicio():
         # ====================================================
         # 1B) TIPO CARTELERA PUBLICA: CARTELERAS ACTIVAS
         # ====================================================
-        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1662
+        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - CARTELERAS CACHE
         _clicklocal_consulta_inicio_1662 = _clicklocal_time.perf_counter()
-        carteleras_res = (
-            supabase_admin
-            .table("carteleras")
-            .select("id,comercio_id,titulo,descripcion,genero,clasificacion,direccion_mostrar,precio_general,precios_detalle,promociones,imagen_url,imagenes,imagen_principal,activa,created_at")
-            .eq("activa", True)
-            .order("created_at", desc=True)
-            .limit(limite)
-            .execute()
-        )
-        print("PORTADA CONSULTA L1662 carteleras_res | tabla=carteleras: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1662:.3f} s", flush=True)
 
-        carteleras_publicas = carteleras_res.data or []
+        (
+            carteleras_publicas,
+            _clicklocal_carteleras_desde_cache,
+        ) = obtener_carteleras_publicas_cache(limite)
+
+        print(
+            "PORTADA CACHE carteleras "
+            f"{'HIT' if _clicklocal_carteleras_desde_cache else 'MISS'}: "
+            f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1662:.3f} s",
+            flush=True
+        )
 
         comercio_ids_carteleras = [
             item.get("comercio_id")
@@ -1952,24 +2083,20 @@ def inicio():
     # se muestran las iniciales del comercio.
     # ====================================================
     try:
-        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1943
+        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - HISTORIAS CACHE
         _clicklocal_consulta_inicio_1943 = _clicklocal_time.perf_counter()
-        historias_res = (
-            supabase_admin
-            .table("historias")
-            .select(
-                "id,comercio_id,imagen_url,texto,publicacion_id,"
-                "activa,eliminada,expires_at,created_at"
-            )
-            .eq("activa", True)
-            .eq("eliminada", False)
-            .order("created_at", desc=True)
-            .limit(100)
-            .execute()
-        )
-        print("PORTADA CONSULTA L1943 historias_res | tabla=historias: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1943:.3f} s", flush=True)
 
-        historias_candidatas = historias_res.data or []
+        (
+            historias_candidatas,
+            _clicklocal_historias_desde_cache,
+        ) = obtener_historias_publicas_cache()
+
+        print(
+            "PORTADA CACHE historias "
+            f"{'HIT' if _clicklocal_historias_desde_cache else 'MISS'}: "
+            f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1943:.3f} s",
+            flush=True
+        )
 
         historias_vigentes = [
             historia
@@ -5377,6 +5504,7 @@ def crear_historia_panel():
             nueva_historia
         ).execute()
 
+        invalidar_cache_portada_historias()
         return _volver_historias(historia_ok="creada")
 
     except Exception as e:
@@ -5411,6 +5539,7 @@ def desactivar_historia_panel(historia_id):
             "eliminada", False
         ).execute()
 
+        invalidar_cache_portada_historias()
         return _volver_historias(historia_ok="desactivada")
 
     except Exception as e:
@@ -5471,6 +5600,7 @@ def activar_historia_panel(historia_id):
             "comercio_id", comercio_id
         ).execute()
 
+        invalidar_cache_portada_historias()
         return _volver_historias(historia_ok="activada")
 
     except Exception as e:
@@ -5622,6 +5752,7 @@ def editar_historia_panel(historia_id):
             "eliminada", False
         ).execute()
 
+        invalidar_cache_portada_historias()
         return _volver_historias(historia_ok="editada")
 
     except Exception as e:
@@ -5662,6 +5793,7 @@ def eliminar_historia_panel(historia_id):
             "eliminada", False
         ).execute()
 
+        invalidar_cache_portada_historias()
         return _volver_historias(historia_ok="eliminada")
 
     except Exception as e:
@@ -5878,6 +6010,7 @@ def crear_cartelera_panel():
 
     try:
         supabase_admin.table("carteleras").insert(nueva_cartelera).execute()
+        invalidar_cache_portada_carteleras()
 
         if funciones:
             supabase_admin.table("cartelera_funciones").insert(funciones).execute()
@@ -5962,6 +6095,9 @@ def pausar_cartelera_panel(cartelera_id):
             .eq("comercio_id", contexto["comercio_id"])
             .execute()
         )
+
+        invalidar_cache_portada_carteleras()
+
     except Exception as e:
         print("\nERROR PAUSANDO CARTELERA:", e, flush=True)
 
@@ -5992,6 +6128,9 @@ def activar_cartelera_panel(cartelera_id):
             .eq("comercio_id", contexto["comercio_id"])
             .execute()
         )
+
+        invalidar_cache_portada_carteleras()
+
     except Exception as e:
         print("\nERROR ACTIVANDO CARTELERA:", e, flush=True)
 
@@ -6024,6 +6163,9 @@ def eliminar_cartelera_panel(cartelera_id):
             .eq("comercio_id", contexto["comercio_id"])
             .execute()
         )
+
+        invalidar_cache_portada_carteleras()
+
     except Exception as e:
         print("\nERROR ELIMINANDO CARTELERA:", e, flush=True)
 
