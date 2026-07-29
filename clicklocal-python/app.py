@@ -1489,6 +1489,8 @@ def inicio():
         if not comercio_ids:
             return {}
 
+        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1492
+        _clicklocal_consulta_inicio_1492 = _clicklocal_time.perf_counter()
         comercios_res = (
             supabase_admin
             .table("comercios")
@@ -1496,6 +1498,7 @@ def inicio():
             .in_("id", list(set(comercio_ids)))
             .execute()
         )
+        print("PORTADA CONSULTA L1492 comercios_res | tabla=comercios: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1492:.3f} s", flush=True)
 
         comercios = comercios_res.data or []
 
@@ -1539,6 +1542,8 @@ def inicio():
         # ====================================================
         limite = 200 if busqueda else 80
 
+        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1542
+        _clicklocal_consulta_inicio_1542 = _clicklocal_time.perf_counter()
         publicaciones_res = (
             supabase_admin
             .table("publicaciones")
@@ -1548,6 +1553,7 @@ def inicio():
             .limit(limite)
             .execute()
         )
+        print("PORTADA CONSULTA L1542 publicaciones_res | tabla=publicaciones: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1542:.3f} s", flush=True)
 
         publicaciones = publicaciones_res.data or []
 
@@ -1659,6 +1665,8 @@ def inicio():
         # ====================================================
         # 1B) TIPO CARTELERA PUBLICA: CARTELERAS ACTIVAS
         # ====================================================
+        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1662
+        _clicklocal_consulta_inicio_1662 = _clicklocal_time.perf_counter()
         carteleras_res = (
             supabase_admin
             .table("carteleras")
@@ -1668,6 +1676,7 @@ def inicio():
             .limit(limite)
             .execute()
         )
+        print("PORTADA CONSULTA L1662 carteleras_res | tabla=carteleras: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1662:.3f} s", flush=True)
 
         carteleras_publicas = carteleras_res.data or []
 
@@ -1805,6 +1814,8 @@ def inicio():
         # 2) SEGUNDO NIVEL: LISTAS BUSCABLES
         # ====================================================
         if busqueda_normalizada:
+            # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1808
+            _clicklocal_consulta_inicio_1808 = _clicklocal_time.perf_counter()
             listas_res = (
                 supabase_admin
                 .table("listas_buscables")
@@ -1814,6 +1825,7 @@ def inicio():
                 .limit(300)
                 .execute()
             )
+            print("PORTADA CONSULTA L1808 listas_res | tabla=listas_buscables: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1808:.3f} s", flush=True)
 
             listas = listas_res.data or []
 
@@ -1940,6 +1952,8 @@ def inicio():
     # se muestran las iniciales del comercio.
     # ====================================================
     try:
+        # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1943
+        _clicklocal_consulta_inicio_1943 = _clicklocal_time.perf_counter()
         historias_res = (
             supabase_admin
             .table("historias")
@@ -1953,6 +1967,7 @@ def inicio():
             .limit(100)
             .execute()
         )
+        print("PORTADA CONSULTA L1943 historias_res | tabla=historias: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1943:.3f} s", flush=True)
 
         historias_candidatas = historias_res.data or []
 
@@ -1981,6 +1996,8 @@ def inicio():
         publicaciones_vinculadas_validas = set()
 
         if publicacion_ids_historias:
+            # CLICKLOCAL: DIAGNOSTICO CONSULTAS PORTADA V2 - línea 1984
+            _clicklocal_consulta_inicio_1984 = _clicklocal_time.perf_counter()
             publicaciones_vinculadas_res = (
                 supabase_admin
                 .table("publicaciones")
@@ -1990,6 +2007,7 @@ def inicio():
                 .eq("eliminada", False)
                 .execute()
             )
+            print("PORTADA CONSULTA L1984 publicaciones_vinculadas_res | tabla=publicaciones: "f"{_clicklocal_time.perf_counter() - _clicklocal_consulta_inicio_1984:.3f} s", flush=True)
 
             publicaciones_vinculadas_validas = {
                 fila.get("id")
