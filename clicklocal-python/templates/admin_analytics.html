@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Analytics V2 - ClickLocal</title>
+
+  <style>
+    :root {
+      --fondo: #f5f3ef;
+      --tarjeta: #ffffff;
+      --texto: #2b2522;
+      --suave: #716761;
+      --borde: #e7ded7;
+      --naranja: #e97819;
+      --bordo: #7a1f2b;
+      --crema: #fff8ed;
+      --verde: #217a52;
+      --rojo: #b42318;
+      --sombra: 0 8px 26px rgba(51, 36, 28, .07);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--fondo);
+      color: var(--texto);
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+    }
+
+    .contenedor {
+      width: min(1440px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 24px 0 48px;
+    }
+
+    .encabezado {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .titulo-chico {
+      margin: 0 0 7px;
+      color: var(--bordo);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(27px, 4vw, 42px);
+    }
+
+    .subtitulo {
+      margin: 8px 0 0;
+      color: var(--suave);
+      line-height: 1.45;
+    }
+
+    .acciones {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .boton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 1px solid var(--borde);
+      border-radius: 999px;
+      background: white;
+      color: var(--texto);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .boton.activo {
+      border-color: var(--naranja);
+      background: var(--naranja);
+      color: white;
+    }
+
+    .aviso {
+      margin: 12px 0;
+      padding: 13px 15px;
+      border: 1px solid #efc27e;
+      border-radius: 13px;
+      background: #fff8e8;
+      color: #67420b;
+      line-height: 1.45;
+    }
+
+    .error {
+      border-color: #efaaa3;
+      background: #fff0ef;
+      color: #7f1d1d;
+    }
+
+    .seccion {
+      margin-top: 24px;
+    }
+
+    .seccion-cabecera {
+      margin-bottom: 12px;
+    }
+
+    .seccion-cabecera h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .seccion-cabecera p {
+      margin: 5px 0 0;
+      color: var(--suave);
+    }
+
+    .tarjetas {
+      display: grid;
+      grid-template-columns:
+        repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .tarjeta {
+      min-width: 0;
+      padding: 17px;
+      border: 1px solid var(--borde);
+      border-radius: 17px;
+      background: var(--tarjeta);
+      box-shadow: var(--sombra);
+    }
+
+    .tarjeta-destacada {
+      background: var(--crema);
+    }
+
+    .tarjeta .numero {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 29px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .tarjeta .etiqueta {
+      color: var(--suave);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .grilla-dos {
+      display: grid;
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 17px;
+      border: 1px solid var(--borde);
+      border-radius: 17px;
+      background: white;
+      box-shadow: var(--sombra);
+    }
+
+    .panel h3 {
+      margin: 0 0 13px;
+      font-size: 18px;
+    }
+
+    .tabla-contenedor {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 10px 9px;
+      border-bottom: 1px solid #eee8e3;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    td:first-child {
+      white-space: normal;
+      min-width: 180px;
+    }
+
+    th {
+      color: var(--suave);
+      font-size: 11px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .sin-datos {
+      padding: 16px 0;
+      color: var(--suave);
+    }
+
+    .grafico-panel {
+      padding-bottom: 12px;
+    }
+
+    #graficoEvolucion {
+      width: 100%;
+      height: 330px;
+      display: block;
+      border-radius: 12px;
+      background: #fffdfb;
+    }
+
+    .leyenda-grafico {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 13px;
+      margin-top: 10px;
+      color: var(--suave);
+      font-size: 12px;
+    }
+
+    .leyenda-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .leyenda-color {
+      width: 12px;
+      height: 4px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .calidad {
+      display: grid;
+      grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .calidad-item {
+      padding: 14px;
+      border: 1px solid var(--borde);
+      border-radius: 14px;
+      background: white;
+    }
+
+    .calidad-item strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 19px;
+    }
+
+    .calidad-item span {
+      color: var(--suave);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 1100px) {
+      .tarjetas {
+        grid-template-columns:
+          repeat(3, minmax(0, 1fr));
+      }
+
+      .calidad {
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .encabezado {
+        flex-direction: column;
+      }
+
+      .acciones {
+        justify-content: flex-start;
+      }
+
+      .tarjetas {
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr));
+      }
+
+      .grilla-dos {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tarjetas,
+      .calidad {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="contenedor">
+
+    <header class="encabezado">
+      <div>
+        <p class="titulo-chico">
+          CLICKLOCAL · ADMINISTRACIÓN
+        </p>
+
+        <h1>Analytics V2</h1>
+
+        <p class="subtitulo">
+          {{ periodo_label }} · Datos reales de usuarios,
+          sesiones, búsquedas, publicaciones, comercios,
+          WhatsApp e historias.
+        </p>
+
+        {% if admin_user %}
+          <p class="subtitulo">
+            Sesión admin: {{ admin_user }}
+          </p>
+        {% endif %}
+      </div>
+
+      <nav class="acciones">
+        <a
+          class="boton"
+          href="{{ url_for('admin') }}"
+        >
+          ← Volver al admin
+        </a>
+
+        <a
+          class="boton {% if dias_raw == '7' %}activo{% endif %}"
+          href="{{ url_for('admin_analytics', dias=7) }}"
+        >
+          7 días
+        </a>
+
+        <a
+          class="boton {% if dias_raw == '30' %}activo{% endif %}"
+          href="{{ url_for('admin_analytics', dias=30) }}"
+        >
+          30 días
+        </a>
+
+        <a
+          class="boton {% if dias_raw == '90' %}activo{% endif %}"
+          href="{{ url_for('admin_analytics', dias=90) }}"
+        >
+          90 días
+        </a>
+
+        <a
+          class="boton {% if dias_raw == 'todos' %}activo{% endif %}"
+          href="{{ url_for('admin_analytics', dias='todos') }}"
+        >
+          Todo
+        </a>
+      </nav>
+    </header>
+
+    {% for error in errores %}
+      <div class="aviso error">
+        {{ error }}
+      </div>
+    {% endfor %}
+
+    {% for advertencia in advertencias %}
+      <div class="aviso">
+        {{ advertencia }}
+      </div>
+    {% endfor %}
+
+    <section class="seccion">
+      <div class="seccion-cabecera">
+        <h2>Resumen del período</h2>
+        <p>
+          Las personas y sesiones se identifican de manera
+          anónima.
+        </p>
+      </div>
+
+      <div class="tarjetas">
+        <article class="tarjeta tarjeta-destacada">
+          <strong class="numero">
+            {{ stats.visitantes_unicos }}
+          </strong>
+          <span class="etiqueta">
+            Visitantes únicos
+          </span>
+        </article>
+
+        <article class="tarjeta tarjeta-destacada">
+          <strong class="numero">
+            {{ stats.sesiones_unicas }}
+          </strong>
+          <span class="etiqueta">
+            Sesiones únicas
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.total_busquedas }}
+          </strong>
+          <span class="etiqueta">
+            Búsquedas
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.sin_resultados }}
+          </strong>
+          <span class="etiqueta">
+            Búsquedas sin resultados
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.visitas_publicaciones }}
+          </strong>
+          <span class="etiqueta">
+            Publicaciones vistas
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.visitas_comercios }}
+          </strong>
+          <span class="etiqueta">
+            Perfiles de comercios visitados
+          </span>
+        </article>
+
+        <article class="tarjeta tarjeta-destacada">
+          <strong class="numero">
+            {{ stats.clicks_whatsapp }}
+          </strong>
+          <span class="etiqueta">
+            Clics en WhatsApp
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.historias_vistas }}
+          </strong>
+          <span class="etiqueta">
+            Historias vistas
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.sesiones_web }}
+          </strong>
+          <span class="etiqueta">
+            Sesiones web
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.sesiones_pwa }}
+          </strong>
+          <span class="etiqueta">
+            Sesiones desde PWA
+          </span>
+        </article>
+      </div>
+    </section>
+
+    <section class="seccion">
+      <div class="seccion-cabecera">
+        <h2>Conversión y uso</h2>
+        <p>
+          Indicadores para medir valor comercial.
+        </p>
+      </div>
+
+      <div class="tarjetas">
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.porcentaje_sin_resultados }}%
+          </strong>
+          <span class="etiqueta">
+            Búsquedas sin resultados
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.whatsapp_por_sesion }}
+          </strong>
+          <span class="etiqueta">
+            Clics WhatsApp por sesión
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.whatsapp_por_perfil }}%
+          </strong>
+          <span class="etiqueta">
+            WhatsApp por visita a comercio
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.publicaciones_por_visitante }}
+          </strong>
+          <span class="etiqueta">
+            Publicaciones vistas por visitante
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.sesiones_por_visitante }}
+          </strong>
+          <span class="etiqueta">
+            Sesiones por visitante
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.porcentaje_pwa }}%
+          </strong>
+          <span class="etiqueta">
+            Participación de PWA
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.click_historia_comercio }}
+          </strong>
+          <span class="etiqueta">
+            Historias que llevaron a un comercio
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.click_historia_publicacion }}
+          </strong>
+          <span class="etiqueta">
+            Historias que llevaron a una publicación
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ stats.cobertura_identidad }}%
+          </strong>
+          <span class="etiqueta">
+            Registros con visitante o sesión
+          </span>
+        </article>
+      </div>
+    </section>
+
+    <section class="seccion">
+      <div class="seccion-cabecera">
+        <h2>Evolución diaria</h2>
+        <p>
+          Usuarios, sesiones, búsquedas, vistas y contactos
+          separados por fecha.
+        </p>
+      </div>
+
+      <article class="panel grafico-panel">
+        <canvas id="graficoEvolucion"></canvas>
+
+        <div class="leyenda-grafico">
+          <span class="leyenda-item" style="color:#7a1f2b">
+            <span class="leyenda-color"></span>
+            Visitantes
+          </span>
+
+          <span class="leyenda-item" style="color:#e97819">
+            <span class="leyenda-color"></span>
+            Sesiones
+          </span>
+
+          <span class="leyenda-item" style="color:#217a52">
+            <span class="leyenda-color"></span>
+            Búsquedas
+          </span>
+
+          <span class="leyenda-item" style="color:#315caa">
+            <span class="leyenda-color"></span>
+            Publicaciones vistas
+          </span>
+
+          <span class="leyenda-item" style="color:#8a4fa3">
+            <span class="leyenda-color"></span>
+            WhatsApp
+          </span>
+        </div>
+      </article>
+
+      <article class="panel" style="margin-top:14px;">
+        <div class="tabla-contenedor">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Visitantes</th>
+                <th>Sesiones</th>
+                <th>Búsquedas</th>
+                <th>Sin resultados</th>
+                <th>Publicaciones</th>
+                <th>Comercios</th>
+                <th>WhatsApp</th>
+                <th>Historias</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for fila in evolucion|reverse %}
+                <tr>
+                  <td>{{ fila.fecha }}</td>
+                  <td>{{ fila.visitantes }}</td>
+                  <td>{{ fila.sesiones }}</td>
+                  <td>{{ fila.busquedas }}</td>
+                  <td>{{ fila.sin_resultados }}</td>
+                  <td>{{ fila.visitas_publicaciones }}</td>
+                  <td>{{ fila.visitas_comercios }}</td>
+                  <td>{{ fila.whatsapp }}</td>
+                  <td>{{ fila.historias }}</td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="9">
+                    No hay datos para este período.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    {% macro ranking(titulo, items, columna='Cantidad') %}
+      <article class="panel">
+        <h3>{{ titulo }}</h3>
+
+        {% if items %}
+          <div class="tabla-contenedor">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>{{ columna }}</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {% for item in items %}
+                  <tr>
+                    <td>{{ item.nombre }}</td>
+                    <td>{{ item.cantidad }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="sin-datos">
+            No hay datos para este período.
+          </div>
+        {% endif %}
+      </article>
+    {% endmacro %}
+
+    <section class="seccion">
+      <div class="seccion-cabecera">
+        <h2>Rankings de rendimiento</h2>
+        <p>
+          Qué publicaciones, comercios e historias despiertan
+          mayor interés.
+        </p>
+      </div>
+
+      <div class="grilla-dos">
+        {{ ranking(
+          'Publicaciones más vistas',
+          rankings.publicaciones_vistas,
+          'Vistas'
+        ) }}
+
+        {{ ranking(
+          'Comercios más visitados',
+          rankings.comercios_visitados,
+          'Visitas'
+        ) }}
+
+        {{ ranking(
+          'Comercios con más WhatsApp',
+          rankings.whatsapp_comercios,
+          'Clics'
+        ) }}
+
+        {{ ranking(
+          'Historias más vistas',
+          rankings.historias_vistas,
+          'Vistas'
+        ) }}
+      </div>
+    </section>
+
+    <section class="seccion">
+      <div class="seccion-cabecera">
+        <h2>Búsquedas y demanda</h2>
+        <p>
+          Qué pide la gente y qué oportunidades todavía no están
+          cubiertas.
+        </p>
+      </div>
+
+      <div class="grilla-dos">
+        {{ ranking(
+          'Búsquedas más repetidas',
+          rankings.busquedas,
+          'Búsquedas'
+        ) }}
+
+        {{ ranking(
+          'Búsquedas sin resultados',
+          rankings.sin_resultados,
+          'Veces'
+        ) }}
+
+        {{ ranking(
+          'Búsquedas que llevaron a WhatsApp',
+          rankings.whatsapp_consultas,
+          'Contactos'
+        ) }}
+
+        {{ ranking(
+          'Actividad por categoría',
+          rankings.actividad_categorias,
+          'Eventos'
+        ) }}
+      </div>
+    </section>
+
+    <section class="seccion">
+      <div class="seccion-cabecera">
+        <h2>Información comercial</h2>
+        <p>
+          Oferta, rubros, productos declarados y calidad de la
+          información disponible.
+        </p>
+      </div>
+
+      <div class="tarjetas">
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ resumen_comercial.total_comercios }}
+          </strong>
+          <span class="etiqueta">
+            Comercios registrados
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ resumen_comercial.total_publicaciones }}
+          </strong>
+          <span class="etiqueta">
+            Publicaciones
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ resumen_comercial.total_listas }}
+          </strong>
+          <span class="etiqueta">
+            Listas buscables
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ resumen_comercial.publicaciones_con_precio }}
+          </strong>
+          <span class="etiqueta">
+            Publicaciones con precio
+          </span>
+        </article>
+
+        <article class="tarjeta">
+          <strong class="numero">
+            {{ resumen_comercial.publicaciones_con_descripcion }}
+          </strong>
+          <span class="etiqueta">
+            Publicaciones con descripción
+          </span>
+        </article>
+      </div>
+
+      <div class="grilla-dos" style="margin-top:14px;">
+        {{ ranking(
+          'Comercios por categoría',
+          rankings.categorias_comercios,
+          'Comercios'
+        ) }}
+
+        {{ ranking(
+          'Productos declarados',
+          rankings.productos_declarados,
+          'Listas'
+        ) }}
+      </div>
+    </section>
+
+    <section class="seccion">
+      <div class="seccion-cabecera">
+        <h2>Calidad y cobertura de los datos</h2>
+        <p>
+          Las métricas históricas anteriores a la identificación
+          anónima pueden no tener visitante, sesión o modo de acceso.
+        </p>
+      </div>
+
+      <div class="calidad">
+        <article class="calidad-item">
+          <strong>
+            {{ stats.cobertura_identidad }}%
+          </strong>
+          <span>
+            Cobertura actual de visitante o sesión.
+          </span>
+        </article>
+
+        <article class="calidad-item">
+          <strong>
+            {{ calidad.primera_fecha_identificada }}
+          </strong>
+          <span>
+            Primer registro con identificación anónima.
+          </span>
+        </article>
+
+        <article class="calidad-item">
+          <strong>
+            {{ calidad.fecha_inicial }}
+          </strong>
+          <span>
+            Primer dato del período disponible.
+          </span>
+        </article>
+
+        <article class="calidad-item">
+          <strong>
+            {{ calidad.fecha_final }}
+          </strong>
+          <span>
+            Último dato del período disponible.
+          </span>
+        </article>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (() => {
+      const datos = {{ evolucion|tojson }};
+      const canvas = document.getElementById(
+        "graficoEvolucion"
+      );
+
+      if (!canvas || !datos.length) {
+        return;
+      }
+
+      const ctx = canvas.getContext("2d");
+      const escala = window.devicePixelRatio || 1;
+
+      const anchoCss = canvas.clientWidth;
+      const altoCss = 330;
+
+      canvas.width = anchoCss * escala;
+      canvas.height = altoCss * escala;
+
+      ctx.scale(escala, escala);
+
+      const margen = {
+        izquierda: 42,
+        derecha: 16,
+        arriba: 18,
+        abajo: 42,
+      };
+
+      const ancho = (
+        anchoCss
+        - margen.izquierda
+        - margen.derecha
+      );
+
+      const alto = (
+        altoCss
+        - margen.arriba
+        - margen.abajo
+      );
+
+      const series = [
+        {
+          campo: "visitantes",
+          color: "#7a1f2b",
+        },
+        {
+          campo: "sesiones",
+          color: "#e97819",
+        },
+        {
+          campo: "busquedas",
+          color: "#217a52",
+        },
+        {
+          campo: "visitas_publicaciones",
+          color: "#315caa",
+        },
+        {
+          campo: "whatsapp",
+          color: "#8a4fa3",
+        },
+      ];
+
+      const maximo = Math.max(
+        1,
+        ...datos.flatMap(
+          fila => series.map(
+            serie => Number(
+              fila[serie.campo] || 0
+            )
+          )
+        )
+      );
+
+      ctx.clearRect(
+        0,
+        0,
+        anchoCss,
+        altoCss
+      );
+
+      ctx.strokeStyle = "#e7ded7";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#716761";
+      ctx.font = "11px Arial";
+
+      for (let paso = 0; paso <= 4; paso++) {
+        const y = (
+          margen.arriba
+          + alto
+          - (alto * paso / 4)
+        );
+
+        const valor = Math.round(
+          maximo * paso / 4
+        );
+
+        ctx.beginPath();
+        ctx.moveTo(margen.izquierda, y);
+        ctx.lineTo(
+          margen.izquierda + ancho,
+          y
+        );
+        ctx.stroke();
+
+        ctx.fillText(
+          String(valor),
+          5,
+          y + 4
+        );
+      }
+
+      const obtenerX = indice => {
+        if (datos.length === 1) {
+          return (
+            margen.izquierda
+            + ancho / 2
+          );
+        }
+
+        return (
+          margen.izquierda
+          + (
+            ancho
+            * indice
+            / (datos.length - 1)
+          )
+        );
+      };
+
+      const obtenerY = valor => (
+        margen.arriba
+        + alto
+        - (
+          alto
+          * Number(valor || 0)
+          / maximo
+        )
+      );
+
+      series.forEach(serie => {
+        ctx.strokeStyle = serie.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        datos.forEach((fila, indice) => {
+          const x = obtenerX(indice);
+          const y = obtenerY(
+            fila[serie.campo]
+          );
+
+          if (indice === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+
+        ctx.stroke();
+      });
+
+      const cantidadEtiquetas = Math.min(
+        6,
+        datos.length
+      );
+
+      for (
+        let numero = 0;
+        numero < cantidadEtiquetas;
+        numero++
+      ) {
+        const indice = Math.round(
+          numero
+          * (datos.length - 1)
+          / Math.max(
+            1,
+            cantidadEtiquetas - 1
+          )
+        );
+
+        const x = obtenerX(indice);
+        const fecha = String(
+          datos[indice].fecha || ""
+        ).slice(5);
+
+        ctx.fillStyle = "#716761";
+        ctx.fillText(
+          fecha,
+          x - 16,
+          altoCss - 14
+        );
+      }
+    })();
+  </script>
+</body>
+</html>
