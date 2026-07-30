@@ -7,7 +7,7 @@
     content="width=device-width, initial-scale=1"
   >
 
-  <title>Analytics V2 - ClickLocal</title>
+  <title>Analítica - ClickLocal</title>
 
   <style>
     :root {
@@ -326,6 +326,7 @@
 </head>
 
 <body>
+  {% include "_admin_nav.html" %}
   <main class="contenedor">
 
     <header class="encabezado">
@@ -334,7 +335,7 @@
           CLICKLOCAL · ADMINISTRACIÓN
         </p>
 
-        <h1>Analytics V2</h1>
+        <h1>Analítica</h1>
 
         <p class="subtitulo">
           {{ periodo_label }} · Datos reales de usuarios,
@@ -350,12 +351,6 @@
       </div>
 
       <nav class="acciones">
-        <a
-          class="boton"
-          href="{{ url_for('admin') }}"
-        >
-          ← Volver al admin
-        </a>
 
         <a
           class="boton {% if dias_raw == '7' %}activo{% endif %}"

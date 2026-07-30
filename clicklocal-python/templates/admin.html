@@ -277,57 +277,146 @@
     }
   }
 
+
+  /* CLICKLOCAL: CONTENCIÓN RESPONSIVE DE TABLAS ADMIN V1 */
+  .admin-main,
+  .admin-layout,
+  .admin-card {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .admin-tabla-contenedor,
+  .admin-scroll-top {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .admin-tabla-contenedor {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+
+  /* CLICKLOCAL: TABLA DE COMERCIOS COMPACTA V1 */
+  .admin-tabla-contenedor {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+  }
+
+  .admin-tabla-comercios {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0 !important;
+    table-layout: fixed;
+  }
+
+  .admin-tabla-comercios th,
+  .admin-tabla-comercios td {
+    padding: 12px 8px;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    box-sizing: border-box;
+  }
+
+  .admin-tabla-comercios th {
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .admin-tabla-comercios td {
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .admin-tabla-comercios th:nth-child(1),
+  .admin-tabla-comercios td:nth-child(1) {
+    width: 16%;
+  }
+
+  .admin-tabla-comercios th:nth-child(2),
+  .admin-tabla-comercios td:nth-child(2) {
+    width: 17%;
+  }
+
+  .admin-tabla-comercios th:nth-child(3),
+  .admin-tabla-comercios td:nth-child(3) {
+    width: 11%;
+  }
+
+  .admin-tabla-comercios th:nth-child(4),
+  .admin-tabla-comercios td:nth-child(4) {
+    width: 7%;
+  }
+
+  .admin-tabla-comercios th:nth-child(5),
+  .admin-tabla-comercios td:nth-child(5) {
+    width: 12%;
+  }
+
+  .admin-tabla-comercios th:nth-child(6),
+  .admin-tabla-comercios td:nth-child(6) {
+    width: 7%;
+  }
+
+  .admin-tabla-comercios th:nth-child(7),
+  .admin-tabla-comercios td:nth-child(7) {
+    width: 7%;
+    text-align: center;
+  }
+
+  .admin-tabla-comercios th:nth-child(8),
+  .admin-tabla-comercios td:nth-child(8) {
+    width: 6%;
+    text-align: center;
+  }
+
+  .admin-tabla-comercios th:nth-child(9),
+  .admin-tabla-comercios td:nth-child(9) {
+    width: 6%;
+    text-align: center;
+  }
+
+  .admin-tabla-comercios th:nth-child(10),
+  .admin-tabla-comercios td:nth-child(10) {
+    width: 11%;
+  }
+
+  .admin-tabla-comercios td:last-child {
+    white-space: normal;
+  }
+
+  .admin-tabla-comercios td:last-child a,
+  .admin-tabla-comercios td:last-child button {
+    max-width: 100%;
+    padding: 7px 9px;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: normal;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 1100px) {
+    .admin-tabla-comercios {
+      min-width: 1050px !important;
+    }
+  }
+
 </style>
 </head>
 
 <body>
-  <div class="admin-acceso-superior" style="
-    margin-top: 16px;
-    padding: 14px 16px;
-    border-radius: 14px;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-  ">
-    <div>
-      <strong>Moderación de publicaciones</strong>
-      <div style="margin-top: 4px; color: #6b7280;">
-        Pendientes:
-        {{ resumen.total_moderacion_pendiente|default(0) }}
-      </div>
-    </div>
-
-    <a
-      href="{{ url_for('admin_moderacion') }}"
-      style="
-        display: inline-flex;
-        padding: 10px 14px;
-        border-radius: 10px;
-        background: #7a1f2b;
-        color: white;
-        text-decoration: none;
-        font-weight: 800;
-      "
-    >
-      Ir a Moderación
-    </a>
-  </div>
-
-
-<!-- Analytics admin V1 -->
-<div class="admin-acceso-superior" style="margin-top: 14px; margin-bottom: 18px; padding: 12px 14px; border: 1px solid #eee; border-radius: 14px; background: #fff;">
-  <a href="{{ url_for('admin_analytics') }}" style="font-weight: 700; color: #ff7a00; text-decoration: none;">
-    📊 Ver Analytics admin V1
-  </a>
-  <span style="color: #777; font-size: 14px; margin-left: 8px;">
-    Búsquedas, clicks, WhatsApp y comercios con más interacción.
-  </span>
-</div>
-
+  {% include "_admin_nav.html" %}
 
   <header class="header">
     <div class="header-contenedor">
@@ -342,7 +431,6 @@
 
       <nav class="nav">
         <a href="/index.html" class="nav-link">Ir a la plataforma</a>
-        <a href="/admin/logout" class="boton-secundario">Salir</a>
       </nav>
     </div>
   </header>

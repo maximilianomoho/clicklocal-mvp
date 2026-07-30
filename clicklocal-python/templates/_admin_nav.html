@@ -1,0 +1,178 @@
+{# CLICKLOCAL: NAVEGACIÓN ADMINISTRATIVA UNIFORME V1 #}
+{% set endpoint_admin = request.endpoint or '' %}
+
+<style>
+  .admin-nav-uniforme {
+    width: min(1180px, calc(100% - 28px));
+    margin: 16px auto;
+    padding: 12px 14px;
+    border: 1px solid #eadfd7;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(43, 29, 20, .06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+  }
+
+  .admin-nav-uniforme__marca {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: #2f241f;
+    line-height: 1.15;
+  }
+
+  .admin-nav-uniforme__marca span {
+    color: #7a1f2b;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .12em;
+  }
+
+  .admin-nav-uniforme__marca strong {
+    font-size: 18px;
+  }
+
+  .admin-nav-uniforme__enlaces {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .admin-nav-uniforme__enlace {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 9px 13px;
+    border: 1px solid #e7ddd6;
+    border-radius: 11px;
+    background: #fff;
+    color: #4b3a32;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 800;
+    box-sizing: border-box;
+    transition:
+      background .15s ease,
+      border-color .15s ease,
+      color .15s ease,
+      transform .15s ease;
+  }
+
+  .admin-nav-uniforme__enlace:hover {
+    border-color: #c7a99c;
+    background: #fff8f3;
+    transform: translateY(-1px);
+  }
+
+  .admin-nav-uniforme__enlace.is-active {
+    border-color: #7a1f2b;
+    background: #7a1f2b;
+    color: #fff;
+  }
+
+  .admin-nav-uniforme__contador {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-left: 7px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .22);
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .admin-nav-uniforme__enlace--salir {
+    border-color: #f0caca;
+    color: #9f1d2c;
+  }
+
+  .admin-nav-uniforme__enlace--salir:hover {
+    border-color: #9f1d2c;
+    background: #fff1f2;
+  }
+
+  @media (max-width: 650px) {
+    .admin-nav-uniforme {
+      align-items: stretch;
+      padding: 12px;
+    }
+
+    .admin-nav-uniforme__marca {
+      width: 100%;
+    }
+
+    .admin-nav-uniforme__enlaces {
+      width: 100%;
+      display: grid;
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-nav-uniforme__enlace {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
+
+<nav
+  class="admin-nav-uniforme"
+  aria-label="Navegación de administración"
+>
+  <div class="admin-nav-uniforme__marca">
+    <span>CLICKLOCAL</span>
+    <strong>Administración</strong>
+  </div>
+
+  <div class="admin-nav-uniforme__enlaces">
+    <a
+      href="{{ url_for('admin') }}"
+      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin' %} is-active{% endif %}"
+      {% if endpoint_admin == 'admin' %}aria-current="page"{% endif %}
+    >
+      Resumen
+    </a>
+
+    <a
+      href="{{ url_for('admin_analytics') }}"
+      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin_analytics' %} is-active{% endif %}"
+      {% if endpoint_admin == 'admin_analytics' %}aria-current="page"{% endif %}
+    >
+      Analítica
+    </a>
+
+    <a
+      href="{{ url_for('admin_moderacion') }}"
+      class="admin-nav-uniforme__enlace{% if endpoint_admin.startswith('admin_moderacion') %} is-active{% endif %}"
+      {% if endpoint_admin.startswith('admin_moderacion') %}aria-current="page"{% endif %}
+    >
+      Moderación
+      {% if resumen is defined %}
+        {% set pendientes_moderacion = resumen.total_moderacion_pendiente|default(0)|int %}
+        <span class="admin-nav-uniforme__contador">
+          {{ pendientes_moderacion }}
+          {% if pendientes_moderacion == 1 %}pendiente{% else %}pendientes{% endif %}
+        </span>
+      {% endif %}
+    </a>
+
+    <a
+      href="{{ url_for('admin_logout') }}"
+      class="admin-nav-uniforme__enlace admin-nav-uniforme__enlace--salir"
+    >
+      Cerrar sesión
+    </a>
+  </div>
+</nav>
