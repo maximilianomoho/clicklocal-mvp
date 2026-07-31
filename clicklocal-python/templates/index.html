@@ -3031,6 +3031,43 @@ html {
 }
 </style>
 <!-- FIN CLICKLOCAL: ESTILOS COMERCIOS PARA DESCUBRIR B1 V1 -->
+
+<!-- CLICKLOCAL: SCROLL INFINITO PUBLICACIONES RECIENTES V1 -->
+<style>
+.boton-carga-respaldo {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.centinela-scroll-publicaciones {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.estado-scroll-publicaciones {
+  width: 100%;
+  margin: 18px auto 6px;
+  padding: 0 16px;
+  color: #76585d;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.estado-scroll-publicaciones-final {
+  color: #8a6a60;
+}
+</style>
+<!-- FIN CLICKLOCAL: SCROLL INFINITO PUBLICACIONES RECIENTES V1 -->
+
 </head>
 
 <body>
@@ -4256,8 +4293,149 @@ document.addEventListener("DOMContentLoaded", function () {
     mostrarMasPublicaciones
   );
 
+  /*
+    Scroll infinito automático.
+    Conserva mostrarMasPublicaciones() como única función de carga,
+    por lo que mantiene el endpoint, la macrocategoría, el offset,
+    el bloqueo de carga y la construcción de tarjetas ya existentes.
+  */
+  boton.classList.add("boton-carga-respaldo");
+
+  const estadoScroll = document.createElement("p");
+  estadoScroll.className = "estado-scroll-publicaciones";
+  estadoScroll.setAttribute("role", "status");
+  estadoScroll.setAttribute("aria-live", "polite");
+  estadoScroll.hidden = true;
+
+  const centinelaScroll = document.createElement("div");
+  centinelaScroll.className = "centinela-scroll-publicaciones";
+  centinelaScroll.setAttribute("aria-hidden", "true");
+
+  boton.insertAdjacentElement("afterend", estadoScroll);
+  estadoScroll.insertAdjacentElement("afterend", centinelaScroll);
+
+  let cargaAutomaticaEnCurso = false;
+  let observadorScroll = null;
+
+  function mostrarEstadoScroll(texto, esFinal) {
+    estadoScroll.textContent = texto;
+    estadoScroll.hidden = !texto;
+    estadoScroll.classList.toggle(
+      "estado-scroll-publicaciones-final",
+      esFinal === true
+    );
+  }
+
+  function publicacionesTerminadas() {
+    return (
+      tarjetasOcultas().length === 0
+      && boton.hidden === true
+    );
+  }
+
+  async function cargarPorScroll() {
+    if (
+      cargaAutomaticaEnCurso
+      || boton.disabled
+      || publicacionesTerminadas()
+    ) {
+      if (publicacionesTerminadas()) {
+        mostrarEstadoScroll(
+          "Ya viste todas las publicaciones disponibles.",
+          true
+        );
+
+        if (observadorScroll) {
+          observadorScroll.disconnect();
+        }
+      }
+
+      return;
+    }
+
+    cargaAutomaticaEnCurso = true;
+    mostrarEstadoScroll(
+      "Cargando más publicaciones…",
+      false
+    );
+
+    try {
+      await mostrarMasPublicaciones();
+
+      /*
+        La función existente actualiza tarjetas, offset, hay_mas
+        y el estado del botón. Esperamos un ciclo de renderizado
+        antes de decidir si se llegó al final real.
+      */
+      await new Promise(function (resolver) {
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(resolver);
+        });
+      });
+
+      if (publicacionesTerminadas()) {
+        mostrarEstadoScroll(
+          "Ya viste todas las publicaciones disponibles.",
+          true
+        );
+
+        if (observadorScroll) {
+          observadorScroll.disconnect();
+        }
+      } else {
+        mostrarEstadoScroll("", false);
+      }
+    } catch (error) {
+      console.error(
+        "Error en scroll infinito de publicaciones:",
+        error
+      );
+
+      mostrarEstadoScroll(
+        "No pudimos cargar más publicaciones. Podés intentarlo nuevamente.",
+        false
+      );
+    } finally {
+      cargaAutomaticaEnCurso = false;
+    }
+  }
+
   prepararBloqueInicial();
   actualizarBoton();
+
+  if ("IntersectionObserver" in window) {
+    observadorScroll = new IntersectionObserver(
+      function (entradas) {
+        entradas.forEach(function (entrada) {
+          if (entrada.isIntersecting) {
+            cargarPorScroll();
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: "900px 0px",
+        threshold: 0
+      }
+    );
+
+    observadorScroll.observe(centinelaScroll);
+
+    if (publicacionesTerminadas()) {
+      mostrarEstadoScroll(
+        "Ya viste todas las publicaciones disponibles.",
+        true
+      );
+
+      observadorScroll.disconnect();
+    }
+  } else {
+    /*
+      Respaldo para navegadores antiguos:
+      el botón vuelve a quedar visible y conserva su comportamiento.
+    */
+    boton.classList.remove("boton-carga-respaldo");
+  }
 });
 </script>
 {% endif %}
