@@ -2243,6 +2243,197 @@ def inicio():
             item["tiene_historia"] = False
 
     # ====================================================
+    # CLICKLOCAL: COMERCIOS PARA DESCUBRIR B1 V1
+    #
+    # - solo portada sin búsqueda;
+    # - comercios con publicación e imagen;
+    # - un registro por comercio;
+    # - excluye Cine y Teatro;
+    # - intenta mostrar categorías diferentes;
+    # - rotación diaria estable;
+    # - Gratis y Premium participan por igual;
+    # - reutiliza datos ya cargados;
+    # - no agrega consultas a Supabase.
+    # ====================================================
+    comercios_para_descubrir = []
+
+    if not busqueda_normalizada:
+        import datetime as _clicklocal_datetime
+        import hashlib as _clicklocal_hashlib
+
+        try:
+            from zoneinfo import ZoneInfo as _ClickLocalZoneInfo
+
+            clave_dia = (
+                _clicklocal_datetime.datetime.now(
+                    _ClickLocalZoneInfo(
+                        "America/Argentina/Buenos_Aires"
+                    )
+                )
+                .date()
+                .isoformat()
+            )
+        except Exception:
+            clave_dia = (
+                _clicklocal_datetime.date.today().isoformat()
+            )
+
+        candidatos_por_comercio = {}
+
+        for item in publicaciones_finales:
+            if item.get("tipo") != "publicacion":
+                continue
+
+            comercio_id = str(
+                item.get("comercio_id") or ""
+            ).strip()
+
+            if not comercio_id:
+                continue
+
+            imagenes_item = item.get("imagenes") or []
+            primera_imagen = ""
+
+            if (
+                isinstance(imagenes_item, list)
+                and imagenes_item
+            ):
+                primera_imagen = str(
+                    imagenes_item[0] or ""
+                ).strip()
+
+            imagen_mostrar = str(
+                item.get("imagen_mostrar")
+                or item.get("imagen_principal")
+                or item.get("imagen_url")
+                or primera_imagen
+                or ""
+            ).strip()
+
+            if not imagen_mostrar:
+                continue
+
+            comercio_datos = item.get("comercio")
+
+            if isinstance(comercio_datos, dict):
+                comercio_dict = comercio_datos
+                comercio_texto = ""
+            else:
+                comercio_dict = {}
+                comercio_texto = str(
+                    comercio_datos or ""
+                ).strip()
+
+            nombre_negocio = str(
+                item.get("nombre_negocio")
+                or item.get("comercio_nombre")
+                or item.get("nombre_comercio")
+                or comercio_dict.get("nombre_negocio")
+                or comercio_dict.get("nombre")
+                or comercio_texto
+                or "Comercio local"
+            ).strip()
+
+            categoria = str(
+                item.get("categoria")
+                or item.get("comercio_categoria")
+                or comercio_dict.get("categoria")
+                or "Comercio local"
+            ).strip()
+
+            if categoria.casefold() == "cine y teatro":
+                continue
+
+            logo_url = str(
+                item.get("logo_url")
+                or item.get("comercio_logo_url")
+                or comercio_dict.get("logo_url")
+                or ""
+            ).strip()
+
+            palabras_nombre = [
+                palabra
+                for palabra in nombre_negocio.split()
+                if palabra
+            ]
+
+            iniciales = "".join(
+                palabra[0].upper()
+                for palabra in palabras_nombre[:2]
+            ) or "CL"
+
+            if comercio_id not in candidatos_por_comercio:
+                candidatos_por_comercio[comercio_id] = {
+                    "id": comercio_id,
+                    "nombre_negocio": nombre_negocio,
+                    "categoria": categoria,
+                    "imagen_url": imagen_mostrar,
+                    "logo_url": logo_url,
+                    "iniciales": iniciales,
+                    "perfil_url": url_for(
+                        "perfil_comercio",
+                        comercio_id=comercio_id,
+                    ),
+                }
+
+        candidatos_ordenados = sorted(
+            candidatos_por_comercio.values(),
+            key=lambda candidato: (
+                _clicklocal_hashlib.sha256(
+                    (
+                        clave_dia
+                        + "|"
+                        + candidato["id"]
+                    ).encode("utf-8")
+                ).hexdigest(),
+                candidato["id"],
+            ),
+        )
+
+        categorias_elegidas = set()
+        ids_elegidos = set()
+
+        for candidato in candidatos_ordenados:
+            categoria_clave = str(
+                candidato.get("categoria")
+                or "Comercio local"
+            ).strip().casefold()
+
+            if categoria_clave in categorias_elegidas:
+                continue
+
+            comercios_para_descubrir.append(
+                candidato
+            )
+
+            categorias_elegidas.add(
+                categoria_clave
+            )
+
+            ids_elegidos.add(
+                candidato["id"]
+            )
+
+            if len(comercios_para_descubrir) >= 6:
+                break
+
+        if len(comercios_para_descubrir) < 3:
+            for candidato in candidatos_ordenados:
+                if candidato["id"] in ids_elegidos:
+                    continue
+
+                comercios_para_descubrir.append(
+                    candidato
+                )
+
+                ids_elegidos.add(
+                    candidato["id"]
+                )
+
+                if len(comercios_para_descubrir) >= 6:
+                    break
+
+    # ====================================================
     # 4) LO MÁS VISTO
     #
     # Solo se calcula en la portada sin búsqueda.
@@ -2328,6 +2519,7 @@ def inicio():
         publicaciones_mas_vistas=publicaciones_mas_vistas,
         comercios_relacionados=comercios_relacionados,
         historias_publicas=historias_publicas,
+        comercios_para_descubrir=comercios_para_descubrir,
         busqueda=busqueda,
         macrocategorias=MACROCATEGORIAS_HOME,
         macro_slug=macro_slug,
@@ -2538,6 +2730,9 @@ CATEGORIAS_COMERCIO = (
     "Calzado y accesorios",
     "Joyería, relojería y accesorios",
     "Hogar, bazar y decoración",
+    "Mueblería",
+    "Viveros y jardinería",
+    "Veterinaria y mascotas",
     "Tecnología",
     "Autos y motos",
     "Salud y bienestar",
@@ -2600,6 +2795,9 @@ MACROCATEGORIAS_HOME = (
         "icono": "⌂",
         "categorias": (
             "Hogar, bazar y decoración",
+            "Mueblería",
+            "Viveros y jardinería",
+            "Veterinaria y mascotas",
             "Joyería, relojería y accesorios",
             "Gráfica, diseño y personalizados",
             "Regalos, juguetes y artesanías",
@@ -2622,6 +2820,7 @@ MACROCATEGORIAS_HOME = (
         "icono": "▣",
         "categorias": (
             "Tecnología",
+            "Veterinaria y mascotas",
             "Servicios para el hogar",
             "Gráfica, diseño y personalizados",
             "Educación y cursos",

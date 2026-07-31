@@ -1834,23 +1834,1240 @@
 }
 </style>
 
+
+<!-- CLICKLOCAL: CABECERA Y BUSCADOR FIJOS V1 -->
+<style>
+:root {
+  --clicklocal-crema-b1: #F7F1E8;
+  --clicklocal-header-height: 78px;
+}
+
+body {
+  background: var(--clicklocal-crema-b1);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  background: var(--clicklocal-crema-b1);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+}
+
+#buscador-form {
+  position: sticky;
+  top: calc(var(--clicklocal-header-height) + 6px);
+  z-index: 1090;
+  background: var(--clicklocal-crema-b1);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  #buscador-form {
+    top: calc(var(--clicklocal-header-height) + 4px);
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: CABECERA Y BUSCADOR FIJOS V1 -->
+
+
+<!-- CLICKLOCAL: IDENTIDAD HEADER Y BUSCADOR B1 V1 -->
+<style>
+/*
+  Ajuste visual aprobado:
+  - conserva el logo circular existente;
+  - moderniza la palabra ClickLocal;
+  - agrega acceso al buscador;
+  - corrige el interior del campo.
+*/
+
+html {
+  scroll-behavior: smooth;
+}
+
+.header .logo-texto {
+  margin: 0;
+  color: #292929;
+  font-family:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: clamp(25px, 2.15vw, 31px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -1.25px;
+}
+
+.header .ciudad {
+  margin-top: 4px;
+}
+
+.clicklocal-ir-buscador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 17px;
+  border: 1px solid #7b1f2b;
+  border-radius: 999px;
+  background: #7b1f2b;
+  color: #f7f1e8;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.clicklocal-ir-buscador:hover {
+  background: #641722;
+  color: #f7f1e8;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(100, 23, 34, 0.18);
+}
+
+.clicklocal-ir-buscador:focus-visible {
+  outline: 3px solid rgba(123, 31, 43, 0.24);
+  outline-offset: 3px;
+}
+
+#buscador-form {
+  scroll-margin-top:
+    calc(var(--clicklocal-header-height) + 20px);
+}
+
+.buscador-campo {
+  display: flex;
+  align-items: center;
+}
+
+.buscador-campo .input-busqueda {
+  display: block;
+  height: 48px !important;
+  margin: 0 !important;
+  padding:
+    0
+    62px
+    0
+    20px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  outline: none;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: #292929;
+  font-family:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 48px !important;
+  vertical-align: middle;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.buscador-campo .input-busqueda::placeholder {
+  color: #8a8580;
+  opacity: 1;
+  font-family:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.buscador-campo .input-busqueda:-webkit-autofill,
+.buscador-campo .input-busqueda:-webkit-autofill:hover,
+.buscador-campo .input-busqueda:-webkit-autofill:focus {
+  -webkit-text-fill-color: #292929;
+  -webkit-box-shadow:
+    0 0 0 1000px transparent inset !important;
+  transition:
+    background-color 9999s ease-out 0s;
+}
+
+@media (max-width: 640px) {
+  .header .logo-texto {
+    font-size: 25px;
+    letter-spacing: -1px;
+  }
+
+  .clicklocal-ir-buscador {
+    min-height: 38px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .buscador-campo .input-busqueda {
+    height: 46px !important;
+    padding-left: 17px !important;
+    padding-right: 58px !important;
+    font-size: 16px;
+    line-height: 46px !important;
+  }
+
+  .buscador-campo .input-busqueda::placeholder {
+    font-size: 16px;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: IDENTIDAD HEADER Y BUSCADOR B1 V1 -->
+
+
+<!-- CLICKLOCAL: HEADER B1 PARANA Y FRANJA V1 -->
+<style>
+:root {
+  --clicklocal-bordo-b1: #681823;
+  --clicklocal-crema-b1: #F7F1E8;
+}
+
+.clicklocal-franja-superior {
+  position: relative;
+  z-index: 100;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 16px;
+  background: var(--clicklocal-bordo-b1);
+  color: var(--clicklocal-crema-b1);
+  font-family:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.15px;
+  text-align: center;
+}
+
+.header .clicklocal-logo-cl {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 11px !important;
+  background:
+    linear-gradient(
+      145deg,
+      #8a2933,
+      #d46a2c
+    ) !important;
+  color: #fffaf3 !important;
+  font-family:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: -0.5px;
+  box-shadow:
+    0 5px 14px rgba(104, 24, 35, 0.18);
+}
+
+.header .clicklocal-marca-texto {
+  min-width: 0;
+}
+
+.header .clicklocal-marca-linea {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.header .logo-texto {
+  flex: 0 0 auto;
+}
+
+.header .clicklocal-parana {
+  color: var(--clicklocal-bordo-b1);
+  font-family:
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.header .boton-secundario {
+  border-color: var(--clicklocal-bordo-b1) !important;
+  background: transparent !important;
+  color: var(--clicklocal-bordo-b1) !important;
+  box-shadow: none !important;
+}
+
+.header .boton-secundario:hover {
+  border-color: var(--clicklocal-bordo-b1) !important;
+  background: rgba(104, 24, 35, 0.07) !important;
+  color: var(--clicklocal-bordo-b1) !important;
+}
+
+@media (max-width: 640px) {
+  .clicklocal-franja-superior {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .header .clicklocal-logo-cl {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 16px !important;
+  }
+
+  .header .clicklocal-marca-linea {
+    gap: 5px;
+  }
+
+  .header .clicklocal-parana {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 430px) {
+  .header .clicklocal-parana {
+    font-size: 13px;
+  }
+
+  .header .clicklocal-ir-buscador {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: HEADER B1 PARANA Y FRANJA V1 -->
+
+
+<!-- CLICKLOCAL: HERO VISUAL B1 V1 -->
+<style>
+/*
+  Hero B1 aprobado:
+  solo modifica presentación del bloque principal.
+*/
+
+.hero {
+  position: relative;
+  overflow: visible;
+  box-sizing: border-box;
+  background:
+    radial-gradient(
+      circle at 88% 18%,
+      rgba(230, 181, 74, 0.28),
+      transparent 23%
+    ),
+    radial-gradient(
+      circle at 12% 20%,
+      rgba(217, 119, 53, 0.18),
+      transparent 20%
+    ),
+    #F7F1E8 !important;
+  padding:
+    clamp(48px, 8vw, 92px)
+    20px
+    42px !important;
+  color: #2D2926;
+}
+
+.hero-contenedor {
+  width: 100%;
+  max-width: 1180px !important;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero .etiqueta-hero {
+  display: block;
+  width: auto;
+  margin: 0 0 18px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #7A1F2B !important;
+  box-shadow: none !important;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 0.8rem !important;
+  font-weight: 900 !important;
+  line-height: 1.2;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.hero .titulo-hero {
+  max-width: 960px;
+  margin: 0 auto 20px !important;
+  color: #5B1720 !important;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif !important;
+  font-size:
+    clamp(3.2rem, 6.1vw, 5.35rem) !important;
+  font-weight: 700 !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.hero .subtitulo-hero {
+  max-width: 720px;
+  margin: 0 auto 28px !important;
+  color: #625A54 !important;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+  font-size:
+    clamp(1rem, 1.6vw, 1.22rem) !important;
+  font-weight: 400 !important;
+  line-height: 1.55 !important;
+}
+
+.hero #buscador-form {
+  display: flex;
+  align-items: center;
+  width: min(820px, 100%);
+  min-height: 64px;
+  box-sizing: border-box;
+  margin: 0 auto !important;
+  padding: 7px !important;
+  border: 1px solid rgba(122, 31, 43, 0.14);
+  border-radius: 999px !important;
+  background: #FFFFFF !important;
+  box-shadow:
+    0 14px 34px rgba(91, 23, 32, 0.10);
+}
+
+.hero #buscador-form .buscador-campo {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
+  background: transparent !important;
+}
+
+.hero #buscador-form .input-busqueda {
+  height: 48px !important;
+  padding-left: 20px !important;
+  padding-right: 62px !important;
+  background: transparent !important;
+  color: #2D2926 !important;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+  font-size: 1rem !important;
+  line-height: 48px !important;
+}
+
+.hero #buscador-form .input-busqueda::placeholder {
+  color: #918A85 !important;
+  font-size: 1rem !important;
+}
+
+.hero #buscador-form .boton-buscar {
+  flex: 0 0 auto;
+  min-width: 108px;
+  min-height: 48px;
+  margin: 0 !important;
+  padding: 12px 22px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: #7A1F2B !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+}
+
+.hero #buscador-form .boton-buscar:hover {
+  background: #5B1720 !important;
+  transform: none !important;
+}
+
+.hero #estado-microfono {
+  max-width: 820px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding:
+      44px
+      14px
+      32px !important;
+  }
+
+  .hero .etiqueta-hero {
+    margin-bottom: 15px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .hero .titulo-hero {
+    margin-bottom: 18px !important;
+    font-size:
+      clamp(2.55rem, 12vw, 3.35rem) !important;
+    line-height: 0.98 !important;
+  }
+
+  .hero .subtitulo-hero {
+    margin-bottom: 24px !important;
+    font-size: 0.96rem !important;
+    line-height: 1.5 !important;
+  }
+
+  .hero #buscador-form {
+    min-height: 60px;
+    padding: 6px !important;
+    border-radius: 22px !important;
+  }
+
+  .hero #buscador-form .buscador-campo {
+    height: 46px;
+  }
+
+  .hero #buscador-form .input-busqueda {
+    height: 46px !important;
+    padding-left: 14px !important;
+    padding-right: 56px !important;
+    font-size: 0.92rem !important;
+    line-height: 46px !important;
+  }
+
+  .hero #buscador-form .input-busqueda::placeholder {
+    font-size: 0.92rem !important;
+  }
+
+  .hero #buscador-form .boton-buscar {
+    min-width: auto;
+    min-height: 46px;
+    padding: 11px 15px !important;
+    font-size: 0.85rem !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: HERO VISUAL B1 V1 -->
+
+
+<!-- CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 ESTILOS -->
+<style>
+/*
+  Macrocategorías B1:
+  - ancho adaptable al texto;
+  - misma altura;
+  - una fila;
+  - flechas solo cuando existe desbordamiento.
+*/
+
+.macrocategorias-home {
+  display: none !important;
+}
+
+.macro-chips-b1-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: min(930px, 100%);
+  margin: 18px auto 0;
+}
+
+.macro-chips-b1-scroll {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 10px 5px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.macro-chips-b1-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.macro-chip-b1 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 8px 14px;
+  border: 1px solid rgba(122, 31, 43, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #7A1F2B;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  scroll-snap-align: start;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.macro-chip-b1:hover,
+.macro-chip-b1:focus-visible {
+  border-color: #7A1F2B;
+  background: #FFFDFC;
+  color: #5B1720;
+  transform: translateY(-1px);
+}
+
+.macro-chip-b1-activo {
+  border-color: #651722;
+  background: #651722;
+  color: #FFFDFC;
+}
+
+.macro-chip-b1-activo:hover,
+.macro-chip-b1-activo:focus-visible {
+  background: #4E121A;
+  color: #FFFDFC;
+}
+
+.macro-chips-b1-flecha {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(122, 31, 43, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 253, 252, 0.88);
+  color: #7A1F2B;
+  cursor: pointer;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 5px 14px rgba(91, 23, 32, 0.08);
+}
+
+.macro-chips-b1-flecha:hover {
+  border-color: #7A1F2B;
+  background: #FFFFFF;
+}
+
+.macro-chips-b1-flecha:disabled {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.macro-chips-b1-wrap.tiene-desborde
+  .macro-chips-b1-flecha {
+  display: inline-flex;
+}
+
+@media (max-width: 760px) {
+  .macro-chips-b1-wrap {
+    width: 100%;
+    gap: 5px;
+    margin-top: 16px;
+  }
+
+  .macro-chips-b1-scroll {
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .macro-chip-b1 {
+    min-height: 35px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .macro-chips-b1-flecha {
+    width: 34px;
+    height: 34px;
+    font-size: 23px;
+  }
+}
+
+@media (max-width: 430px) {
+  .macro-chip-b1 {
+    padding-left: 11px;
+    padding-right: 11px;
+    font-size: 0.77rem;
+  }
+
+  .macro-chips-b1-flecha {
+    width: 32px;
+    height: 32px;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 ESTILOS -->
+
+
+<!-- CLICKLOCAL: MACRO ACTIVA VISIBLE Y BORDE V1 -->
+<style>
+/*
+  La macrocategoría seleccionada:
+  - permanece visible;
+  - tiene fondo oscuro;
+  - muestra un borde claro y reconocible.
+*/
+
+.macro-chip-b1-activo {
+  position: relative;
+  border: 2px solid #4E121A !important;
+  background: #651722 !important;
+  color: #FFFDFC !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 253, 252, 0.72),
+    0 6px 16px rgba(78, 18, 26, 0.18);
+  font-weight: 900;
+}
+
+.macro-chip-b1-activo:hover,
+.macro-chip-b1-activo:focus-visible {
+  border-color: #3F0E15 !important;
+  background: #4E121A !important;
+  color: #FFFDFC !important;
+}
+
+.macro-chip-b1-activo:focus-visible {
+  outline: 3px solid rgba(101, 23, 34, 0.24);
+  outline-offset: 3px;
+}
+</style>
+<!-- FIN CLICKLOCAL: MACRO ACTIVA VISIBLE Y BORDE V1 -->
+
+
+<!-- CLICKLOCAL: SEPARACION FLECHAS MACROS V1 -->
+<style>
+/*
+  Solo separa las flechas de los chips vecinos.
+  No cambia tamaños, letras, colores ni forma.
+*/
+
+.macro-chips-b1-anterior {
+  margin-right: 9px !important;
+}
+
+.macro-chips-b1-siguiente {
+  margin-left: 9px !important;
+}
+</style>
+<!-- FIN CLICKLOCAL: SEPARACION FLECHAS MACROS V1 -->
+<!-- CLICKLOCAL: ESTILOS COMERCIOS PARA DESCUBRIR B1 V1 -->
+<style>
+/* ==========================================================
+   CLICKLOCAL — COMERCIOS PARA DESCUBRIR
+   Proporción total aproximada: 15 de ancho por 6 de alto.
+   Mitad fotografía y mitad información.
+   ========================================================== */
+
+.comercios-descubrir-b1 {
+  position: relative;
+  padding: 48px 0 54px;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 8% 18%,
+      rgba(221, 143, 73, 0.20),
+      transparent 26%
+    ),
+    radial-gradient(
+      circle at 92% 80%,
+      rgba(239, 199, 100, 0.12),
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      #4F111A 0%,
+      #6F1825 52%,
+      #851F2D 100%
+    );
+
+  color: #FFF9F0;
+}
+
+.comercios-descubrir-b1::before,
+.comercios-descubrir-b1::after {
+  position: absolute;
+  content: "";
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.comercios-descubrir-b1::before {
+  width: 290px;
+  height: 290px;
+  top: -210px;
+  right: 8%;
+  border: 1px solid rgba(255, 249, 240, 0.12);
+}
+
+.comercios-descubrir-b1::after {
+  width: 220px;
+  height: 220px;
+  left: 6%;
+  bottom: -170px;
+  border: 1px solid rgba(255, 249, 240, 0.10);
+}
+
+.comercios-descubrir-b1 > .contenedor {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.comercios-descubrir-b1-encabezado {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.comercios-descubrir-b1-etiqueta {
+  margin: 0 0 7px;
+  color: #E7B85E;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.comercios-descubrir-b1-titulo {
+  margin: 0;
+  color: #FFF9F0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(34px, 4vw, 49px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+}
+
+.comercios-descubrir-b1-bajada {
+  max-width: 360px;
+  margin: 0 0 4px;
+  color: rgba(255, 249, 240, 0.78);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.comercios-descubrir-b1-grilla {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 20px;
+}
+
+.comercio-descubrir-b1-card {
+  position: relative;
+  min-width: 0;
+
+  /*
+    15 de ancho por 6 de alto:
+    15 / 6 = 5 / 2.
+  */
+  aspect-ratio: 5 / 2;
+
+  overflow: hidden;
+
+  display: grid;
+
+  grid-template-rows:
+    1fr
+    1fr;
+
+  border-radius: 22px;
+
+  background: #FFF9F0;
+
+  box-shadow:
+    0 17px 36px rgba(30, 5, 10, 0.25);
+}
+
+.comercio-descubrir-b1-imagen-enlace {
+  min-width: 0;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: 22px 22px 0 0;
+  background: #E9DDD0;
+}
+
+.comercio-descubrir-b1-imagen {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 22px 22px 0 0;
+}
+
+.comercio-descubrir-b1-informacion {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+
+  padding:
+    11px
+    16px
+    11px
+    76px;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto;
+
+  align-items: center;
+  gap: 12px;
+
+  border-radius: 0 0 22px 22px;
+
+  background: #FFF9F0;
+}
+
+.comercio-descubrir-b1-logo {
+  position: absolute;
+  z-index: 2;
+
+  left: 16px;
+  top: 0;
+
+  width: 54px;
+  height: 54px;
+
+  box-sizing: border-box;
+  overflow: hidden;
+
+  transform: translateY(-50%);
+
+  border: 4px solid #FFF9F0;
+  border-radius: 17px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #6A1723,
+      #9C3D30
+    );
+
+  color: #FFF9F0;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+
+  box-shadow:
+    0 8px 18px rgba(68, 20, 22, 0.20);
+
+  display: grid;
+  place-items: center;
+}
+
+.comercio-descubrir-b1-logo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+.comercio-descubrir-b1-nombre {
+  min-width: 0;
+  margin: 0;
+
+  color: #53131D;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: clamp(17px, 1.55vw, 21px);
+  font-weight: 700;
+  line-height: 1.05;
+
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.comercio-descubrir-b1-boton {
+  min-height: 36px;
+  padding: 8px 13px;
+
+  border-radius: 999px;
+
+  background: #7A1F2B;
+  color: #FFF9F0;
+
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.1;
+
+  text-decoration: none;
+  white-space: nowrap;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.comercio-descubrir-b1-boton:hover,
+.comercio-descubrir-b1-boton:focus-visible {
+  background: #5E1420;
+}
+
+
+/* TABLET */
+
+@media (max-width: 900px) {
+  .comercios-descubrir-b1-grilla {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .comercio-descubrir-b1-card:last-child {
+    grid-column: 1 / -1;
+    width: calc(50% - 10px);
+    justify-self: center;
+  }
+}
+
+
+/* CELULAR */
+
+@media (max-width: 640px) {
+  .comercios-descubrir-b1 {
+    padding: 34px 0 38px;
+  }
+
+  .comercios-descubrir-b1 > .contenedor {
+    padding: 0 14px;
+  }
+
+  .comercios-descubrir-b1-encabezado {
+    margin-bottom: 18px;
+    display: block;
+  }
+
+  .comercios-descubrir-b1-etiqueta {
+    margin-bottom: 6px;
+    font-size: 10px;
+  }
+
+  .comercios-descubrir-b1-titulo {
+    font-size: 31px;
+  }
+
+  .comercios-descubrir-b1-bajada {
+    max-width: none;
+    margin-top: 8px;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .comercios-descubrir-b1-grilla {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .comercio-descubrir-b1-card,
+  .comercio-descubrir-b1-card:last-child {
+    grid-column: auto;
+    width: 100%;
+    aspect-ratio: 5 / 2;
+    border-radius: 19px;
+  }
+
+  .comercio-descubrir-b1-imagen-enlace,
+  .comercio-descubrir-b1-imagen {
+    border-radius: 19px 19px 0 0;
+  }
+
+  .comercio-descubrir-b1-informacion {
+    padding:
+      8px
+      11px
+      8px
+      66px;
+
+    gap: 8px;
+
+    border-radius: 0 0 19px 19px;
+  }
+
+  .comercio-descubrir-b1-logo {
+    left: 12px;
+
+    width: 46px;
+    height: 46px;
+
+    border-width: 3px;
+    border-radius: 14px;
+
+    font-size: 15px;
+  }
+
+  .comercio-descubrir-b1-nombre {
+    font-size: clamp(14px, 4.2vw, 18px);
+    line-height: 1.02;
+  }
+
+  .comercio-descubrir-b1-boton {
+    min-height: 32px;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+}
+
+
+/* PANTALLAS MUY ANGOSTAS */
+
+@media (max-width: 390px) {
+  .comercio-descubrir-b1-informacion {
+    padding-left: 62px;
+
+    grid-template-columns:
+      minmax(0, 1fr)
+      auto;
+
+    gap: 6px;
+  }
+
+  .comercio-descubrir-b1-nombre {
+    font-size: 14px;
+  }
+
+  .comercio-descubrir-b1-boton {
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 10px;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: ESTILOS COMERCIOS PARA DESCUBRIR B1 V1 -->
 </head>
 
 <body>
 
-  <header class="header">
+  <!-- CLICKLOCAL: FRANJA SUPERIOR B1 V1 -->
+<div class="clicklocal-franja-superior">
+  Comercios, productos y servicios de Paraná en un solo lugar
+</div>
+<!-- FIN CLICKLOCAL: FRANJA SUPERIOR B1 V1 -->
+
+<header class="header">
     <div class="header-contenedor">
 
       <div class="logo-zona">
-        <div class="logo-circulo">C</div>
+        <div class="logo-circulo clicklocal-logo-cl">CL</div>
 
-        <div>
-          <h1 class="logo-texto">ClickLocal</h1>
-          <p class="ciudad">📍 Paraná</p>
-        </div>
+        <div class="clicklocal-marca-texto">
+  <div class="clicklocal-marca-linea">
+    <h1 class="logo-texto">ClickLocal</h1>
+    <span class="clicklocal-parana">Paraná</span>
+  </div>
+</div>
       </div>
 
       <nav class="nav">
+        {% if historias_publicas %}
+        <a
+          href="#historiasClickLocal"
+          class="header-historias-b1"
+          aria-label="Ir a las historias de comercios"
+        >
+          Historias ↓
+        </a>
+        {% endif %}
+
+        <a href="#buscador-form" class="clicklocal-ir-buscador" aria-label="Ir al buscador">Ir al buscador</a>
+
         {% if busqueda %}
           <a href="/index.html" class="nav-link">Galería pública</a>
         {% endif %}
@@ -1879,15 +3096,15 @@
   <section class="hero">
     <div class="hero-contenedor">
 
-      <p class="etiqueta-hero">La vidriera digital de tu ciudad</p>
+      <p class="etiqueta-hero">La ciudad, más cerca</p>
 
       <h2 class="titulo-hero">
-        Encontrá lo que buscás,<br />
-        cerca tuyo.
+        Descubrí lo que Paraná tiene<br />
+        para ofrecer
       </h2>
 
       <p class="subtitulo-hero">
-        Productos, comercios, emprendimientos y servicios de Paraná en un solo lugar.
+        Encontrá productos, servicios, experiencias y comercios locales. Mirá, descubrí y contactá directamente por WhatsApp.
       </p>
 
       <!-- CLICKLOCAL: MICROFONO BUSCADOR V2 -->
@@ -1905,7 +3122,7 @@
             type="text"
             name="q"
             value="{{ busqueda or '' }}"
-            placeholder="Buscar: mate, hamburguesa, zapatillas, electricista..."
+            placeholder="¿Qué estás buscando en Paraná?"
             enterkeyhint="search"
           />
 
@@ -1952,7 +3169,45 @@
       ></p>
       <!-- FIN CLICKLOCAL: MICROFONO BUSCADOR V2 -->
 
-      
+<!-- CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 -->
+<div
+  class="macro-chips-b1-wrap"
+  aria-label="Macrocategorías de ClickLocal"
+>
+  <button
+    class="macro-chips-b1-flecha macro-chips-b1-anterior"
+    type="button"
+    aria-label="Ver macrocategorías anteriores"
+  >
+    ‹
+  </button>
+
+  <div
+    class="macro-chips-b1-scroll"
+    id="macroChipsB1Scroll"
+    tabindex="0"
+  >
+    {% for macro in macrocategorias %}
+      <a
+        href="{{ url_for('inicio', macro=macro.slug) }}"
+        class="macro-chip-b1{% if macro_slug == macro.slug %} macro-chip-b1-activo{% endif %}"
+      >
+        {{ macro.nombre }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <button
+    class="macro-chips-b1-flecha macro-chips-b1-siguiente"
+    type="button"
+    aria-label="Ver más macrocategorías"
+  >
+    ›
+  </button>
+</div>
+<!-- FIN CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 -->
+
+
         <!-- RESPUESTA AMIGABLE DEL BUSCADOR EN HERO -->
         {% if busqueda %}
           {% set frases_buscador = [
@@ -2006,46 +3261,378 @@
 
 
 
-  {% if historias_publicas %}
+  <main>
+
+    {% if not busqueda %}
+
+    <!-- CLICKLOCAL: MACROCATEGORÍAS -->
+    <section class="seccion macrocategorias-home">
+      <div class="contenedor">
+
+        <p class="titulo-chico macrocategorias-etiqueta">
+          MACROCATEGORÍAS
+        </p>
+
+        <h2 class="titulo-seccion macrocategorias-titulo">
+          Elegí qué querés explorar
+        </h2>
+
+        <div class="macrocategorias-grilla">
+          {% for macro in macrocategorias %}
+            <a
+              href="{{ url_for('inicio', macro=macro.slug) }}"
+              class="macrocategoria-card{% if macro_slug == macro.slug %} macrocategoria-card-activa{% endif %}"
+            >
+              <span class="macrocategoria-icono" aria-hidden="true">
+                {{ macro.icono }}
+              </span>
+
+              <span class="macrocategoria-nombre">
+                {{ macro.nombre }}
+              </span>
+
+              <span class="macrocategoria-flecha" aria-hidden="true">
+                ›
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+
+        {% if macro_activa %}
+          <div class="macrocategoria-seleccionada">
+            <span>
+              Estás viendo:
+              <strong>{{ macro_activa.nombre }}</strong>
+            </span>
+
+            <a href="{{ url_for('inicio') }}">
+              Ver todo ClickLocal
+            </a>
+          </div>
+        {% endif %}
+
+      </div>
+    </section>
+    <!-- FIN CLICKLOCAL: MACROCATEGORÍAS -->
+
+    <!-- CATEGORÍAS -->
+    <section class="seccion categorias">
+      <div class="contenedor">
+
+        <div class="categorias-b1-encabezado">
+          <div class="categorias-b1-titulos">
+            <p class="categorias-b1-etiqueta">
+              EXPLORÁ POR RUBRO
+            </p>
+
+            <h2 class="categorias-b1-titulo">
+              Todo Paraná, por categorías
+            </h2>
+          </div>
+
+          <button
+            class="categorias-b1-ver-todas"
+            id="categoriasVerTodas"
+            type="button"
+            aria-expanded="false"
+            aria-controls="categoriasHome"
+          >
+            Ver todas →
+          </button>
+        </div>
+
+        <div class="categorias-scroll-wrap">
+
+          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(-1)">←</button>
+
+          <div class="grilla-categorias categorias-scroll" id="categoriasHome">
+
+            {% set imagenes_categorias = {
+              "Gastronomía": "gastronomia.webp",
+              "Alimentos y bebidas": "alimentos-bebidas.webp",
+              "Indumentaria": "indumentaria.webp",
+              "Calzado y accesorios": "calzado-accesorios.webp",
+              "Joyería, relojería y accesorios": "joyeria-relojeria-accesorios.webp",
+              "Hogar, bazar y decoración": "hogar-bazar-decoracion.webp",
+              "Mueblería": "muebleria.webp",
+              "Viveros y jardinería": "viveros-jardineria.webp",
+              "Veterinaria y mascotas": "veterinaria-mascotas.webp",
+              "Tecnología": "tecnologia.webp",
+              "Autos y motos": "autos-motos.webp",
+              "Salud y bienestar": "salud-bienestar.webp",
+              "Belleza y cuidado personal": "belleza-cuidado-personal.webp",
+              "Servicios para el hogar": "servicios-para-el-hogar.webp",
+              "Gráfica, diseño y personalizados": "grafica-diseno-personalizados.webp",
+              "Educación y cursos": "educacion-cursos.webp",
+              "Turismo y excursiones": "turismo-excursiones.webp",
+              "Regalos, juguetes y artesanías": "regalos-juguetes-artesanias.webp",
+              "Mercería y manualidades": "merceria-manualidades.webp",
+              "Librería, papelería e insumos comerciales": "libreria-papeleria-insumos-comerciales.webp",
+              "Deportes": "deportes.webp",
+              "Cine y Teatro": "cine-teatro.webp"
+            } %}
+
+            {% for categoria_opcion in CATEGORIAS_HOME %}
+              {% set imagen_categoria =
+                imagenes_categorias.get(categoria_opcion)
+              %}
+
+              <a
+                href="{{ url_for('inicio', q=categoria_opcion) }}"
+                class="categoria-card"
+              >
+                <span
+                  class="categoria-card-circulo{% if not imagen_categoria %} categoria-card-circulo-sin-imagen{% endif %}"
+                  aria-hidden="true"
+                >
+                  {% if imagen_categoria %}
+                    <img
+                      src="{{ url_for(
+                        'static',
+                        filename='img/categorias/' ~ imagen_categoria
+                      ) }}"
+                      alt=""
+                      class="categoria-card-imagen"
+                      loading="lazy"
+                      decoding="async"
+                      onerror="this.hidden=true; this.parentElement.classList.add('categoria-card-circulo-sin-imagen');"
+                    >
+                  {% endif %}
+
+                  <span class="categoria-card-inicial">
+                    {{ categoria_opcion[:1] }}
+                  </span>
+                </span>
+
+                <span class="categoria-card-texto">
+                  {{ categoria_opcion }}
+                </span>
+              </a>
+            {% endfor %}
+
+          </div>
+
+          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(1)">→</button>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    {% endif %}
+
+    {% if mostrar_cines_teatros and not busqueda %}
+    <!-- CLICKLOCAL: ACCESO CINES Y TEATROS -->
+    <section class="seccion cines-teatros-home">
+      <div class="contenedor">
+        <a
+          href="{{ url_for('cines_y_teatros') }}"
+          class="cines-teatros-home-card"
+        >
+          <img
+            src="{{ url_for('static', filename='cines-y-teatros-portada.png') }}"
+            alt="Cines y Teatros de Paraná"
+            class="cines-teatros-home-imagen"
+          >
+
+          <div class="cines-teatros-home-contenido">
+            <p class="cines-teatros-home-etiqueta">
+              Ocio y experiencias
+            </p>
+
+            <h2 class="cines-teatros-home-titulo">
+              Cines y Teatros
+            </h2>
+
+            <p class="cines-teatros-home-texto">
+              Accedé a las carteleras, funciones y entradas
+              desde los sitios oficiales.
+            </p>
+
+            <span class="cines-teatros-home-boton">
+              Ver cines y teatros →
+            </span>
+          </div>
+        </a>
+      </div>
+    </section>
+    <!-- FIN CLICKLOCAL: ACCESO CINES Y TEATROS -->
+    {% endif %}
+
+    <!-- CLICKLOCAL: DESTACADOS SOLO POR MACROCATEGORIA V1 -->
+    {% if busqueda or macro_activa %}
+    <!-- LO MÁS VISTO / RESULTADOS -->
+    <section
+      class="seccion publicaciones-seccion publicaciones-destacadas{% if busqueda %} publicaciones-resultados{% endif %}"
+    >
+      <div class="contenedor">
+
+        {% set publicaciones_destacadas = publicaciones if busqueda else publicaciones_mas_vistas %}
+
+        {% if busqueda %}
+          <div
+            class="publicaciones-encabezado-b1 publicaciones-encabezado-resultados"
+          >
+            <div>
+              <p class="publicaciones-etiqueta-b1">
+                RESULTADOS
+              </p>
+
+              <h2 class="publicaciones-titulo-b1">
+                Resultados para "{{ busqueda }}"
+              </h2>
+            </div>
+          </div>
+        {% else %}
+          <div class="publicaciones-encabezado-b1">
+            <div>
+              <p class="publicaciones-etiqueta-b1">
+                ELEGIDOS POR LA GENTE
+              </p>
+
+              <h2 class="publicaciones-titulo-b1">
+                Lo más visto esta semana
+              </h2>
+
+              <p class="publicaciones-contexto-b1">
+                {{ macro_activa.nombre }}
+              </p>
+            </div>
+
+            {% if publicaciones_destacadas|length > 8 %}
+              <button
+                class="publicaciones-ver-mas-b1"
+                id="destacadosVerMas"
+                type="button"
+                aria-expanded="false"
+                aria-controls="grillaPublicacionesDestacadas"
+              >
+                Ver más →
+              </button>
+            {% endif %}
+          </div>
+        {% endif %}
+
+                <div
+          class="grilla-publicaciones"
+          id="grillaPublicacionesDestacadas"
+        >
+
+          {% if publicaciones_destacadas %}
+
+            {% for pub in publicaciones_destacadas %}
+
+              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}{% if not busqueda and loop.index > 8 %} publicacion-card-extra{% endif %}">
+                {% if pub.tiene_historia %}
+                  <span class="publicacion-historia-indicador">
+                    Historia
+                  </span>
+                {% endif %}
+
+                {% if pub.categoria == 'Cine y Teatro' %}
+                  <div class="cartelera-header">CARTELERA</div>
+                {% endif %}
+
+                {% if pub.imagen_url %}
+                  <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" />
+                {% else %}
+                  <img src="/img/mate1.jpg" alt="{{ pub.nombre }}" />
+                {% endif %}
+
+                <div class="publicacion-info">
+                  <p class="nombre-comercio">{{ pub.comercio }}</p>
+                  <h3>{{ pub.nombre }}</h3>
+                  <p class="precio">{{ pub.precio|precio_arg }}</p>
+                  <p class="ubicacion">{{ pub.direccion_mostrar }}</p>
+                </div>
+              </a>
+
+            {% endfor %}
+
+          {% else %}
+
+            <div class="panel-vacio">
+              {% if busqueda and comercios_relacionados %}
+                También encontramos locales que pueden tener "{{ busqueda }}". Mirá las opciones disponibles más abajo.
+              {% elif busqueda %}
+                Por ahora no encontramos locales ni publicaciones para "{{ busqueda }}". Probá con otra búsqueda.
+              {% elif publicaciones %}
+                Todavía no hay publicaciones visitadas en {{ macro_activa.nombre }} durante esta semana.
+              {% else %}
+                Todavía no hay publicaciones cargadas en {{ macro_activa.nombre }}.
+              {% endif %}
+            </div>
+
+          {% endif %}
+
+        </div>
+
+      </div>
+    </section>
+    <!-- FIN LO MÁS VISTO / RESULTADOS -->
+    {% endif %}
+
+{% if historias_publicas %}
   <section
     id="historiasClickLocal"
-    class="historias-home"
+    class="historias-home historias-home-b1"
     aria-label="Historias de comercios"
   >
     <div class="contenedor">
       <div class="historias-home-cabecera">
         <div>
-          <p class="titulo-chico">HISTORIAS</p>
-          <h2>Ahora en los comercios</h2>
+          <p class="historias-b1-etiqueta">LO QUE ESTÁ PASANDO HOY</p>
+          <h2>Historias de comercios</h2>
         </div>
       </div>
 
-      <div class="historias-scroll">
-        {% for grupo in historias_publicas %}
-          <button
-            type="button"
-            class="historia-circulo-boton"
-            data-historia-grupo="{{ loop.index0 }}"
-            aria-label="Ver historias de {{ grupo.nombre_negocio }}"
-          >
-            <span class="historia-circulo-aro">
-              <span class="historia-circulo-interior">
-                {% if grupo.logo_url %}
-                  <img
-                    src="{{ grupo.logo_url }}"
-                    alt="{{ grupo.nombre_negocio }}"
-                  />
-                {% else %}
-                  {{ grupo.iniciales }}
-                {% endif %}
-              </span>
-            </span>
+      <div class="historias-scroll-wrap">
+        <button
+          class="flecha-historias flecha-historias-anterior"
+          type="button"
+          onclick="moverHistoriasHome(-1)"
+          aria-label="Mover historias hacia la izquierda"
+        >
+          ←
+        </button>
 
-            <span class="historia-circulo-nombre">
-              {{ grupo.nombre_negocio }}
-            </span>
-          </button>
-        {% endfor %}
+        <div class="historias-scroll" id="historiasHome">
+          {% for grupo in historias_publicas %}
+            <button
+              type="button"
+              class="historia-circulo-boton"
+              data-historia-grupo="{{ loop.index0 }}"
+              aria-label="Ver historias de {{ grupo.nombre_negocio }}"
+            >
+              <span class="historia-circulo-aro">
+                <span class="historia-circulo-interior">
+                  {% if grupo.logo_url %}
+                    <img
+                      src="{{ grupo.logo_url }}"
+                      alt="{{ grupo.nombre_negocio }}"
+                    />
+                  {% else %}
+                    {{ grupo.iniciales }}
+                  {% endif %}
+                </span>
+              </span>
+
+              <span class="historia-circulo-nombre">
+                {{ grupo.nombre_negocio }}
+              </span>
+            </button>
+          {% endfor %}
+        </div>
+
+        <button
+          class="flecha-historias flecha-historias-siguiente"
+          type="button"
+          onclick="moverHistoriasHome(1)"
+          aria-label="Mover historias hacia la derecha"
+        >
+          →
+        </button>
       </div>
     </div>
   </section>
@@ -2143,213 +3730,6 @@
   </div>
   {% endif %}
 
-  <main>
-
-    {% if not busqueda %}
-
-    <!-- CLICKLOCAL: MACROCATEGORÍAS -->
-    <section class="seccion macrocategorias-home">
-      <div class="contenedor">
-
-        <p class="titulo-chico macrocategorias-etiqueta">
-          MACROCATEGORÍAS
-        </p>
-
-        <h2 class="titulo-seccion macrocategorias-titulo">
-          Elegí qué querés explorar
-        </h2>
-
-        <div class="macrocategorias-grilla">
-          {% for macro in macrocategorias %}
-            <a
-              href="{{ url_for('inicio', macro=macro.slug) }}"
-              class="macrocategoria-card{% if macro_slug == macro.slug %} macrocategoria-card-activa{% endif %}"
-            >
-              <span class="macrocategoria-icono" aria-hidden="true">
-                {{ macro.icono }}
-              </span>
-
-              <span class="macrocategoria-nombre">
-                {{ macro.nombre }}
-              </span>
-
-              <span class="macrocategoria-flecha" aria-hidden="true">
-                ›
-              </span>
-            </a>
-          {% endfor %}
-        </div>
-
-        {% if macro_activa %}
-          <div class="macrocategoria-seleccionada">
-            <span>
-              Estás viendo:
-              <strong>{{ macro_activa.nombre }}</strong>
-            </span>
-
-            <a href="{{ url_for('inicio') }}">
-              Ver todo ClickLocal
-            </a>
-          </div>
-        {% endif %}
-
-      </div>
-    </section>
-    <!-- FIN CLICKLOCAL: MACROCATEGORÍAS -->
-
-    <!-- CATEGORÍAS -->
-    <section class="seccion categorias">
-      <div class="contenedor">
-
-        <p class="titulo-chico">CATEGORÍAS</p>
-        <h2 class="titulo-seccion">Explorá por rubro</h2>
-
-        <div class="categorias-scroll-wrap">
-
-          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(1)">←</button>
-
-          <div class="grilla-categorias categorias-scroll" id="categoriasHome">
-
-            {% for categoria_opcion in CATEGORIAS_HOME %}
-              <a
-                href="{{ url_for('inicio', q=categoria_opcion) }}"
-                class="categoria-card"
-              >
-                <span class="categoria-card-texto">{{ categoria_opcion }}</span>
-              </a>
-            {% endfor %}
-
-          </div>
-
-          <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(-1)">→</button>
-
-        </div>
-
-      </div>
-    </section>
-
-
-    {% endif %}
-
-    {% if mostrar_cines_teatros and not busqueda %}
-    <!-- CLICKLOCAL: ACCESO CINES Y TEATROS -->
-    <section class="seccion cines-teatros-home">
-      <div class="contenedor">
-        <a
-          href="{{ url_for('cines_y_teatros') }}"
-          class="cines-teatros-home-card"
-        >
-          <img
-            src="{{ url_for('static', filename='cines-y-teatros-portada.png') }}"
-            alt="Cines y Teatros de Paraná"
-            class="cines-teatros-home-imagen"
-          >
-
-          <div class="cines-teatros-home-contenido">
-            <p class="cines-teatros-home-etiqueta">
-              Ocio y experiencias
-            </p>
-
-            <h2 class="cines-teatros-home-titulo">
-              Cines y Teatros
-            </h2>
-
-            <p class="cines-teatros-home-texto">
-              Accedé a las carteleras, funciones y entradas
-              desde los sitios oficiales.
-            </p>
-
-            <span class="cines-teatros-home-boton">
-              Ver cines y teatros →
-            </span>
-          </div>
-        </a>
-      </div>
-    </section>
-    <!-- FIN CLICKLOCAL: ACCESO CINES Y TEATROS -->
-    {% endif %}
-
-    <!-- CLICKLOCAL: DESTACADOS SOLO POR MACROCATEGORIA V1 -->
-    {% if busqueda or macro_activa %}
-    <!-- LO MÁS VISTO / RESULTADOS -->
-    <section class="seccion">
-      <div class="contenedor">
-
-        {% if busqueda %}
-          <p class="titulo-chico">
-            RESULTADOS
-          </p>
-        {% else %}
-          <p class="titulo-chico titulo-editorial-local">
-            Destacados en Paraná
-          </p>
-        {% endif %}
-
-        <h2 class="titulo-seccion">
-          {% if busqueda %}
-            Resultados para "{{ busqueda }}"
-          {% else %}
-            Lo más visto en {{ macro_activa.nombre }}
-          {% endif %}
-        </h2>
-
-        {% set publicaciones_destacadas = publicaciones if busqueda else publicaciones_mas_vistas %}
-
-        <div class="grilla-publicaciones">
-
-          {% if publicaciones_destacadas %}
-
-            {% for pub in publicaciones_destacadas %}
-
-              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
-                {% if pub.tiene_historia %}
-                  <span class="publicacion-historia-indicador">
-                    Historia
-                  </span>
-                {% endif %}
-
-                {% if pub.categoria == 'Cine y Teatro' %}
-                  <div class="cartelera-header">CARTELERA</div>
-                {% endif %}
-
-                {% if pub.imagen_url %}
-                  <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" />
-                {% else %}
-                  <img src="/img/mate1.jpg" alt="{{ pub.nombre }}" />
-                {% endif %}
-
-                <div class="publicacion-info">
-                  <p class="nombre-comercio">{{ pub.comercio }}</p>
-                  <h3>{{ pub.nombre }}</h3>
-                  <p class="precio">{{ pub.precio|precio_arg }}</p>
-                  <p class="ubicacion">{{ pub.direccion_mostrar }}</p>
-                </div>
-              </a>
-
-            {% endfor %}
-
-          {% else %}
-
-            <div class="panel-vacio">
-              {% if busqueda and comercios_relacionados %}
-                También encontramos locales que pueden tener "{{ busqueda }}". Mirá las opciones disponibles más abajo.
-              {% elif busqueda %}
-                Por ahora no encontramos locales ni publicaciones para "{{ busqueda }}". Probá con otra búsqueda.
-              {% elif publicaciones %}
-                Todavía no hay publicaciones visitadas en {{ macro_activa.nombre }} durante esta semana.
-              {% else %}
-                Todavía no hay publicaciones cargadas en {{ macro_activa.nombre }}.
-              {% endif %}
-            </div>
-
-          {% endif %}
-
-        </div>
-
-      </div>
-    </section>
-    <!-- FIN LO MÁS VISTO / RESULTADOS -->
-    {% endif %}
 
     <!-- LOCALES COMPACTOS POR LISTAS BUSCABLES -->
     {% if busqueda and comercios_relacionados %}
@@ -2419,16 +3799,119 @@
 
 
 
+<!-- CLICKLOCAL: COMERCIOS PARA DESCUBRIR B1 V1 -->
+{% if not busqueda and macro_activa and comercios_para_descubrir %}
+<section
+  class="comercios-descubrir-b1"
+  aria-labelledby="comerciosDescubrirTitulo"
+>
+  <div class="contenedor">
+
+    <div class="comercios-descubrir-b1-encabezado">
+      <div>
+        <p class="comercios-descubrir-b1-etiqueta">
+          NEGOCIOS DE PARANÁ
+        </p>
+
+        <h2
+          class="comercios-descubrir-b1-titulo"
+          id="comerciosDescubrirTitulo"
+        >
+          Comercios para descubrir
+        </h2>
+      </div>
+
+      <p class="comercios-descubrir-b1-bajada">
+        Conocé propuestas locales y recorré sus vidrieras.
+      </p>
+    </div>
+
+    <div class="comercios-descubrir-b1-grilla">
+
+      {% for comercio_descubrir in comercios_para_descubrir %}
+      <article class="comercio-descubrir-b1-card">
+
+        <a
+          href="{{ comercio_descubrir.perfil_url }}"
+          class="comercio-descubrir-b1-imagen-enlace"
+          aria-label="Ver {{ comercio_descubrir.nombre_negocio }}"
+        >
+          <img
+            src="{{ comercio_descubrir.imagen_url }}"
+            alt="{{ comercio_descubrir.nombre_negocio }}"
+            class="comercio-descubrir-b1-imagen"
+            loading="lazy"
+            decoding="async"
+          />
+        </a>
+
+        <div class="comercio-descubrir-b1-informacion">
+
+          <div
+            class="comercio-descubrir-b1-logo"
+            aria-hidden="true"
+          >
+            {% if comercio_descubrir.logo_url %}
+              <img
+                src="{{ comercio_descubrir.logo_url }}"
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            {% else %}
+              <span>
+                {{ comercio_descubrir.iniciales }}
+              </span>
+            {% endif %}
+          </div>
+
+          <h3 class="comercio-descubrir-b1-nombre">
+            {{ comercio_descubrir.nombre_negocio }}
+          </h3>
+
+          <a
+            href="{{ comercio_descubrir.perfil_url }}"
+            class="comercio-descubrir-b1-boton"
+          >
+            Ver comercio
+            <span aria-hidden="true">→</span>
+          </a>
+
+        </div>
+
+      </article>
+      {% endfor %}
+
+    </div>
+
+  </div>
+</section>
+{% endif %}
+<!-- FIN CLICKLOCAL: COMERCIOS PARA DESCUBRIR B1 V1 -->
+
     <!-- CLICKLOCAL: RECIENTES SOLO POR MACROCATEGORIA V1 -->
     {% if not busqueda and macro_activa %}
     <!-- PUBLICACIONES RECIENTES -->
-    <section class="seccion">
+    <section
+      class="seccion publicaciones-seccion publicaciones-recientes"
+    >
       <div class="contenedor">
 
-        <p class="titulo-chico titulo-editorial-local">Lo más reciente en Paraná</p>
-        <h2 class="titulo-seccion">
-          Publicaciones recientes en {{ macro_activa.nombre }}
-        </h2>
+        <div class="publicaciones-encabezado-b1">
+          <div>
+            <p class="publicaciones-etiqueta-b1">
+              RECIÉN LLEGADOS
+            </p>
+
+            <h2 class="publicaciones-titulo-b1">
+              Publicaciones recientes
+            </h2>
+
+            <p class="publicaciones-contexto-b1">
+              {{ macro_activa.nombre }}
+            </p>
+          </div>
+        </div>
 
         <div
           class="grilla-publicaciones"
@@ -2450,9 +3933,9 @@
                 {% endif %}
 
                 {% if pub.imagen_url %}
-                  <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" />
+                  <img src="{{ pub.imagen_url }}" alt="{{ pub.nombre }}" loading="lazy" decoding="async" />
                 {% else %}
-                  <img src="/img/mate1.jpg" alt="{{ pub.nombre }}" />
+                  <img src="/img/mate1.jpg" alt="{{ pub.nombre }}" loading="lazy" decoding="async" />
                 {% endif %}
 
                 <div class="publicacion-info">
@@ -2479,28 +3962,35 @@
       </div>
     </section>
 
-    {% if not busqueda %}
-      <div
-        id="scrollPublicacionesSentinel"
-        aria-hidden="true"
-        style="height:1px"
-      ></div>
+        {% if not busqueda %}
+      <div class="publicaciones-carga-manual-b1">
+        <button
+          id="mostrarMasPublicaciones"
+          class="publicaciones-mostrar-mas-b1"
+          type="button"
+          aria-controls="grillaPublicacionesRecientes"
+        >
+          Mostrar más publicaciones →
+        </button>
 
-      <p
-        id="scrollPublicacionesEstado"
-        style="
-          text-align:center;
-          padding:12px 0;
-          display:none;
-        "
-      >
-        Cargando publicaciones...
-      </p>
+        <p
+          id="scrollPublicacionesEstado"
+          class="publicaciones-carga-estado-b1"
+          aria-live="polite"
+          hidden
+        >
+          Cargando publicaciones...
+        </p>
+      </div>
     {% endif %}
 
     {% endif %}
 
-  </main>
+
+
+
+
+</main>
 
 
   <footer class="footer">
@@ -2515,23 +4005,81 @@ document.addEventListener("DOMContentLoaded", function () {
     "grillaPublicacionesRecientes"
   );
 
-  const sentinel = document.getElementById(
-    "scrollPublicacionesSentinel"
+  const boton = document.getElementById(
+    "mostrarMasPublicaciones"
   );
 
   const estado = document.getElementById(
     "scrollPublicacionesEstado"
   );
 
-  if (!grilla || !sentinel) {
+  if (!grilla || !boton) {
     return;
   }
 
+  /*
+   * El servidor actualmente entrega el primer bloque histórico
+   * de 80 posiciones. Se conservan esas posiciones para que el
+   * endpoint existente continúe desde el lugar correcto.
+   */
   let offset = 80;
   let cargando = false;
   let hayMas = true;
 
   const macroSeleccionada = {{ macro_slug | tojson }};
+
+  function cantidadPorBloque() {
+    return window.matchMedia(
+      "(max-width: 1020px)"
+    ).matches
+      ? 6
+      : 8;
+  }
+
+  function todasLasTarjetas() {
+    return Array.from(
+      grilla.querySelectorAll(".publicacion-card")
+    );
+  }
+
+  function tarjetasOcultas() {
+    return todasLasTarjetas().filter(function (tarjeta) {
+      return tarjeta.hidden === true;
+    });
+  }
+
+  function prepararBloqueInicial() {
+    const limite = cantidadPorBloque();
+
+    todasLasTarjetas().forEach(function (tarjeta, indice) {
+      tarjeta.hidden = indice >= limite;
+    });
+  }
+
+  function actualizarBoton() {
+    const quedanOcultas = tarjetasOcultas().length > 0;
+
+    boton.hidden = false;
+
+    if (quedanOcultas || hayMas) {
+      boton.disabled = false;
+      boton.textContent = "Mostrar más publicaciones →";
+      return;
+    }
+
+    boton.disabled = true;
+    boton.textContent = "Ya viste todas las publicaciones";
+  }
+
+  function revelarSiguienteBloque() {
+    const cantidad = cantidadPorBloque();
+
+    tarjetasOcultas()
+      .slice(0, cantidad)
+      .forEach(function (tarjeta) {
+        tarjeta.hidden = false;
+      });
+  }
 
   function texto(tag, clase, contenido) {
     const nodo = document.createElement(tag);
@@ -2551,10 +4099,14 @@ document.addEventListener("DOMContentLoaded", function () {
       "/detalle/" + encodeURIComponent(item.id);
 
     enlace.className = "publicacion-card";
+    enlace.hidden = true;
 
     const imagen = document.createElement("img");
+
     imagen.src = item.imagen_url || "/img/mate1.jpg";
     imagen.alt = item.nombre || "";
+    imagen.loading = "lazy";
+    imagen.decoding = "async";
 
     enlace.appendChild(imagen);
 
@@ -2598,23 +4150,25 @@ document.addEventListener("DOMContentLoaded", function () {
     return enlace;
   }
 
-  async function cargarMas() {
+  async function cargarDesdeServidor() {
     if (cargando || !hayMas) {
       return;
     }
 
     cargando = true;
+    boton.disabled = true;
+    boton.textContent = "Cargando...";
 
     if (estado) {
-      estado.style.display = "block";
+      estado.hidden = false;
     }
 
     try {
       /*
-       * Puede ocurrir que un bloque contenga publicaciones
-       * pertenecientes a comercios actualmente inactivos.
-       * En ese caso seguimos avanzando hasta encontrar
-       * publicaciones visibles o hasta llegar al final.
+       * Algunos bloques pueden contener publicaciones de
+       * comercios actualmente inactivos. En ese caso seguimos
+       * avanzando hasta hallar publicaciones visibles o llegar
+       * al final.
        */
       while (hayMas) {
         const respuesta = await fetch(
@@ -2666,45 +4220,44 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
 
-      if (!hayMas) {
-        observador.disconnect();
-      }
-
     } catch (error) {
       console.error(
         "Error cargando más publicaciones:",
         error
       );
 
-      observador.disconnect();
+      boton.textContent = "Reintentar carga";
+      boton.disabled = false;
 
     } finally {
       cargando = false;
 
       if (estado) {
-        estado.style.display = "none";
+        estado.hidden = true;
       }
     }
   }
 
-  const observador = new IntersectionObserver(
-    function (entradas) {
-      if (
-        entradas.some(function (entrada) {
-          return entrada.isIntersecting;
-        })
-      ) {
-        cargarMas();
-      }
-    },
-    {
-      root: null,
-      rootMargin: "700px 0px",
-      threshold: 0
+  async function mostrarMasPublicaciones() {
+    if (cargando) {
+      return;
     }
+
+    if (tarjetasOcultas().length === 0 && hayMas) {
+      await cargarDesdeServidor();
+    }
+
+    revelarSiguienteBloque();
+    actualizarBoton();
+  }
+
+  boton.addEventListener(
+    "click",
+    mostrarMasPublicaciones
   );
 
-  observador.observe(sentinel);
+  prepararBloqueInicial();
+  actualizarBoton();
 });
 </script>
 {% endif %}
@@ -3378,108 +4931,200 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 
-</body>
-</html>
 
-<style>
-/* FORZADO FINAL: categorías igual a demo_botones.html */
-.categorias-scroll-wrap {
-  max-width: 1350px !important;
-  margin: 24px auto 0 auto !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-}
-
-.categorias-scroll {
-  display: flex !important;
-  gap: 14px !important;
-  overflow-x: auto !important;
-  scroll-behavior: smooth !important;
-  padding: 12px 4px !important;
-  scrollbar-width: none !important;
-}
-
-.categorias-scroll::-webkit-scrollbar {
-  display: none !important;
-}
-
-.categorias-scroll .categoria-card {
-  flex: 0 0 170px !important;
-  width: 170px !important;
-  min-width: 170px !important;
-  max-width: 170px !important;
-  height: 52px !important;
-  min-height: 52px !important;
-  max-height: 52px !important;
-
-  padding: 0 !important;
-  margin: 0 !important;
-
-  border: none !important;
-  border-radius: 999px !important;
-
-  background: #ff7a00 !important;
-  color: white !important;
-
-  font-size: 16px !important;
-  font-weight: bold !important;
-  line-height: 52px !important;
-  text-align: center !important;
-  text-decoration: none !important;
-
-  display: block !important;
-
-  box-shadow: 0 6px 14px rgba(0,0,0,.18) !important;
-
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-.flecha-categorias {
-  flex: 0 0 48px !important;
-  width: 48px !important;
-  height: 48px !important;
-
-  border: none !important;
-  border-radius: 50% !important;
-
-  background: #ff7a00 !important;
-  color: white !important;
-
-  font-size: 26px !important;
-  font-weight: bold !important;
-
-  cursor: pointer !important;
-
-  box-shadow: 0 5px 12px rgba(0,0,0,.22) !important;
-}
-
-@media (max-width: 600px) {
-  .categorias-scroll-wrap {
-    gap: 6px !important;
+<!-- CLICKLOCAL: ALTURA DINAMICA CABECERA V1 -->
+<script>
+(function () {
+  function ajustarAlturaHeaderClickLocal() {
+    const header = document.querySelector('.header');
+    if (!header) return;
+    document.documentElement.style.setProperty(
+      '--clicklocal-header-height',
+      header.offsetHeight + 'px'
+    );
   }
 
-  .flecha-categorias {
-    flex: 0 0 42px !important;
-    width: 42px !important;
-    height: 42px !important;
-    font-size: 23px !important;
+  document.addEventListener('DOMContentLoaded', ajustarAlturaHeaderClickLocal);
+  window.addEventListener('load', ajustarAlturaHeaderClickLocal);
+  window.addEventListener('resize', ajustarAlturaHeaderClickLocal);
+})();
+</script>
+<!-- FIN CLICKLOCAL: ALTURA DINAMICA CABECERA V1 -->
+
+
+<!-- CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 JS -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const contenedor = document.getElementById("macroChipsB1Scroll");
+
+  if (!contenedor) {
+    return;
   }
 
-  .categorias-scroll .categoria-card {
-    flex: 0 0 150px !important;
-    width: 150px !important;
-    min-width: 150px !important;
-    max-width: 150px !important;
-    height: 50px !important;
-    min-height: 50px !important;
-    max-height: 50px !important;
-    line-height: 50px !important;
+  const envoltorio = contenedor.closest(".macro-chips-b1-wrap");
+  const anterior = envoltorio.querySelector(".macro-chips-b1-anterior");
+  const siguiente = envoltorio.querySelector(".macro-chips-b1-siguiente");
+
+  function existeDesborde() {
+    return contenedor.scrollWidth > contenedor.clientWidth + 3;
   }
-}
-</style>
+
+  function actualizarControles() {
+    const desborda = existeDesborde();
+
+    envoltorio.classList.toggle("tiene-desborde", desborda);
+
+    if (!desborda) {
+      anterior.disabled = true;
+      siguiente.disabled = true;
+      return;
+    }
+
+    const maximo = contenedor.scrollWidth - contenedor.clientWidth;
+
+    anterior.disabled = contenedor.scrollLeft <= 3;
+    siguiente.disabled = contenedor.scrollLeft >= maximo - 3;
+  }
+
+  function distanciaMovimiento() {
+    return Math.max(
+      190,
+      Math.round(contenedor.clientWidth * 0.72)
+    );
+  }
+
+  anterior.addEventListener("click", function () {
+    contenedor.scrollBy({
+      left: -distanciaMovimiento(),
+      behavior: "smooth",
+    });
+  });
+
+  siguiente.addEventListener("click", function () {
+    contenedor.scrollBy({
+      left: distanciaMovimiento(),
+      behavior: "smooth",
+    });
+  });
+
+  contenedor.addEventListener(
+    "scroll",
+    actualizarControles,
+    { passive: true }
+  );
+
+  window.addEventListener("resize", actualizarControles);
+
+  if ("ResizeObserver" in window) {
+    const observador = new ResizeObserver(actualizarControles);
+    observador.observe(contenedor);
+  }
+
+  actualizarControles();
+
+  window.requestAnimationFrame(actualizarControles);
+});
+</script>
+<!-- FIN CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 JS -->
+
+
+<!-- CLICKLOCAL: CENTRAR MACRO ACTIVA V3 -->
+<script>
+(function () {
+  function iniciarMacroActivaV3() {
+    const contenedor = document.getElementById("macroChipsB1Scroll");
+
+    if (!contenedor) {
+      return;
+    }
+
+    const activa = contenedor.querySelector(".macro-chip-b1-activo");
+
+    if (!activa) {
+      return;
+    }
+
+    function calcularObjetivo() {
+      const anchoVisible = contenedor.clientWidth;
+      const maximo = Math.max(
+        0,
+        contenedor.scrollWidth - anchoVisible
+      );
+
+      const chips = Array.from(
+        contenedor.querySelectorAll(".macro-chip-b1")
+      );
+
+      const indiceActiva = chips.indexOf(activa);
+
+      /*
+        Si la activa es la primera, debe comenzar exactamente
+        en el extremo izquierdo. No se centra.
+      */
+      if (indiceActiva === 0) {
+        return 0;
+      }
+
+      const centroActiva =
+        activa.offsetLeft + (activa.offsetWidth / 2);
+
+      const objetivo =
+        centroActiva - (anchoVisible / 2);
+
+      return Math.max(
+        0,
+        Math.min(objetivo, maximo)
+      );
+    }
+
+    function posicionarActiva() {
+      const objetivo = calcularObjetivo();
+
+      contenedor.scrollTo({
+        left: objetivo,
+        top: 0,
+        behavior: "auto",
+      });
+
+      contenedor.dispatchEvent(
+        new Event("scroll")
+      );
+    }
+
+    posicionarActiva();
+
+    requestAnimationFrame(function () {
+      posicionarActiva();
+      requestAnimationFrame(posicionarActiva);
+    });
+
+    /*
+      Firefox puede restaurar el scroll de elementos internos
+      después de DOMContentLoaded. pageshow ocurre después de
+      esa restauración.
+    */
+    window.addEventListener("pageshow", posicionarActiva);
+    window.addEventListener("load", posicionarActiva);
+
+    window.setTimeout(posicionarActiva, 100);
+    window.setTimeout(posicionarActiva, 400);
+    window.setTimeout(posicionarActiva, 900);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      iniciarMacroActivaV3
+    );
+  } else {
+    iniciarMacroActivaV3();
+  }
+})();
+</script>
+<!-- FIN CLICKLOCAL: CENTRAR MACRO ACTIVA V3 -->
+
+
+
 
 <style>
 /* Ajuste final: menos espacio entre categorías y destacados */
@@ -3543,3 +5188,3252 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 }
 </style>
+
+<!-- CLICKLOCAL: CATEGORIAS REDONDAS B1 V1 -->
+<style>
+.categorias-scroll {
+  align-items: flex-start !important;
+  gap: 18px !important;
+  padding: 16px 8px 22px !important;
+}
+
+.categorias-scroll .categoria-card {
+  flex: 0 0 108px !important;
+  width: 108px !important;
+  min-width: 108px !important;
+  max-width: 108px !important;
+
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #5B1720 !important;
+  box-shadow: none !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 9px !important;
+
+  text-decoration: none !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+.categoria-card-circulo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 88px;
+  width: 88px;
+  height: 88px;
+
+  box-sizing: border-box;
+  border: 2px solid rgba(101, 23, 34, 0.20);
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle at 34% 28%,
+      #FFFDFC 0,
+      #F8EDE3 48%,
+      #EBCFC4 100%
+    );
+
+  color: #651722;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+
+  box-shadow:
+    0 8px 20px rgba(91, 23, 32, 0.12);
+}
+
+.categorias-scroll .categoria-card-texto {
+  display: block !important;
+  width: 100% !important;
+  max-height: none !important;
+
+  color: #5B1720 !important;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+
+  font-size: 13px !important;
+  font-weight: 750 !important;
+  line-height: 1.22 !important;
+
+  text-align: center !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  -webkit-line-clamp: unset !important;
+}
+
+@media (max-width: 600px) {
+  .categorias-scroll {
+    gap: 14px !important;
+    padding: 14px 6px 20px !important;
+  }
+
+  .categorias-scroll .categoria-card {
+    flex-basis: 92px !important;
+    width: 92px !important;
+    min-width: 92px !important;
+    max-width: 92px !important;
+  }
+
+  .categoria-card-circulo {
+    flex-basis: 76px;
+    width: 76px;
+    height: 76px;
+    font-size: 26px;
+  }
+
+  .categorias-scroll .categoria-card-texto {
+    font-size: 12px !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: CATEGORIAS REDONDAS B1 V1 -->
+
+<!-- CLICKLOCAL: AJUSTE FLECHAS Y RECORTE CATEGORIAS V1 -->
+<style>
+/*
+  Ajustes autorizados:
+  1. Flechas con identidad bordó y crema.
+  2. Más espacio interno para evitar recortes.
+  3. Sin cambios de tamaño en círculos ni textos.
+*/
+
+.categorias-scroll-wrap {
+  box-sizing: border-box !important;
+}
+
+.categorias-scroll {
+  box-sizing: border-box !important;
+
+  padding:
+    24px
+    20px
+    30px
+    20px !important;
+
+  scroll-padding-left: 20px;
+  scroll-padding-right: 20px;
+}
+
+.flecha-categorias {
+  border:
+    1px solid
+    rgba(101, 23, 34, 0.22) !important;
+
+  background: #651722 !important;
+  color: #FFFDFC !important;
+
+  box-shadow:
+    0 6px 16px
+    rgba(78, 18, 26, 0.18) !important;
+
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease !important;
+}
+
+.flecha-categorias:hover,
+.flecha-categorias:focus-visible {
+  background: #4E121A !important;
+
+  border-color:
+    rgba(78, 18, 26, 0.40) !important;
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 8px 20px
+    rgba(78, 18, 26, 0.24) !important;
+}
+
+.flecha-categorias:focus-visible {
+  outline:
+    3px solid
+    rgba(101, 23, 34, 0.20) !important;
+
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .categorias-scroll {
+    padding:
+      20px
+      16px
+      26px
+      16px !important;
+
+    scroll-padding-left: 16px;
+    scroll-padding-right: 16px;
+  }
+}
+</style>
+
+<script>
+(function () {
+  function llevarCategoriasAlInicio() {
+    const contenedor = document.getElementById("categoriasHome");
+
+    if (!contenedor) {
+      return;
+    }
+
+    contenedor.scrollTo({
+      left: 0,
+      top: 0,
+      behavior: "auto",
+    });
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+      llevarCategoriasAlInicio();
+
+      window.setTimeout(
+        llevarCategoriasAlInicio,
+        100
+      );
+
+      window.setTimeout(
+        llevarCategoriasAlInicio,
+        400
+      );
+    }
+  );
+
+  window.addEventListener(
+    "pageshow",
+    function () {
+      llevarCategoriasAlInicio();
+    }
+  );
+})();
+</script>
+<!-- FIN CLICKLOCAL: AJUSTE FLECHAS Y RECORTE CATEGORIAS V1 -->
+
+<!-- CLICKLOCAL: CATEGORIAS ESTILO B1 V1 -->
+<style>
+/*
+  Sección de categorías inspirada en el diseño B1:
+  - fondo claro;
+  - encabezado editorial;
+  - flechas blancas y sutiles;
+  - círculos de mayor presencia;
+  - opción de mostrar todas las categorías.
+*/
+
+.seccion.categorias {
+  box-sizing: border-box;
+  background: #FFFDFC !important;
+  padding-top: 60px !important;
+  padding-bottom: 38px !important;
+}
+
+.categorias-b1-encabezado {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 22px;
+}
+
+.categorias-b1-titulos {
+  min-width: 0;
+}
+
+.categorias-b1-etiqueta {
+  margin: 0 0 10px;
+  color: #D76527;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.18em;
+}
+
+.categorias-b1-titulo {
+  margin: 0;
+  color: #651722;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+}
+
+.categorias-b1-ver-todas {
+  flex: 0 0 auto;
+  margin: 0 4px 7px 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: #7A1F2B;
+  cursor: pointer;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 16px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.categorias-b1-ver-todas:hover,
+.categorias-b1-ver-todas:focus-visible {
+  color: #4E121A;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.categorias-b1-ver-todas:focus-visible {
+  outline: 3px solid rgba(101, 23, 34, 0.18);
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+
+.categorias-scroll-wrap {
+  width: 100% !important;
+  max-width: none !important;
+  margin-top: 0 !important;
+  gap: 15px !important;
+}
+
+.categorias-scroll {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  align-items: flex-start !important;
+  gap: 22px !important;
+  padding: 14px 12px 16px !important;
+  scroll-padding-inline: 12px;
+}
+
+.categorias-scroll .categoria-card {
+  flex: 0 0 160px !important;
+  width: 160px !important;
+  min-width: 160px !important;
+  max-width: 160px !important;
+  gap: 13px !important;
+}
+
+.categoria-card-circulo {
+  flex: 0 0 150px !important;
+  width: 150px !important;
+  height: 150px !important;
+
+  border: 4px solid #FFFFFF !important;
+
+  background:
+    radial-gradient(
+      circle at 34% 28%,
+      #FFFDFC 0,
+      #F7EAE1 50%,
+      #E9CFC4 100%
+    ) !important;
+
+  color: #651722 !important;
+  font-size: 46px !important;
+
+  box-shadow:
+    0 0 0 1px rgba(101, 23, 34, 0.12),
+    0 10px 28px rgba(91, 23, 32, 0.12) !important;
+}
+
+.categorias-scroll .categoria-card:hover
+.categoria-card-circulo,
+.categorias-scroll .categoria-card:focus-visible
+.categoria-card-circulo {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgba(101, 23, 34, 0.22),
+    0 14px 32px rgba(91, 23, 32, 0.18) !important;
+}
+
+.categorias-scroll .categoria-card-texto {
+  color: #302A28 !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+}
+
+.flecha-categorias {
+  flex: 0 0 50px !important;
+  width: 50px !important;
+  height: 50px !important;
+
+  border:
+    1px solid
+    rgba(91, 23, 32, 0.08) !important;
+
+  background: #FFFFFF !important;
+  color: #651722 !important;
+
+  font-size: 27px !important;
+  font-weight: 500 !important;
+
+  box-shadow:
+    0 8px 24px
+    rgba(40, 28, 26, 0.09) !important;
+}
+
+.flecha-categorias:hover,
+.flecha-categorias:focus-visible {
+  background: #FFFDFC !important;
+  color: #4E121A !important;
+
+  border-color:
+    rgba(91, 23, 32, 0.18) !important;
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 10px 28px
+    rgba(40, 28, 26, 0.14) !important;
+}
+
+/*
+  Al pulsar "Ver todas", la fila horizontal se convierte
+  en una grilla completa y se ocultan las flechas.
+*/
+
+.seccion.categorias.categorias-b1-expandida
+.categorias-scroll-wrap {
+  align-items: flex-start !important;
+}
+
+.seccion.categorias.categorias-b1-expandida
+.categorias-scroll {
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  overflow-x: visible !important;
+  scroll-snap-type: none !important;
+}
+
+.seccion.categorias.categorias-b1-expandida
+.flecha-categorias {
+  display: none !important;
+}
+
+/* CLICKLOCAL: ESPACIADO VERTICAL CATEGORIAS B1 V1 */
+.seccion.categorias.categorias-b1-expandida {
+  padding-bottom: 56px !important;
+}
+
+.seccion.categorias.categorias-b1-expandida
+.categorias-scroll {
+  padding-bottom: 28px !important;
+}
+
+@media (max-width: 760px) {
+  .seccion.categorias {
+    padding-top: 42px !important;
+    padding-bottom: 32px !important;
+  }
+
+  .categorias-b1-encabezado {
+    align-items: flex-end;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .categorias-b1-etiqueta {
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+
+  .categorias-b1-titulo {
+    font-size: clamp(30px, 9vw, 39px);
+  }
+
+  .categorias-b1-ver-todas {
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+
+  .categorias-scroll-wrap {
+    gap: 8px !important;
+  }
+
+  .categorias-scroll {
+    gap: 15px !important;
+    padding: 14px 8px 16px !important;
+  }
+
+  .seccion.categorias.categorias-b1-expandida {
+    padding-bottom: 42px !important;
+  }
+
+  .seccion.categorias.categorias-b1-expandida
+  .categorias-scroll {
+    padding-bottom: 24px !important;
+  }
+
+  .categorias-scroll .categoria-card {
+    flex-basis: 116px !important;
+    width: 116px !important;
+    min-width: 116px !important;
+    max-width: 116px !important;
+  }
+
+  .categoria-card-circulo {
+    flex-basis: 108px !important;
+    width: 108px !important;
+    height: 108px !important;
+    font-size: 34px !important;
+  }
+
+  .categorias-scroll .categoria-card-texto {
+    font-size: 13px !important;
+  }
+
+  .flecha-categorias {
+    flex-basis: 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 23px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .categorias-b1-encabezado {
+    display: block;
+  }
+
+  .categorias-b1-ver-todas {
+    margin-top: 15px;
+  }
+}
+</style>
+
+<script>
+(function () {
+  function iniciarCategoriasEstiloB1() {
+    const seccion = document.querySelector(
+      ".seccion.categorias"
+    );
+
+    const boton = document.getElementById(
+      "categoriasVerTodas"
+    );
+
+    const contenedor = document.getElementById(
+      "categoriasHome"
+    );
+
+    if (!seccion || !boton || !contenedor) {
+      return;
+    }
+
+    boton.addEventListener("click", function () {
+      const expandida = seccion.classList.toggle(
+        "categorias-b1-expandida"
+      );
+
+      boton.setAttribute(
+        "aria-expanded",
+        expandida ? "true" : "false"
+      );
+
+      boton.textContent = expandida
+        ? "Ver menos ←"
+        : "Ver todas →";
+
+      if (!expandida) {
+        contenedor.scrollTo({
+          left: 0,
+          top: 0,
+          behavior: "auto",
+        });
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      iniciarCategoriasEstiloB1
+    );
+  } else {
+    iniciarCategoriasEstiloB1();
+  }
+})();
+</script>
+<!-- FIN CLICKLOCAL: CATEGORIAS ESTILO B1 V1 -->
+
+
+<!-- CLICKLOCAL: IMAGENES CATEGORIAS B1 V1 -->
+<style>
+.categoria-card-circulo {
+  position: relative;
+  overflow: hidden;
+}
+
+.categoria-card-imagen {
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  border-radius: 50%;
+
+  object-fit: cover;
+  object-position: center;
+
+  transition:
+    transform 220ms ease,
+    filter 220ms ease;
+}
+
+.categoria-card-inicial {
+  display: none;
+  position: absolute;
+  inset: 0;
+
+  align-items: center;
+  justify-content: center;
+
+  color: #651722;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: inherit;
+  font-weight: 700;
+  line-height: 1;
+
+  background:
+    radial-gradient(
+      circle at 34% 28%,
+      #FFFDFC 0,
+      #F7EAE1 50%,
+      #E9CFC4 100%
+    );
+}
+
+.categoria-card-circulo-sin-imagen
+.categoria-card-inicial {
+  display: flex;
+}
+
+.categorias-scroll .categoria-card:hover
+.categoria-card-imagen,
+.categorias-scroll .categoria-card:focus-visible
+.categoria-card-imagen {
+  transform: scale(1.035);
+  filter: saturate(1.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .categoria-card-imagen {
+    transition: none;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: IMAGENES CATEGORIAS B1 V1 -->
+
+<!-- CLICKLOCAL: AJUSTE RECORTE LATERAL CATEGORIAS V1 -->
+<style>
+/*
+  Evita que la primera y última categoría queden cortadas
+  o debajo de las flechas, sin cambiar tamaños ni colores.
+*/
+
+.categorias-scroll-wrap {
+  box-sizing: border-box !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+
+.categorias-scroll {
+  box-sizing: border-box !important;
+  padding-left: 34px !important;
+  padding-right: 34px !important;
+  scroll-padding-left: 34px !important;
+  scroll-padding-right: 34px !important;
+}
+
+.categorias-scroll .categoria-card:first-child {
+  margin-left: 2px !important;
+}
+
+.categorias-scroll .categoria-card:last-child {
+  margin-right: 2px !important;
+}
+
+@media (max-width: 760px) {
+  .categorias-scroll-wrap {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .categorias-scroll {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+    scroll-padding-left: 24px !important;
+    scroll-padding-right: 24px !important;
+  }
+}
+</style>
+
+<script>
+(function () {
+  function asegurarInicioCategorias() {
+    const contenedor = document.getElementById("categoriasHome");
+
+    if (!contenedor) {
+      return;
+    }
+
+    contenedor.scrollTo({
+      left: 0,
+      top: 0,
+      behavior: "auto",
+    });
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+      asegurarInicioCategorias();
+
+      window.setTimeout(
+        asegurarInicioCategorias,
+        120
+      );
+
+      window.setTimeout(
+        asegurarInicioCategorias,
+        500
+      );
+    }
+  );
+
+  window.addEventListener(
+    "pageshow",
+    asegurarInicioCategorias
+  );
+})();
+</script>
+<!-- FIN CLICKLOCAL: AJUSTE RECORTE LATERAL CATEGORIAS V1 -->
+
+<!-- CLICKLOCAL: GALERIA PUBLICACIONES B1 V1 -->
+<style>
+.publicaciones-seccion {
+  box-sizing: border-box;
+  padding-top: 54px !important;
+  padding-bottom: 66px !important;
+}
+
+.publicaciones-destacadas {
+  background: #F7F1E8;
+}
+
+.publicaciones-recientes {
+  background: #FFFDFC;
+}
+
+.publicaciones-encabezado-b1 {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+
+.publicaciones-encabezado-resultados {
+  align-items: flex-start;
+}
+
+.publicaciones-etiqueta-b1 {
+  margin: 0 0 11px;
+  color: #D76527;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.publicaciones-titulo-b1 {
+  margin: 0;
+  color: #651722;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+}
+
+.publicaciones-contexto-b1 {
+  margin: 12px 0 0;
+  color: #776B66;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.publicaciones-ver-mas-b1 {
+  flex: 0 0 auto;
+  margin: 0 4px 6px 0;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: #7A1F2B;
+  cursor: pointer;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 16px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.publicaciones-ver-mas-b1:hover,
+.publicaciones-ver-mas-b1:focus-visible {
+  color: #4E121A;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.publicaciones-ver-mas-b1:focus-visible {
+  outline: 3px solid rgba(101, 23, 34, 0.17);
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+
+.publicaciones-seccion .grilla-publicaciones {
+  display: grid !important;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr)) !important;
+  gap: 24px !important;
+  align-items: stretch;
+}
+
+.publicaciones-seccion .publicacion-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border:
+    1px solid
+    rgba(91, 23, 32, 0.075);
+  border-radius: 20px;
+  background: #FFFFFF;
+  color: #302A28;
+  text-decoration: none;
+  box-shadow:
+    0 11px 30px
+    rgba(61, 41, 35, 0.09);
+  transition:
+    transform 190ms ease,
+    box-shadow 190ms ease,
+    border-color 190ms ease;
+}
+
+.publicaciones-seccion .publicacion-card:hover,
+.publicaciones-seccion .publicacion-card:focus-visible {
+  transform: translateY(-4px);
+  border-color:
+    rgba(101, 23, 34, 0.15);
+  box-shadow:
+    0 17px 38px
+    rgba(61, 41, 35, 0.15);
+}
+
+.publicaciones-seccion .publicacion-card:focus-visible {
+  outline:
+    3px solid
+    rgba(101, 23, 34, 0.17);
+  outline-offset: 4px;
+}
+
+.publicaciones-seccion .publicacion-card > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 11 / 12;
+  object-fit: cover;
+  object-position: center;
+  background: #EEE6DE;
+  transition:
+    transform 260ms ease,
+    filter 260ms ease;
+}
+
+.publicaciones-seccion .publicacion-card:hover > img,
+.publicaciones-seccion .publicacion-card:focus-visible > img {
+  transform: scale(1.025);
+  filter: saturate(1.025);
+}
+
+.publicaciones-seccion .publicacion-info {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(120px, 42%);
+  align-content: start;
+  column-gap: 12px;
+  row-gap: 7px;
+  padding: 16px 17px 17px;
+}
+
+.publicaciones-seccion .nombre-comercio {
+  grid-column: 1 / -1;
+  margin: 0;
+  overflow: hidden;
+  color: #8A2431;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.075em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.publicaciones-seccion .publicacion-info h3 {
+  grid-column: 1 / -1;
+  display: -webkit-box;
+  min-height: 2.4em;
+  margin: 0;
+  overflow: hidden;
+  color: #352E2B;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.publicaciones-seccion .precio {
+  grid-column: 1;
+  align-self: end;
+  margin: 2px 0 0;
+  color: #2D2927;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.publicaciones-seccion .ubicacion {
+  grid-column: 2;
+  align-self: end;
+  justify-self: stretch;
+
+  display: -webkit-box;
+
+  min-width: 0;
+  max-width: none;
+  min-height: 2.4em;
+  margin: 2px 0 0;
+
+  overflow: hidden;
+
+  color: #8A817C;
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.publicaciones-seccion .publicacion-historia-indicador {
+  top: 12px;
+  right: 12px;
+  min-height: 27px;
+  padding: 5px 11px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      135deg,
+      #D76527,
+      #8A2431
+    );
+  box-shadow:
+    0 5px 14px
+    rgba(60, 30, 26, 0.20);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.publicaciones-seccion .cartelera-header {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  left: 12px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #7A1F2B;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.publicaciones-destacadas:not(
+  .publicaciones-destacadas-expandida
+)
+.publicacion-card-extra {
+  display: none !important;
+}
+
+.publicaciones-seccion .panel-vacio {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1020px) {
+  .publicaciones-seccion .grilla-publicaciones {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .publicaciones-seccion {
+    padding-top: 42px !important;
+    padding-bottom: 48px !important;
+  }
+
+  .publicaciones-encabezado-b1 {
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+
+  .publicaciones-etiqueta-b1 {
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+
+  .publicaciones-titulo-b1 {
+    font-size: clamp(30px, 9vw, 39px);
+  }
+
+  .publicaciones-contexto-b1 {
+    margin-top: 9px;
+    font-size: 13px;
+  }
+
+  .publicaciones-ver-mas-b1 {
+    margin-top: 3px;
+    font-size: 13px;
+  }
+
+  .publicaciones-seccion .grilla-publicaciones {
+    gap: 16px !important;
+  }
+
+  .publicaciones-seccion .publicacion-info {
+    padding: 14px 14px 15px;
+  }
+
+  .publicaciones-seccion
+  .publicacion-info h3 {
+    font-size: 17px;
+  }
+
+  .publicaciones-seccion .precio {
+    font-size: 16px;
+  }
+
+  .publicaciones-seccion .ubicacion {
+    max-width: none;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  .publicaciones-encabezado-b1 {
+    display: block;
+  }
+
+  .publicaciones-ver-mas-b1 {
+    margin-top: 16px;
+  }
+
+  .publicaciones-seccion .grilla-publicaciones {
+    grid-template-columns: 1fr !important;
+  }
+
+  .publicaciones-seccion
+  .publicacion-card > img {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publicaciones-seccion .publicacion-card,
+  .publicaciones-seccion
+  .publicacion-card > img {
+    transition: none;
+  }
+}
+/* CLICKLOCAL: DIRECCION COMPLETA TARJETAS B1 V1 */
+</style>
+
+<script>
+(function () {
+  function iniciarGaleriaPublicacionesB1() {
+    const seccion = document.querySelector(
+      ".publicaciones-destacadas"
+    );
+
+    const boton = document.getElementById(
+      "destacadosVerMas"
+    );
+
+    if (!seccion || !boton) {
+      return;
+    }
+
+    boton.addEventListener("click", function () {
+      const expandida = seccion.classList.toggle(
+        "publicaciones-destacadas-expandida"
+      );
+
+      boton.setAttribute(
+        "aria-expanded",
+        expandida ? "true" : "false"
+      );
+
+      boton.textContent = expandida
+        ? "Ver menos ←"
+        : "Ver más →";
+
+      if (!expandida) {
+        seccion.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      iniciarGaleriaPublicacionesB1
+    );
+  } else {
+    iniciarGaleriaPublicacionesB1();
+  }
+})();
+</script>
+
+<!-- CLICKLOCAL: CARGA MANUAL E HISTORIAS OLIVA V1 -->
+<style>
+html {
+  scroll-behavior: smooth;
+}
+
+.header-historias-b1 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 15px;
+  border:
+    1px solid
+    rgba(107, 112, 77, 0.42);
+  border-radius: 999px;
+  background: #F6F0E7;
+  color: #626844;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 170ms ease,
+    color 170ms ease,
+    transform 170ms ease,
+    box-shadow 170ms ease;
+}
+
+.header-historias-b1:hover,
+.header-historias-b1:focus-visible {
+  background: #6B704D;
+  color: #FFF8EF;
+  transform: translateY(-1px);
+  box-shadow:
+    0 7px 18px
+    rgba(70, 73, 47, 0.20);
+}
+
+.header-historias-b1:focus-visible {
+  outline:
+    3px solid
+    rgba(107, 112, 77, 0.20);
+  outline-offset: 3px;
+}
+
+.publicaciones-carga-manual-b1 {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding:
+    0
+    18px
+    58px;
+  background: #FFFDFC;
+  text-align: center;
+}
+
+.publicaciones-mostrar-mas-b1 {
+  min-height: 48px;
+  padding: 12px 24px;
+  border:
+    1px solid
+    rgba(101, 23, 34, 0.20);
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: #7A1F2B;
+  cursor: pointer;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1;
+  box-shadow:
+    0 8px 22px
+    rgba(61, 41, 35, 0.09);
+  transition:
+    background-color 170ms ease,
+    color 170ms ease,
+    transform 170ms ease,
+    box-shadow 170ms ease;
+}
+
+.publicaciones-mostrar-mas-b1:hover,
+.publicaciones-mostrar-mas-b1:focus-visible {
+  background: #7A1F2B;
+  color: #FFFFFF;
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 28px
+    rgba(91, 23, 32, 0.18);
+}
+
+.publicaciones-mostrar-mas-b1:disabled {
+  cursor: default;
+  transform: none;
+  border-color:
+    rgba(91, 23, 32, 0.08);
+  background: #F2ECE5;
+  color: #8A817C;
+  box-shadow: none;
+}
+
+.publicaciones-carga-estado-b1 {
+  margin: 0;
+  color: #776B66;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.publicaciones-seccion
+.publicacion-card[hidden] {
+  display: none !important;
+}
+
+#historiasClickLocal {
+  scroll-margin-top: 108px;
+}
+
+.historias-home-b1 {
+  box-sizing: border-box;
+  padding:
+    62px
+    0
+    68px !important;
+  background: #6B704D !important;
+  color: #FFF8EF;
+}
+
+.historias-home-b1
+.historias-home-cabecera {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.historias-b1-etiqueta {
+  margin: 0 0 11px;
+  color: #F2A35E;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.historias-home-b1
+.historias-home-cabecera h2 {
+  margin: 0;
+  color: #FFF8EF;
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+}
+
+.historias-home-b1
+.historias-scroll {
+  padding-top: 6px;
+  padding-bottom: 8px;
+}
+
+.historias-home-b1
+.historia-circulo-boton {
+  color: #FFF8EF;
+}
+
+.historias-home-b1
+.historia-circulo-aro {
+  background:
+    linear-gradient(
+      145deg,
+      #F0A05A 0%,
+      #D56A38 52%,
+      #8A2431 100%
+    ) !important;
+  box-shadow:
+    0 11px 26px
+    rgba(37, 39, 22, 0.25);
+}
+
+.historias-home-b1
+.historia-circulo-interior {
+  border:
+    3px solid
+    #FFF8EF !important;
+  background: #F5EDE2 !important;
+}
+
+.historias-home-b1
+.historia-circulo-nombre {
+  color: #FFF8EF !important;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .header-historias-b1 {
+    min-height: 38px;
+    padding: 8px 11px;
+    font-size: 12px;
+  }
+
+  .publicaciones-carga-manual-b1 {
+    padding:
+      0
+      14px
+      44px;
+  }
+
+  .publicaciones-mostrar-mas-b1 {
+    width: min(100%, 310px);
+    min-height: 46px;
+    font-size: 14px;
+  }
+
+  .historias-home-b1 {
+    padding:
+      46px
+      0
+      50px !important;
+  }
+
+  .historias-home-b1
+  .historias-home-cabecera {
+    margin-bottom: 22px;
+  }
+
+  .historias-b1-etiqueta {
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+
+  .historias-home-b1
+  .historias-home-cabecera h2 {
+    font-size: clamp(30px, 9vw, 39px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .header-historias-b1,
+  .publicaciones-mostrar-mas-b1 {
+    transition: none;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: CARGA MANUAL E HISTORIAS OLIVA V1 -->
+
+<!-- FIN CLICKLOCAL: GALERIA PUBLICACIONES B1 V1 -->
+
+<!-- CLICKLOCAL: RESPONSIVE OFICIAL DEMO B1 V2 -->
+<style>
+/*
+  El demo visual V1 es la especificación oficial.
+  No se utilizan medidas móviles aproximadas.
+*/
+
+:root {
+  --clicklocal-verde-historias: #6B704D;
+  --clicklocal-crema-historias: #FFF8EF;
+}
+
+/* =========================================================
+   CIERRE DEL COMPORTAMIENTO STICKY DEL BUSCADOR
+   La cabecera continúa fija; el buscador queda dentro del hero.
+   ========================================================= */
+
+.hero #buscador-form {
+  position: relative !important;
+  top: auto !important;
+  z-index: auto !important;
+}
+
+/* =========================================================
+   CABECERA
+   ========================================================= */
+
+.header-historias-b1 {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  min-height: 42px !important;
+  padding: 9px 17px !important;
+
+  border: 1px solid
+    var(--clicklocal-verde-historias) !important;
+  border-radius: 999px !important;
+
+  background:
+    var(--clicklocal-verde-historias) !important;
+  color:
+    var(--clicklocal-crema-historias) !important;
+
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+}
+
+.header-historias-b1:hover,
+.header-historias-b1:focus-visible {
+  background: #5D6243 !important;
+  color: #FFF8EF !important;
+}
+
+/* =========================================================
+   CATEGORÍAS: MEDIDAS EXACTAS DEL DEMO
+   ========================================================= */
+
+.seccion.categorias {
+  box-sizing: border-box !important;
+  padding: 64px 0 !important;
+}
+
+.seccion.categorias > .contenedor {
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  max-width: 1240px !important;
+
+  margin-left: auto !important;
+  margin-right: auto !important;
+
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+.categorias-b1-encabezado {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+
+  gap: 24px !important;
+  margin-bottom: 24px !important;
+}
+
+.categorias-b1-titulo {
+  margin: 0 !important;
+
+  font-size:
+    clamp(1.8rem, 4vw, 3.2rem) !important;
+}
+
+.categorias-b1-ver-todas {
+  flex: 0 0 auto !important;
+
+  margin: 0 !important;
+  white-space: nowrap !important;
+}
+
+.seccion.categorias
+.categorias-scroll-wrap {
+  display: block !important;
+
+  box-sizing: border-box !important;
+  width: 100% !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.seccion.categorias
+.flecha-categorias {
+  display: none !important;
+}
+
+.seccion.categorias
+.categorias-scroll {
+  display: grid !important;
+
+  grid-template-columns:
+    repeat(6, minmax(0, 1fr)) !important;
+
+  row-gap: 18px !important;
+  column-gap: 18px !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  max-width: none !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  overflow: visible !important;
+  scroll-padding: 0 !important;
+  scroll-snap-type: none !important;
+
+  align-items: start !important;
+  justify-content: normal !important;
+}
+
+.seccion.categorias:not(.categorias-b1-expandida)
+.categorias-scroll
+.categoria-card:nth-child(n + 7) {
+  display: none !important;
+}
+
+.seccion.categorias
+.categorias-scroll
+.categoria-card {
+  display: flex !important;
+  flex: none !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+
+  box-sizing: border-box !important;
+
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  gap: 0 !important;
+
+  overflow: visible !important;
+  white-space: normal !important;
+
+  text-align: center !important;
+  scroll-snap-align: none !important;
+
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.seccion.categorias
+.categoria-card-circulo {
+  display: block !important;
+  position: relative !important;
+
+  box-sizing: border-box !important;
+
+  flex: none !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  aspect-ratio: 1 / 1 !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  overflow: hidden !important;
+
+  border:
+    5px solid #FFFFFF !important;
+  border-radius: 50% !important;
+
+  line-height: normal !important;
+
+  box-shadow:
+    0 12px 28px
+    rgba(91, 23, 32, 0.11) !important;
+}
+
+.seccion.categorias
+.categoria-card-imagen {
+  width: 100% !important;
+  height: 100% !important;
+
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+
+.seccion.categorias
+.categorias-scroll
+.categoria-card-texto {
+  display: block !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  max-width: none !important;
+
+  height: auto !important;
+
+  margin: 12px 0 0 !important;
+
+  color: #302A28 !important;
+
+  font-size: 0.94rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  text-align: center !important;
+}
+
+/* =========================================================
+   HISTORIAS
+   El diámetro exterior coincide con cada columna de categorías.
+   Se conserva el desplazamiento horizontal al crecer la cantidad.
+   ========================================================= */
+
+.historias-home-b1 > .contenedor {
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  max-width: 1240px !important;
+
+  margin-left: auto !important;
+  margin-right: auto !important;
+
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+.historias-home-b1
+.historias-scroll {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+
+  gap: 18px !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+
+  padding:
+    4px
+    2px
+    12px !important;
+
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+
+  align-items: flex-start !important;
+
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+}
+
+.historias-home-b1
+.historia-circulo-boton {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+
+  flex:
+    0
+    0
+    calc((100% - 90px) / 6) !important;
+
+  width:
+    calc((100% - 90px) / 6) !important;
+
+  min-width:
+    calc((100% - 90px) / 6) !important;
+
+  max-width:
+    calc((100% - 90px) / 6) !important;
+
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  overflow: visible !important;
+
+  border: 0 !important;
+  background: transparent !important;
+
+  text-align: center !important;
+}
+
+.historias-home-b1
+.historia-circulo-aro {
+  display: block !important;
+
+  flex: none !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  aspect-ratio: 1 / 1 !important;
+
+  margin: 0 !important;
+  padding: 4px !important;
+
+  overflow: hidden !important;
+
+  border-radius: 50% !important;
+
+  line-height: 0 !important;
+}
+
+.historias-home-b1
+.historia-circulo-interior {
+  display: flex !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  min-width: 0 !important;
+  min-height: 0 !important;
+
+  border:
+    4px solid
+    #FFF8EF !important;
+  border-radius: 50% !important;
+
+  overflow: hidden !important;
+}
+
+.historias-home-b1
+.historia-circulo-interior img {
+  display: block !important;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  object-fit: cover !important;
+}
+
+.historias-home-b1
+.historia-circulo-nombre {
+  display: block !important;
+
+  flex: none !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  max-width: none !important;
+
+  height: auto !important;
+  min-height: 0 !important;
+
+  margin: 12px 0 0 !important;
+
+  color: #FFF8EF !important;
+
+  font-size: 0.94rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  text-align: center !important;
+}
+
+/* =========================================================
+   TABLET: tres columnas, igual que el demo.
+   ========================================================= */
+
+@media (max-width: 980px) {
+  .seccion.categorias
+  .categorias-scroll {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .historias-home-b1
+  .historia-circulo-boton {
+    flex-basis:
+      calc((100% - 36px) / 3) !important;
+
+    width:
+      calc((100% - 36px) / 3) !important;
+
+    min-width:
+      calc((100% - 36px) / 3) !important;
+
+    max-width:
+      calc((100% - 36px) / 3) !important;
+  }
+}
+
+/* =========================================================
+   CELULAR: reglas exactas del demo.
+   ========================================================= */
+
+@media (max-width: 620px) {
+  .clicklocal-franja-superior {
+    padding: 7px 12px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .header {
+    position: sticky !important;
+    top: 0 !important;
+  }
+
+  .header .header-contenedor {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+
+    min-height: 56px !important;
+
+    gap: 7px !important;
+
+    padding:
+      11px
+      14px !important;
+  }
+
+  .header .logo-zona {
+    display: flex !important;
+    flex: 0 1 auto !important;
+    align-items: center !important;
+
+    min-width: 0 !important;
+
+    gap: 8px !important;
+  }
+
+  .header .clicklocal-logo-cl {
+    flex:
+      0
+      0
+      34px !important;
+
+    width: 34px !important;
+    height: 34px !important;
+
+    border-radius: 10px !important;
+
+    font-size: 14px !important;
+  }
+
+  .header .clicklocal-marca-texto {
+    min-width: 0 !important;
+  }
+
+  .header .clicklocal-marca-linea {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: baseline !important;
+
+    gap: 4px !important;
+  }
+
+  .header .logo-texto {
+    font-size: 20px !important;
+    letter-spacing: -0.8px !important;
+
+    white-space: nowrap !important;
+  }
+
+  .header .clicklocal-parana {
+    font-size: 11px !important;
+    white-space: nowrap !important;
+  }
+
+  .header .nav {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+
+    gap: 6px !important;
+
+    margin-left: auto !important;
+  }
+
+  .header .clicklocal-ir-buscador {
+    display: none !important;
+  }
+
+  .header .header-historias-b1,
+  .header .boton-secundario {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    min-width: 0 !important;
+    min-height: 36px !important;
+
+    margin: 0 !important;
+    padding: 8px 10px !important;
+
+    border-radius: 999px !important;
+
+    font-size: 12px !important;
+    line-height: 1 !important;
+
+    white-space: nowrap !important;
+  }
+
+  .hero {
+    padding:
+      44px
+      14px
+      32px !important;
+  }
+
+  .hero .etiqueta-hero {
+    margin-bottom: 14px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .hero .titulo-hero {
+    margin-bottom: 18px !important;
+
+    font-size: 2.7rem !important;
+    line-height: 0.98 !important;
+  }
+
+  .hero .subtitulo-hero {
+    margin-bottom: 24px !important;
+
+    font-size: 0.96rem !important;
+    line-height: 1.5 !important;
+  }
+
+  .hero #buscador-form {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+
+    width: 100% !important;
+    max-width: 820px !important;
+
+    min-height: 60px !important;
+
+    gap: 7px !important;
+
+    margin-left: auto !important;
+    margin-right: auto !important;
+
+    padding: 7px !important;
+
+    border-radius: 22px !important;
+  }
+
+  .hero #buscador-form
+  .buscador-campo {
+    display: block !important;
+
+    flex: 1 1 auto !important;
+
+    width: auto !important;
+    min-width: 0 !important;
+    height: 46px !important;
+  }
+
+  .hero #buscador-form
+  .input-busqueda {
+    width: 100% !important;
+    height: 46px !important;
+
+    padding:
+      0
+      56px
+      0
+      14px !important;
+
+    font-size: 0.92rem !important;
+    line-height: 46px !important;
+  }
+
+  .hero #buscador-form
+  .input-busqueda::placeholder {
+    font-size: 0.92rem !important;
+  }
+
+  .hero #buscador-form
+  .boton-buscar {
+    flex: 0 0 auto !important;
+
+    min-width: auto !important;
+    min-height: 46px !important;
+
+    padding:
+      12px
+      14px !important;
+
+    font-size: 0.85rem !important;
+    white-space: nowrap !important;
+  }
+
+  .seccion.categorias {
+    padding:
+      46px
+      0 !important;
+  }
+
+  .seccion.categorias > .contenedor,
+  .historias-home-b1 > .contenedor {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .categorias-b1-encabezado {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+
+    gap: 12px !important;
+    margin-bottom: 24px !important;
+  }
+
+  .categorias-b1-ver-todas {
+    margin:
+      4px
+      0
+      0 !important;
+
+    font-size: 0.82rem !important;
+  }
+
+  .seccion.categorias
+  .categorias-scroll {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr)) !important;
+
+    row-gap: 15px !important;
+    column-gap: 11px !important;
+  }
+
+  .seccion.categorias
+  .categoria-card-circulo {
+    border-width: 3px !important;
+  }
+
+  .seccion.categorias
+  .categorias-scroll
+  .categoria-card-texto {
+    font-size: 0.78rem !important;
+  }
+
+  .historias-home-b1
+  .historias-scroll {
+    gap: 11px !important;
+  }
+
+  .historias-home-b1
+  .historia-circulo-boton {
+    flex-basis:
+      calc((100% - 22px) / 3) !important;
+
+    width:
+      calc((100% - 22px) / 3) !important;
+
+    min-width:
+      calc((100% - 22px) / 3) !important;
+
+    max-width:
+      calc((100% - 22px) / 3) !important;
+  }
+
+  .historias-home-b1
+  .historia-circulo-aro {
+    padding: 3px !important;
+  }
+
+  .historias-home-b1
+  .historia-circulo-interior {
+    border-width: 3px !important;
+  }
+
+  .historias-home-b1
+  .historia-circulo-nombre {
+    font-size: 0.78rem !important;
+  }
+}
+
+/* =========================================================
+   PANTALLAS MUY ANGOSTAS
+   Conserva los dos botones sin apilarlos.
+   ========================================================= */
+
+@media (max-width: 360px) {
+  .header .header-contenedor {
+    gap: 4px !important;
+
+    padding:
+      9px
+      8px !important;
+  }
+
+  .header .logo-zona {
+    gap: 5px !important;
+  }
+
+  .header .clicklocal-logo-cl {
+    flex-basis: 32px !important;
+
+    width: 32px !important;
+    height: 32px !important;
+
+    font-size: 13px !important;
+  }
+
+  .header .logo-texto {
+    font-size: 18px !important;
+  }
+
+  .header .clicklocal-parana {
+    font-size: 10px !important;
+  }
+
+  .header .nav {
+    gap: 4px !important;
+  }
+
+  .header .header-historias-b1,
+  .header .boton-secundario {
+    min-height: 34px !important;
+
+    padding:
+      7px
+      8px !important;
+
+    font-size: 11px !important;
+  }
+
+  .hero .titulo-hero {
+    font-size: 2.35rem !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: RESPONSIVE OFICIAL DEMO B1 V2 -->
+
+<!-- CLICKLOCAL: CARRUSELES CATEGORIAS E HISTORIAS V1 -->
+<style>
+/*
+  Categorías e historias:
+  - siempre una sola fila;
+  - seis elementos visibles en computadora;
+  - tres elementos visibles en tablet y celular;
+  - desplazamiento táctil y mediante flechas.
+*/
+
+/* =========================================================
+   CATEGORÍAS
+   ========================================================= */
+
+.categorias-b1-ver-todas {
+  display: none !important;
+}
+
+.seccion.categorias
+.categorias-scroll-wrap {
+  position: relative !important;
+
+  display: block !important;
+
+  box-sizing: border-box !important;
+  width: 100% !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.seccion.categorias
+.categorias-scroll {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+  max-width: none !important;
+
+  gap: 18px !important;
+
+  margin: 0 !important;
+  padding: 4px 2px 18px !important;
+
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+
+  scroll-behavior: smooth !important;
+  scroll-snap-type: x mandatory !important;
+  overscroll-behavior-x: contain !important;
+
+  scrollbar-width: none !important;
+  touch-action: pan-x !important;
+}
+
+.seccion.categorias
+.categorias-scroll::-webkit-scrollbar {
+  display: none !important;
+}
+
+.seccion.categorias:not(.categorias-b1-expandida)
+.categorias-scroll
+.categoria-card:nth-child(n + 7) {
+  display: flex !important;
+}
+
+.seccion.categorias
+.categorias-scroll
+.categoria-card {
+  display: flex !important;
+
+  flex:
+    0
+    0
+    calc((100% - 90px) / 6) !important;
+
+  width:
+    calc((100% - 90px) / 6) !important;
+
+  min-width:
+    calc((100% - 90px) / 6) !important;
+
+  max-width:
+    calc((100% - 90px) / 6) !important;
+
+  scroll-snap-align: start !important;
+}
+
+.seccion.categorias
+.flecha-categorias {
+  position: absolute !important;
+  z-index: 20 !important;
+  top: 43% !important;
+
+  display: grid !important;
+  place-items: center !important;
+
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+
+  padding: 0 !important;
+
+  border:
+    1px solid
+    rgba(101, 23, 34, 0.15) !important;
+  border-radius: 50% !important;
+
+  background: #FFFFFF !important;
+  color: #651722 !important;
+
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+
+  cursor: pointer !important;
+
+  box-shadow:
+    0 8px 22px
+    rgba(40, 28, 26, 0.16) !important;
+
+  transform: translateY(-50%) !important;
+}
+
+.seccion.categorias
+.flecha-categorias:first-of-type {
+  left: -13px !important;
+}
+
+.seccion.categorias
+.flecha-categorias:last-of-type {
+  right: -13px !important;
+}
+
+.seccion.categorias
+.flecha-categorias:hover,
+.seccion.categorias
+.flecha-categorias:focus-visible {
+  background: #651722 !important;
+  color: #FFFFFF !important;
+}
+
+/* =========================================================
+   HISTORIAS
+   ========================================================= */
+
+.historias-home-b1
+.historias-scroll-wrap {
+  position: relative !important;
+
+  display: block !important;
+
+  box-sizing: border-box !important;
+  width: 100% !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.historias-home-b1
+.historias-scroll {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+
+  box-sizing: border-box !important;
+
+  width: 100% !important;
+
+  gap: 18px !important;
+
+  margin: 0 !important;
+  padding: 4px 2px 18px !important;
+
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+
+  scroll-behavior: smooth !important;
+  scroll-snap-type: x mandatory !important;
+  overscroll-behavior-x: contain !important;
+
+  scrollbar-width: none !important;
+  touch-action: pan-x !important;
+}
+
+.historias-home-b1
+.historias-scroll::-webkit-scrollbar {
+  display: none !important;
+}
+
+.historias-home-b1
+.historia-circulo-boton {
+  display: flex !important;
+
+  flex:
+    0
+    0
+    calc((100% - 90px) / 6) !important;
+
+  width:
+    calc((100% - 90px) / 6) !important;
+
+  min-width:
+    calc((100% - 90px) / 6) !important;
+
+  max-width:
+    calc((100% - 90px) / 6) !important;
+
+  scroll-snap-align: start !important;
+}
+
+.historias-home-b1
+.flecha-historias {
+  position: absolute !important;
+  z-index: 20 !important;
+  top: 43% !important;
+
+  display: grid !important;
+  place-items: center !important;
+
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+
+  padding: 0 !important;
+
+  border:
+    1px solid
+    rgba(255, 248, 239, 0.40) !important;
+  border-radius: 50% !important;
+
+  background: #FFF8EF !important;
+  color: #5D6243 !important;
+
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+
+  cursor: pointer !important;
+
+  box-shadow:
+    0 8px 22px
+    rgba(37, 39, 22, 0.28) !important;
+
+  transform: translateY(-50%) !important;
+}
+
+.historias-home-b1
+.flecha-historias-anterior {
+  left: -13px !important;
+}
+
+.historias-home-b1
+.flecha-historias-siguiente {
+  right: -13px !important;
+}
+
+.historias-home-b1
+.flecha-historias:hover,
+.historias-home-b1
+.flecha-historias:focus-visible {
+  background: #5D6243 !important;
+  color: #FFF8EF !important;
+}
+
+/* =========================================================
+   TABLET Y CELULAR
+   ========================================================= */
+
+@media (max-width: 980px) {
+  .seccion.categorias
+  .categorias-scroll {
+    gap: 11px !important;
+  }
+
+  .seccion.categorias
+  .categorias-scroll
+  .categoria-card {
+    flex-basis:
+      calc((100% - 22px) / 3) !important;
+
+    width:
+      calc((100% - 22px) / 3) !important;
+
+    min-width:
+      calc((100% - 22px) / 3) !important;
+
+    max-width:
+      calc((100% - 22px) / 3) !important;
+  }
+
+  .historias-home-b1
+  .historias-scroll {
+    gap: 11px !important;
+  }
+
+  .historias-home-b1
+  .historia-circulo-boton {
+    flex-basis:
+      calc((100% - 22px) / 3) !important;
+
+    width:
+      calc((100% - 22px) / 3) !important;
+
+    min-width:
+      calc((100% - 22px) / 3) !important;
+
+    max-width:
+      calc((100% - 22px) / 3) !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .seccion.categorias
+  .flecha-categorias,
+  .historias-home-b1
+  .flecha-historias {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+
+    font-size: 20px !important;
+  }
+
+  .seccion.categorias
+  .flecha-categorias:first-of-type,
+  .historias-home-b1
+  .flecha-historias-anterior {
+    left: -7px !important;
+  }
+
+  .seccion.categorias
+  .flecha-categorias:last-of-type,
+  .historias-home-b1
+  .flecha-historias-siguiente {
+    right: -7px !important;
+  }
+}
+</style>
+
+<script>
+(function () {
+  function moverCarrusel(idContenedor, direccion) {
+    const contenedor =
+      document.getElementById(idContenedor);
+
+    if (!contenedor) {
+      return;
+    }
+
+    const elemento =
+      contenedor.firstElementChild;
+
+    if (!elemento) {
+      return;
+    }
+
+    const estilos =
+      window.getComputedStyle(contenedor);
+
+    const separacion =
+      parseFloat(estilos.columnGap || estilos.gap)
+      || 0;
+
+    const cantidad =
+      window.innerWidth <= 980
+        ? 3
+        : 6;
+
+    const distancia =
+      (
+        elemento.getBoundingClientRect().width
+        + separacion
+      )
+      * cantidad;
+
+    contenedor.scrollBy({
+      left: direccion * distancia,
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  window.moverCategoriasHome =
+    function (direccion) {
+      moverCarrusel(
+        "categoriasHome",
+        direccion
+      );
+    };
+
+  window.moverHistoriasHome =
+    function (direccion) {
+      moverCarrusel(
+        "historiasHome",
+        direccion
+      );
+    };
+})();
+</script>
+<!-- FIN CLICKLOCAL: CARRUSELES CATEGORIAS E HISTORIAS V1 -->
+
+<!-- CLICKLOCAL: AJUSTE FINO CARRUSELES V2 -->
+<style>
+/*
+  Ajuste fino solicitado:
+  - reducir el espacio sobrante debajo de categorías;
+  - separar las flechas de categorías e historias
+    para evitar toques accidentales.
+  No cambia tamaños de círculos ni cantidad visible.
+*/
+
+/* =========================================================
+   MENOS ESPACIO VACÍO
+   ========================================================= */
+
+.seccion.categorias {
+  padding-bottom: 24px !important;
+}
+
+.seccion.categorias
+.categorias-scroll-wrap {
+  margin-bottom: 0 !important;
+}
+
+.seccion.categorias
+.categorias-scroll {
+  padding-bottom: 8px !important;
+}
+
+.historias-home-b1
+.historias-scroll-wrap {
+  margin-bottom: 0 !important;
+}
+
+.historias-home-b1
+.historias-scroll {
+  padding-bottom: 8px !important;
+}
+
+/* =========================================================
+   FLECHAS MÁS LEJOS DE LOS CÍRCULOS
+   ========================================================= */
+
+.seccion.categorias
+.flecha-categorias,
+.historias-home-b1
+.flecha-historias {
+  top: 37% !important;
+
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+
+  font-size: 20px !important;
+}
+
+.seccion.categorias
+.flecha-categorias:first-of-type {
+  left: -18px !important;
+}
+
+.seccion.categorias
+.flecha-categorias:last-of-type {
+  right: -18px !important;
+}
+
+.historias-home-b1
+.flecha-historias-anterior {
+  left: -18px !important;
+}
+
+.historias-home-b1
+.flecha-historias-siguiente {
+  right: -18px !important;
+}
+
+/* =========================================================
+   CELULAR
+   ========================================================= */
+
+@media (max-width: 620px) {
+  .seccion.categorias {
+    padding-bottom: 18px !important;
+  }
+
+  .seccion.categorias
+  .categorias-scroll {
+    padding-bottom: 6px !important;
+  }
+
+  .historias-home-b1
+  .historias-scroll {
+    padding-bottom: 6px !important;
+  }
+
+  .seccion.categorias
+  .flecha-categorias,
+  .historias-home-b1
+  .flecha-historias {
+    top: 36% !important;
+
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+
+    font-size: 18px !important;
+  }
+
+  .seccion.categorias
+  .flecha-categorias:first-of-type {
+    left: -14px !important;
+  }
+
+  .seccion.categorias
+  .flecha-categorias:last-of-type {
+    right: -14px !important;
+  }
+
+  .historias-home-b1
+  .flecha-historias-anterior {
+    left: -14px !important;
+  }
+
+  .historias-home-b1
+  .flecha-historias-siguiente {
+    right: -14px !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: AJUSTE FINO CARRUSELES V2 -->
+
+<!-- CLICKLOCAL: AJUSTE MOVIL FLECHAS Y ESPACIADO V3 -->
+<style>
+/*
+  Ajuste solicitado:
+  - solo móvil;
+  - menos espacio arriba y abajo;
+  - flechas laterales más abajo;
+  - sin cambiar tamaños, textos, colores ni cantidad visible.
+*/
+
+@media (max-width: 620px) {
+  /* =========================================
+     CATEGORÍAS: espaciado más equilibrado
+     ========================================= */
+
+  .seccion.categorias {
+    padding-top: 30px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .categorias-b1-encabezado {
+    margin-bottom: 12px !important;
+  }
+
+  .seccion.categorias
+  .categorias-scroll-wrap {
+    margin-bottom: 0 !important;
+  }
+
+  .seccion.categorias
+  .categorias-scroll {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  /* =========================================
+     HISTORIAS: ajuste suave equivalente
+     ========================================= */
+
+  .historias-home-b1 {
+    padding-top: 14px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .historias-home-b1
+  .historias-scroll-wrap {
+    margin-bottom: 0 !important;
+  }
+
+  .historias-home-b1
+  .historias-scroll {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  /* =========================================
+     FLECHAS: más abajo y apenas más afuera
+     ========================================= */
+
+  .seccion.categorias
+  .flecha-categorias {
+    top: 58% !important;
+
+    width: 31px !important;
+    height: 31px !important;
+    min-width: 31px !important;
+
+    font-size: 18px !important;
+  }
+
+  .seccion.categorias
+  .flecha-categorias:first-of-type {
+    left: -16px !important;
+  }
+
+  .seccion.categorias
+  .flecha-categorias:last-of-type {
+    right: -16px !important;
+  }
+
+  .historias-home-b1
+  .flecha-historias {
+    top: 58% !important;
+
+    width: 31px !important;
+    height: 31px !important;
+    min-width: 31px !important;
+
+    font-size: 18px !important;
+  }
+
+  .historias-home-b1
+  .flecha-historias-anterior {
+    left: -16px !important;
+  }
+
+  .historias-home-b1
+  .flecha-historias-siguiente {
+    right: -16px !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: AJUSTE MOVIL FLECHAS Y ESPACIADO V3 -->
+
+<!-- CLICKLOCAL: BOTONES HEADER MOVIL EN FILA V1 -->
+<style>
+/*
+  Único cambio autorizado:
+  Historias e Iniciar sesión quedan en una misma fila en móvil.
+*/
+
+@media (max-width: 620px) {
+  .header .nav {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+
+    width: auto !important;
+    min-width: 0 !important;
+
+    gap: 5px !important;
+    margin-left: auto !important;
+  }
+
+  .header .header-historias-b1,
+  .header .boton-secundario {
+    flex: 0 0 auto !important;
+
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+
+    min-height: 35px !important;
+
+    margin: 0 !important;
+    padding: 7px 9px !important;
+
+    font-size: 11px !important;
+    line-height: 1 !important;
+
+    white-space: nowrap !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: BOTONES HEADER MOVIL EN FILA V1 -->
+
+<!-- CLICKLOCAL: DESTACADOS OCHO Y DOS COLUMNAS V2 -->
+<style>
+/*
+  Lo más visto:
+  - ocho publicaciones visibles inicialmente;
+  - cuatro columnas en escritorio;
+  - dos columnas en tablet y celular;
+  - Ver más aparece desde la publicación nueve.
+*/
+
+.publicaciones-destacadas
+.grilla-publicaciones {
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr)) !important;
+}
+
+@media (max-width: 1020px) {
+  .publicaciones-destacadas
+  .grilla-publicaciones {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .publicaciones-destacadas
+  .grilla-publicaciones {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+
+    gap: 12px !important;
+  }
+
+  .publicaciones-destacadas
+  .publicacion-card {
+    min-width: 0 !important;
+    border-radius: 15px !important;
+  }
+
+  .publicaciones-destacadas
+  .publicacion-card > img {
+    width: 100% !important;
+    aspect-ratio: 4 / 4.4 !important;
+    object-fit: cover !important;
+  }
+
+  .publicaciones-destacadas
+  .publicacion-info {
+    padding: 11px 10px 12px !important;
+  }
+
+  .publicaciones-destacadas
+  .nombre-comercio {
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+  }
+
+  .publicaciones-destacadas
+  .publicacion-info h3 {
+    font-size: 15px !important;
+    line-height: 1.15 !important;
+  }
+
+  .publicaciones-destacadas
+  .precio {
+    font-size: 15px !important;
+  }
+
+  .publicaciones-destacadas
+  .ubicacion {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: DESTACADOS OCHO Y DOS COLUMNAS V2 -->
+
+<!-- CLICKLOCAL: TARJETAS PUBLICACIONES COMPACTAS V1 -->
+<style>
+/*
+  Único cambio autorizado:
+  - tarjetas un poco más cortas;
+  - nombre conserva hasta dos renglones;
+  - ubicación pasa a una sola línea;
+  - no cambia imagen, columnas ni cantidad visible.
+*/
+
+.publicaciones-seccion
+.publicacion-info {
+  row-gap: 5px !important;
+  padding:
+    13px
+    14px
+    14px !important;
+}
+
+.publicaciones-seccion
+.nombre-comercio {
+  line-height: 1.15 !important;
+}
+
+.publicaciones-seccion
+.publicacion-info h3 {
+  min-height: 2.3em !important;
+
+  line-height: 1.15 !important;
+
+  -webkit-line-clamp: 2 !important;
+}
+
+.publicaciones-seccion
+.precio {
+  margin-top: 0 !important;
+}
+
+.publicaciones-seccion
+.ubicacion {
+  display: block !important;
+
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin-top: 0 !important;
+
+  overflow: hidden !important;
+
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+
+  -webkit-box-orient: initial !important;
+  -webkit-line-clamp: initial !important;
+}
+
+@media (max-width: 700px) {
+  .publicaciones-seccion
+  .publicacion-info {
+    row-gap: 4px !important;
+    padding:
+      10px
+      10px
+      11px !important;
+  }
+
+  .publicaciones-seccion
+  .publicacion-info h3 {
+    min-height: 2.3em !important;
+    line-height: 1.15 !important;
+  }
+
+  .publicaciones-seccion
+  .ubicacion {
+    line-height: 1.15 !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: TARJETAS PUBLICACIONES COMPACTAS V1 -->
+
+<!-- CLICKLOCAL: PRECIO Y UBICACION MOVIL APILADOS V1 -->
+<style>
+/*
+  Corrección exclusiva para celulares:
+  - elimina las dos columnas internas de la tarjeta;
+  - precio y ubicación quedan en renglones separados;
+  - conserva dos tarjetas por fila;
+  - no modifica escritorio ni imágenes.
+*/
+
+@media (max-width: 600px) {
+  .publicaciones-seccion
+  .publicacion-info {
+    grid-template-columns:
+      minmax(0, 1fr) !important;
+
+    column-gap: 0 !important;
+    row-gap: 4px !important;
+  }
+
+  .publicaciones-seccion
+  .nombre-comercio,
+  .publicaciones-seccion
+  .publicacion-info h3,
+  .publicaciones-seccion
+  .precio,
+  .publicaciones-seccion
+  .ubicacion {
+    grid-column: 1 / -1 !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .publicaciones-seccion
+  .precio {
+    display: block !important;
+
+    align-self: auto !important;
+    justify-self: stretch !important;
+
+    margin: 3px 0 0 !important;
+
+    font-size: 15px !important;
+    line-height: 1.15 !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .publicaciones-seccion
+  .ubicacion {
+    display: block !important;
+
+    align-self: auto !important;
+    justify-self: stretch !important;
+
+    min-height: 0 !important;
+    max-height: none !important;
+
+    margin: 1px 0 0 !important;
+
+    overflow: hidden !important;
+
+    font-size: 11px !important;
+    line-height: 1.15 !important;
+    text-align: left !important;
+
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+
+    -webkit-box-orient: initial !important;
+    -webkit-line-clamp: initial !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: PRECIO Y UBICACION MOVIL APILADOS V1 -->
+
+<!-- CLICKLOCAL: PRECIO BORDO Y RECIENTES MOVIL DOS COLUMNAS V1 -->
+<style>
+/*
+  Cambios autorizados:
+  - precio bordó en las tarjetas de publicaciones;
+  - Publicaciones recientes: dos tarjetas por fila en celular;
+  - no afecta resultados del buscador;
+  - escritorio permanece sin cambios.
+*/
+
+.publicaciones-seccion
+.precio {
+  color: #7A1F2B !important;
+}
+
+@media (max-width: 600px) {
+  .publicaciones-recientes
+  .grilla-publicaciones {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+
+    gap: 12px !important;
+  }
+
+  .publicaciones-recientes
+  .publicacion-card {
+    min-width: 0 !important;
+    border-radius: 15px !important;
+  }
+
+  .publicaciones-recientes
+  .publicacion-card > img {
+    width: 100% !important;
+    aspect-ratio: 4 / 4.4 !important;
+    object-fit: cover !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: PRECIO BORDO Y RECIENTES MOVIL DOS COLUMNAS V1 -->
+
+</body>
+</html>

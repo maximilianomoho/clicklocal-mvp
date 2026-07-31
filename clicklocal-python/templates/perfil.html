@@ -171,14 +171,1131 @@
   }
 </style>
 
+<!-- CLICKLOCAL: PERFIL PUBLICO PROFESIONAL B1 V1 -->
+<style>
+/* ==========================================================
+   CLICKLOCAL — PERFIL PÚBLICO PROFESIONAL B1
+
+   Solo presentación:
+   - cabecera alineada con portada y detalle;
+   - espacio preparado para futura foto de portada;
+   - perfil más compacto y profesional;
+   - cuatro publicaciones en escritorio;
+   - dos publicaciones por fila en celular;
+   - no agrega datos que hoy no existen.
+   ========================================================== */
+
+.pagina-perfil-b1 {
+  background: #F6EFE5;
+  color: #2F2522;
+}
+
+
+/* ==========================================================
+   CABECERA CLICKLOCAL
+   ========================================================== */
+
+.pagina-perfil-b1 .header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  background: rgba(250, 245, 237, 0.96);
+
+  border-bottom:
+    1px solid rgba(101, 23, 34, 0.10);
+
+  box-shadow:
+    0 5px 18px rgba(67, 43, 33, 0.06);
+
+  backdrop-filter: blur(12px);
+}
+
+.pagina-perfil-b1 .header-contenedor {
+  width: min(100% - 32px, 1240px);
+  height: 76px;
+  margin: 0 auto;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.pagina-perfil-b1 .logo-zona {
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pagina-perfil-b1 .logo-circulo {
+  flex: 0 0 42px;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 13px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #A44231,
+      #7A1F2B 58%,
+      #D7773E
+    );
+
+  color: #FFFDFC;
+
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+
+  box-shadow:
+    0 7px 16px rgba(101, 23, 34, 0.20);
+
+  display: grid;
+  place-items: center;
+}
+
+.pagina-perfil-b1
+.logo-zona > div:last-child {
+  min-width: 0;
+
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pagina-perfil-b1 .logo-texto {
+  color: #241C19;
+
+  font-size: 25px;
+  font-weight: 750;
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+.pagina-perfil-b1 .ciudad {
+  margin: 0;
+
+  color: #7A1F2B;
+
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+.pagina-perfil-b1 .nav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.pagina-perfil-b1 .nav-link {
+  padding: 11px 17px;
+
+  border-radius: 999px;
+
+  background: #7A1F2B;
+  color: #FFFDFC;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pagina-perfil-b1 .boton-secundario {
+  padding: 10px 17px;
+
+  border:
+    1px solid rgba(122, 31, 43, 0.72);
+
+  border-radius: 999px;
+
+  background: transparent;
+  color: #7A1F2B;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+
+/* ==========================================================
+   PÁGINA Y CONTENEDOR
+   ========================================================== */
+
+.pagina-perfil-b1 .perfil-main {
+  min-height: calc(100vh - 76px);
+
+  padding: 28px 0 56px;
+
+  background:
+    radial-gradient(
+      circle at 12% 4%,
+      rgba(214, 157, 94, 0.11),
+      transparent 27%
+    ),
+    linear-gradient(
+      180deg,
+      #FAF5ED 0%,
+      #F4EBDF 100%
+    );
+}
+
+.pagina-perfil-b1 .perfil-contenedor {
+  width: min(100% - 32px, 1240px);
+  margin: 0 auto;
+}
+
+.pagina-perfil-b1 .volver-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  margin: 0 0 18px;
+  padding: 7px 2px;
+
+  color: #7A1F2B;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  text-decoration: none;
+}
+
+.pagina-perfil-b1 .volver-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+
+/* ==========================================================
+   CABECERA DEL COMERCIO
+   ========================================================== */
+
+.pagina-perfil-b1 .perfil-header-card {
+  position: relative;
+
+  margin-bottom: 22px;
+
+  overflow: hidden;
+
+  border:
+    1px solid rgba(122, 31, 43, 0.09);
+
+  border-radius: 26px;
+
+  background: #FFFDFC;
+
+  box-shadow:
+    0 18px 42px rgba(70, 46, 36, 0.09);
+}
+
+
+/* Portada alternativa mientras no exista portada_url. */
+
+.pagina-perfil-b1 .perfil-portada {
+  position: relative;
+
+  height: 176px;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 16% 25%,
+      rgba(255, 253, 250, 0.34),
+      transparent 23%
+    ),
+    radial-gradient(
+      circle at 84% 18%,
+      rgba(231, 181, 76, 0.28),
+      transparent 25%
+    ),
+    linear-gradient(
+      125deg,
+      #6D1723 0%,
+      #9D3B30 42%,
+      #D8763C 73%,
+      #D5A24B 100%
+    );
+}
+
+.pagina-perfil-b1 .perfil-portada::before,
+.pagina-perfil-b1 .perfil-portada::after {
+  position: absolute;
+  z-index: 1;
+
+  content: "";
+
+  border-radius: 50%;
+
+  pointer-events: none;
+}
+
+.pagina-perfil-b1 .perfil-portada::before {
+  width: 230px;
+  height: 230px;
+
+  top: -145px;
+  right: 7%;
+
+  border:
+    1px solid rgba(255, 253, 250, 0.28);
+}
+
+.pagina-perfil-b1 .perfil-portada::after {
+  width: 170px;
+  height: 170px;
+
+  left: 8%;
+  bottom: -124px;
+
+  border:
+    1px solid rgba(255, 253, 250, 0.22);
+}
+
+.pagina-perfil-b1 .perfil-portada-imagen {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+
+  width: 100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+  object-position: center;
+}
+
+.pagina-perfil-b1 .perfil-portada-velo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(35, 18, 15, 0.03),
+      rgba(35, 18, 15, 0.20)
+    );
+
+  pointer-events: none;
+}
+
+.pagina-perfil-b1
+.perfil-portada:not(.perfil-portada-con-imagen)
+.perfil-portada-velo {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(78, 18, 26, 0.08),
+      rgba(255, 253, 250, 0.04)
+    );
+}
+
+
+/* Información bajo la portada. */
+
+.pagina-perfil-b1 .perfil-info-principal {
+  position: relative;
+  z-index: 2;
+
+  margin-top: -48px;
+  padding: 0 26px 26px;
+
+  display: grid;
+
+  grid-template-columns:
+    112px
+    minmax(0, 1fr)
+    minmax(420px, auto);
+
+  gap: 22px;
+  align-items: end;
+}
+
+.pagina-perfil-b1 .perfil-logo {
+  width: 112px;
+  height: 112px;
+
+  box-sizing: border-box;
+
+  overflow: hidden;
+
+  border:
+    6px solid #FFFDFC;
+
+  border-radius: 26px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #641722,
+      #8E2732
+    );
+
+  color: #FFFDFC;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+
+  box-shadow:
+    0 12px 28px rgba(63, 26, 22, 0.20);
+
+  display: grid;
+  place-items: center;
+}
+
+.pagina-perfil-b1 .perfil-logo img {
+  width: 100%;
+  height: 100%;
+
+  border-radius: 19px;
+
+  display: block;
+
+  object-fit: cover;
+  object-position: center;
+
+  transform: none;
+}
+
+.pagina-perfil-b1 .perfil-textos {
+  min-width: 0;
+  padding-top: 55px;
+}
+
+.pagina-perfil-b1 .perfil-textos .titulo-chico {
+  margin: 0 0 6px;
+
+  color: #9A5A31;
+
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+
+  text-transform: uppercase;
+}
+
+.pagina-perfil-b1 .perfil-textos h1 {
+  margin: 0 0 7px;
+
+  color: #4E121A;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: clamp(34px, 3.4vw, 48px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+
+  overflow-wrap: anywhere;
+}
+
+.pagina-perfil-b1 .perfil-rubro {
+  margin: 0 0 7px;
+
+  color: #6B704D;
+
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.3;
+}
+
+.pagina-perfil-b1 .perfil-ubicacion {
+  margin: 0;
+
+  color: #6A5D56;
+
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+
+/* ==========================================================
+   ACCIONES
+   ========================================================== */
+
+.pagina-perfil-b1 .perfil-acciones-principales {
+  min-width: 0;
+  margin: 0;
+  padding-top: 55px;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(190px, auto)
+    minmax(145px, auto)
+    minmax(160px, auto);
+
+  gap: 9px;
+  align-items: center;
+}
+
+.pagina-perfil-b1 .perfil-whatsapp,
+.pagina-perfil-b1 .perfil-compartir {
+  box-sizing: border-box;
+
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 15px;
+
+  border-radius: 999px;
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.2;
+
+  text-align: center;
+  text-decoration: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagina-perfil-b1 .perfil-whatsapp {
+  border: 1px solid #6B704D;
+
+  background: #6B704D;
+  color: #FFFDFC;
+
+  box-shadow:
+    0 8px 18px rgba(107, 112, 77, 0.20);
+}
+
+.pagina-perfil-b1 .perfil-compartir {
+  border:
+    1px solid rgba(122, 31, 43, 0.46);
+
+  background: #FFFDFC;
+  color: #7A1F2B;
+
+  box-shadow: none;
+
+  cursor: pointer;
+}
+
+.pagina-perfil-b1 .perfil-compartir:hover {
+  border-color: #7A1F2B;
+  background: #F8EDE3;
+}
+
+
+/* ==========================================================
+   BLOQUES DE CONTENIDO
+   ========================================================== */
+
+.pagina-perfil-b1 .perfil-bloque {
+  margin-bottom: 22px;
+  padding: 25px 27px;
+
+  border:
+    1px solid rgba(122, 31, 43, 0.08);
+
+  border-radius: 24px;
+
+  background:
+    rgba(255, 253, 250, 0.96);
+
+  box-shadow:
+    0 14px 34px rgba(70, 46, 36, 0.07);
+}
+
+.pagina-perfil-b1
+.perfil-header-card + .perfil-bloque {
+  padding-top: 23px;
+  padding-bottom: 23px;
+}
+
+.pagina-perfil-b1 .perfil-bloque h2 {
+  margin: 0 0 10px;
+
+  color: #4E121A;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 29px;
+  line-height: 1.1;
+}
+
+.pagina-perfil-b1 .perfil-bloque > p {
+  max-width: 880px;
+  margin: 0;
+
+  color: #5D514B;
+
+  font-size: 15px;
+  line-height: 1.58;
+}
+
+.pagina-perfil-b1 .perfil-bloque-header {
+  margin: 0 0 20px;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pagina-perfil-b1
+.perfil-bloque-header .titulo-chico {
+  margin: 0 0 7px;
+
+  color: #9A5A31;
+
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+
+  text-transform: uppercase;
+}
+
+.pagina-perfil-b1
+.perfil-bloque-header h2 {
+  margin: 0;
+
+  font-size: clamp(29px, 3vw, 40px);
+}
+
+
+/* ==========================================================
+   LISTAS BUSCABLES
+   ========================================================== */
+
+.pagina-perfil-b1 .perfil-listas {
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 14px;
+}
+
+.pagina-perfil-b1 .perfil-lista-card {
+  padding: 17px;
+
+  border:
+    1px solid rgba(122, 31, 43, 0.10);
+
+  border-radius: 17px;
+
+  background: #F8EFE4;
+}
+
+.pagina-perfil-b1 .perfil-lista-card h3 {
+  margin: 0 0 7px;
+
+  color: #4E121A;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 19px;
+}
+
+.pagina-perfil-b1 .perfil-lista-card p {
+  margin: 0;
+
+  color: #665950;
+
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+
+/* ==========================================================
+   VIDRIERA DE PUBLICACIONES
+   ========================================================== */
+
+.pagina-perfil-b1 .perfil-grilla {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 17px;
+}
+
+.pagina-perfil-b1
+.perfil-grilla .publicacion-card {
+  min-width: 0;
+
+  overflow: hidden;
+
+  border:
+    1px solid rgba(122, 31, 43, 0.09);
+
+  border-radius: 17px;
+
+  background: #FFFDFC;
+
+  color: inherit;
+
+  box-shadow:
+    0 10px 25px rgba(70, 46, 36, 0.08);
+
+  text-decoration: none;
+}
+
+.pagina-perfil-b1
+.perfil-grilla .publicacion-card > img {
+  width: 100%;
+  height: auto;
+
+  aspect-ratio: 4 / 4.35;
+
+  display: block;
+
+  background: #EFE5D9;
+
+  object-fit: cover;
+  object-position: center;
+}
+
+.pagina-perfil-b1
+.perfil-grilla .publicacion-info {
+  min-width: 0;
+  padding: 12px 12px 13px;
+
+  display: grid;
+  gap: 5px;
+}
+
+.pagina-perfil-b1
+.perfil-grilla .nombre-comercio {
+  margin: 0;
+
+  overflow: hidden;
+
+  color: #8A2631;
+
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pagina-perfil-b1
+.perfil-grilla .publicacion-info h3 {
+  min-height: 2.3em;
+  margin: 0;
+
+  overflow: hidden;
+
+  color: #332823;
+
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.15;
+
+  display: -webkit-box;
+
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.pagina-perfil-b1
+.perfil-grilla .precio {
+  margin: 2px 0 0;
+
+  overflow: hidden;
+
+  color: #7A1F2B;
+
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.15;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pagina-perfil-b1
+.perfil-grilla .ubicacion {
+  margin: 0;
+
+  overflow: hidden;
+
+  color: #80736B;
+
+  font-size: 11px;
+  line-height: 1.2;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ==========================================================
+   TABLET
+   ========================================================== */
+
+@media (max-width: 1100px) {
+  .pagina-perfil-b1 .perfil-info-principal {
+    grid-template-columns:
+      105px
+      minmax(0, 1fr);
+  }
+
+  .pagina-perfil-b1
+  .perfil-acciones-principales {
+    grid-column: 1 / -1;
+
+    padding-top: 0;
+
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .pagina-perfil-b1 .perfil-logo {
+    width: 105px;
+    height: 105px;
+  }
+
+  .pagina-perfil-b1 .perfil-grilla {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+}
+
+
+/* ==========================================================
+   CELULAR
+   ========================================================== */
+
+@media (max-width: 700px) {
+  .pagina-perfil-b1 .header-contenedor {
+    width: min(100% - 20px, 1240px);
+    height: 66px;
+
+    gap: 8px;
+  }
+
+  .pagina-perfil-b1 .logo-zona {
+    gap: 8px;
+  }
+
+  .pagina-perfil-b1 .logo-circulo {
+    flex-basis: 39px;
+
+    width: 39px;
+    height: 39px;
+
+    border-radius: 11px;
+
+    font-size: 14px;
+  }
+
+  .pagina-perfil-b1
+  .logo-zona > div:last-child {
+    gap: 4px;
+  }
+
+  .pagina-perfil-b1 .logo-texto {
+    font-size: 21px;
+  }
+
+  .pagina-perfil-b1 .ciudad {
+    font-size: 11px;
+  }
+
+  .pagina-perfil-b1 .nav {
+    flex-direction: row;
+    align-items: center;
+
+    gap: 5px;
+    margin-left: auto;
+  }
+
+  .pagina-perfil-b1 .nav-link {
+    display: none;
+  }
+
+  .pagina-perfil-b1 .boton-secundario {
+    min-height: 39px;
+    padding: 8px 11px;
+
+    font-size: 11px;
+  }
+
+  .pagina-perfil-b1 .perfil-main {
+    min-height: calc(100vh - 66px);
+
+    padding: 15px 0 34px;
+  }
+
+  .pagina-perfil-b1 .perfil-contenedor {
+    width: min(100% - 22px, 1240px);
+  }
+
+  .pagina-perfil-b1 .volver-link {
+    margin-bottom: 9px;
+    padding: 3px 1px;
+
+    font-size: 13px;
+  }
+
+  .pagina-perfil-b1 .perfil-header-card {
+    margin-bottom: 14px;
+
+    border-radius: 21px;
+  }
+
+  .pagina-perfil-b1 .perfil-portada {
+    height: 128px;
+  }
+
+  .pagina-perfil-b1 .perfil-info-principal {
+    margin-top: -44px;
+    padding: 0 15px 18px;
+
+    grid-template-columns: 1fr;
+    gap: 0;
+
+    text-align: center;
+  }
+
+  .pagina-perfil-b1 .perfil-logo {
+    width: 88px;
+    height: 88px;
+
+    margin: 0 auto;
+
+    border-width: 5px;
+    border-radius: 21px;
+
+    font-size: 28px;
+  }
+
+  .pagina-perfil-b1 .perfil-logo img {
+    border-radius: 15px;
+  }
+
+  .pagina-perfil-b1 .perfil-textos {
+    padding-top: 12px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-textos .titulo-chico {
+    margin-bottom: 5px;
+
+    font-size: 10px;
+  }
+
+  .pagina-perfil-b1 .perfil-textos h1 {
+    margin-bottom: 6px;
+
+    font-size: 29px;
+    line-height: 1.04;
+  }
+
+  .pagina-perfil-b1 .perfil-rubro {
+    margin-bottom: 5px;
+
+    font-size: 13px;
+  }
+
+  .pagina-perfil-b1 .perfil-ubicacion {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .pagina-perfil-b1
+  .perfil-acciones-principales {
+    width: 100%;
+    margin-top: 15px;
+    padding-top: 0;
+
+    grid-column: auto;
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 7px;
+  }
+
+  .pagina-perfil-b1 .perfil-whatsapp {
+    grid-column: 1 / -1;
+  }
+
+  .pagina-perfil-b1 .perfil-whatsapp,
+  .pagina-perfil-b1 .perfil-compartir {
+    min-height: 44px;
+    padding: 10px 8px;
+
+    font-size: 12px;
+  }
+
+  .pagina-perfil-b1 .perfil-bloque {
+    margin-bottom: 14px;
+    padding: 18px 16px;
+
+    border-radius: 20px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-header-card + .perfil-bloque {
+    padding-top: 17px;
+    padding-bottom: 17px;
+  }
+
+  .pagina-perfil-b1 .perfil-bloque h2 {
+    margin-bottom: 8px;
+
+    font-size: 24px;
+  }
+
+  .pagina-perfil-b1 .perfil-bloque > p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .pagina-perfil-b1
+  .perfil-bloque-header {
+    margin-bottom: 15px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-bloque-header .titulo-chico {
+    margin-bottom: 5px;
+
+    font-size: 10px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-bloque-header h2 {
+    font-size: 27px;
+    line-height: 1.06;
+  }
+
+  .pagina-perfil-b1 .perfil-listas {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .pagina-perfil-b1 .perfil-lista-card {
+    padding: 14px;
+  }
+
+  .pagina-perfil-b1 .perfil-grilla {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 11px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-grilla .publicacion-card {
+    border-radius: 14px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-grilla .publicacion-info {
+    padding: 10px 9px 11px;
+
+    gap: 4px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-grilla .nombre-comercio {
+    font-size: 9px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-grilla .publicacion-info h3 {
+    font-size: 15px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-grilla .precio {
+    font-size: 14px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-grilla .ubicacion {
+    font-size: 10px;
+  }
+}
+
+
+/* ==========================================================
+   TELÉFONOS MUY ANGOSTOS
+   ========================================================== */
+
+@media (max-width: 390px) {
+  .pagina-perfil-b1 .ciudad {
+    display: none;
+  }
+
+  .pagina-perfil-b1 .logo-texto {
+    font-size: 19px;
+  }
+
+  .pagina-perfil-b1
+  .perfil-acciones-principales {
+    grid-template-columns: 1fr;
+  }
+
+  .pagina-perfil-b1 .perfil-whatsapp {
+    grid-column: auto;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: PERFIL PUBLICO PROFESIONAL B1 V1 -->
 </head>
 
-<body>
+<body class="pagina-perfil-b1">
 
   <header class="header">
     <div class="header-contenedor">
       <div class="logo-zona">
-        <div class="logo-circulo">C</div>
+        <div class="logo-circulo">CL</div>
 
         <div>
           <h1 class="logo-texto">ClickLocal</h1>
@@ -209,7 +1326,31 @@
       <!-- ENCABEZADO COMERCIO -->
       <section class="perfil-header-card">
 
-        <div class="perfil-portada"></div>
+                {#
+                  CLICKLOCAL: PORTADA DEL NEGOCIO PREPARADA V1
+
+                  Hoy app.py todavía no entrega portada_url.
+                  Cuando se incorpore ese dato, la imagen comenzará
+                  a mostrarse aquí sin rediseñar nuevamente el perfil.
+                #}
+                {% set portada_negocio = comercio.get("portada_url") %}
+
+                <div
+                  class="perfil-portada{% if portada_negocio %} perfil-portada-con-imagen{% endif %}"
+                >
+                  {% if portada_negocio %}
+                    <img
+                      class="perfil-portada-imagen"
+                      src="{{ portada_negocio }}"
+                      alt="Portada de {{ comercio.nombre_negocio }}"
+                    />
+                  {% endif %}
+
+                  <div
+                    class="perfil-portada-velo"
+                    aria-hidden="true"
+                  ></div>
+                </div>
 
         <div class="perfil-info-principal">
 
