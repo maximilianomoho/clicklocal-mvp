@@ -4119,12 +4119,40 @@ document.addEventListener("DOMContentLoaded", function () {
   const contextoExposicion =
     {{ contexto_exposicion | tojson }};
 
+  function cantidadComerciosDisponibles() {
+    const ids = new Set();
+
+    todasLasTarjetas().forEach(function (tarjeta) {
+      const comercioId = String(
+        tarjeta.dataset.comercioId || ""
+      ).trim();
+
+      if (comercioId) {
+        ids.add(comercioId);
+      }
+    });
+
+    return ids.size;
+  }
+
   function cantidadPorBloque() {
-    return window.matchMedia(
+    const cantidadBase = window.matchMedia(
       "(max-width: 1020px)"
     ).matches
       ? 6
       : 8;
+
+    const cantidadComercios =
+      cantidadComerciosDisponibles();
+
+    if (cantidadComercios <= 0) {
+      return cantidadBase;
+    }
+
+    return Math.min(
+      cantidadBase,
+      cantidadComercios
+    );
   }
 
   function todasLasTarjetas() {

@@ -2343,6 +2343,14 @@ def inicio():
                     )
                 )
 
+                publicaciones_comercio_rotacion = (
+                    publicaciones_comercio_rotacion[:3]
+                )
+
+                publicaciones_por_comercio_rotacion[
+                    comercio_id_rotacion
+                ] = publicaciones_comercio_rotacion
+
                 publicaciones_representativas.append(
                     publicaciones_comercio_rotacion[0]
                 )
@@ -2355,8 +2363,56 @@ def inicio():
                 )
             )
 
+            orden_comercios_rotacion = [
+                str(
+                    item_rotacion.get("comercio_id") or ""
+                ).strip()
+                for item_rotacion
+                in publicaciones_representativas
+                if str(
+                    item_rotacion.get("comercio_id") or ""
+                ).strip()
+            ]
+
+            publicaciones_secuencia = []
+            numero_vuelta = 0
+
+            while True:
+                agregadas_en_vuelta = 0
+
+                for comercio_id_rotacion in (
+                    orden_comercios_rotacion
+                ):
+                    publicaciones_comercio_rotacion = (
+                        publicaciones_por_comercio_rotacion.get(
+                            comercio_id_rotacion,
+                            [],
+                        )
+                    )
+
+                    if (
+                        numero_vuelta
+                        >= len(
+                            publicaciones_comercio_rotacion
+                        )
+                    ):
+                        continue
+
+                    publicaciones_secuencia.append(
+                        publicaciones_comercio_rotacion[
+                            numero_vuelta
+                        ]
+                    )
+
+                    agregadas_en_vuelta += 1
+
+                if agregadas_en_vuelta == 0:
+                    break
+
+                numero_vuelta += 1
+
             publicaciones_finales = (
-                publicaciones_representativas[:80]
+                publicaciones_secuencia[:80]
             )
 
             for posicion_exposicion, item_exposicion in enumerate(
@@ -2911,7 +2967,7 @@ def inicio():
                 candidato["id"]
             )
 
-            if len(comercios_para_descubrir) >= 6:
+            if len(comercios_para_descubrir) >= 3:
                 break
 
         if len(comercios_para_descubrir) < 3:
@@ -2927,7 +2983,7 @@ def inicio():
                     candidato["id"]
                 )
 
-                if len(comercios_para_descubrir) >= 6:
+                if len(comercios_para_descubrir) >= 3:
                     break
 
     # ====================================================
@@ -3243,6 +3299,7 @@ def publicaciones_recientes_api():
                 [],
             ).append(pub)
 
+        publicaciones_api_por_comercio = {}
         publicaciones_representativas = []
 
         for (
@@ -3265,37 +3322,54 @@ def publicaciones_recientes_api():
                 )
             )
 
-            publicacion = publicaciones_comercio[0]
+            publicaciones_comercio = (
+                publicaciones_comercio[:3]
+            )
+
             comercio = comercios_por_id[
                 comercio_id
             ]
 
-            publicaciones_representativas.append({
-                "id": publicacion.get("id"),
-                "comercio_id": comercio_id,
-                "nombre": (
-                    publicacion.get("nombre") or ""
-                ),
-                "precio": formatear_precio(
-                    publicacion.get("precio")
-                ),
-                "imagen_url": imagen_publica(
-                    publicacion
-                ),
-                "comercio": (
-                    comercio.get("nombre_negocio")
-                    or "Comercio local"
-                ),
-                "direccion_mostrar": ubicacion_publica(
-                    comercio,
-                    publicacion.get(
-                        "direccion_mostrar"
-                    )
-                ),
-                "categoria": (
-                    comercio.get("categoria") or ""
-                ),
-            })
+            items_comercio = []
+
+            for publicacion in publicaciones_comercio:
+                items_comercio.append({
+                    "id": publicacion.get("id"),
+                    "comercio_id": comercio_id,
+                    "nombre": (
+                        publicacion.get("nombre") or ""
+                    ),
+                    "precio": formatear_precio(
+                        publicacion.get("precio")
+                    ),
+                    "imagen_url": imagen_publica(
+                        publicacion
+                    ),
+                    "comercio": (
+                        comercio.get("nombre_negocio")
+                        or "Comercio local"
+                    ),
+                    "direccion_mostrar": ubicacion_publica(
+                        comercio,
+                        publicacion.get(
+                            "direccion_mostrar"
+                        )
+                    ),
+                    "categoria": (
+                        comercio.get("categoria") or ""
+                    ),
+                })
+
+            if not items_comercio:
+                continue
+
+            publicaciones_api_por_comercio[
+                str(comercio_id)
+            ] = items_comercio
+
+            publicaciones_representativas.append(
+                items_comercio[0]
+            )
 
         publicaciones_representativas = (
             ordenar_publicaciones_por_deuda_exposicion(
@@ -3305,7 +3379,47 @@ def publicaciones_recientes_api():
             )
         )
 
-        items = publicaciones_representativas[
+        orden_comercios_api = [
+            str(
+                item.get("comercio_id") or ""
+            ).strip()
+            for item in publicaciones_representativas
+            if str(
+                item.get("comercio_id") or ""
+            ).strip()
+        ]
+
+        publicaciones_secuencia_api = []
+        numero_vuelta_api = 0
+
+        while True:
+            agregadas_en_vuelta_api = 0
+
+            for comercio_id_api in orden_comercios_api:
+                items_comercio = (
+                    publicaciones_api_por_comercio.get(
+                        comercio_id_api,
+                        [],
+                    )
+                )
+
+                if numero_vuelta_api >= len(
+                    items_comercio
+                ):
+                    continue
+
+                publicaciones_secuencia_api.append(
+                    items_comercio[numero_vuelta_api]
+                )
+
+                agregadas_en_vuelta_api += 1
+
+            if agregadas_en_vuelta_api == 0:
+                break
+
+            numero_vuelta_api += 1
+
+        items = publicaciones_secuencia_api[
             offset:
             offset + TAMANO_BLOQUE
         ]
@@ -3323,10 +3437,13 @@ def publicaciones_recientes_api():
             "siguiente_offset": siguiente_offset,
             "hay_mas": (
                 siguiente_offset
-                < len(publicaciones_representativas)
+                < len(publicaciones_secuencia_api)
             ),
             "total_comercios": len(
-                publicaciones_representativas
+                publicaciones_api_por_comercio
+            ),
+            "total_publicaciones": len(
+                publicaciones_secuencia_api
             ),
         }
 
