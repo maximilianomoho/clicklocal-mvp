@@ -1316,22 +1316,42 @@ def obtener_publicaciones_portada_cache(limite):
             CACHE_PORTADA_PUBLICACIONES["version"]
         )
 
-    respuesta = (
-        supabase_admin
-        .table("publicaciones")
-        .select(
-            "id,nombre,precio,descripcion,imagenes,"
-            "imagen_principal,imagen_url,activa,"
-            "comercio_id,direccion_mostrar,created_at,"
-            "orden_grilla_at"
-        )
-        .eq("activa", True)
-        .order("orden_grilla_at", desc=True)
-        .limit(limite)
-        .execute()
-    )
+    datos = []
+    tamano_pagina = 1000
+    inicio = 0
 
-    datos = list(respuesta.data or [])
+    while inicio < limite:
+        fin = min(
+            inicio + tamano_pagina,
+            limite,
+        ) - 1
+
+        respuesta = (
+            supabase_admin
+            .table("publicaciones")
+            .select(
+                "id,nombre,precio,descripcion,imagenes,"
+                "imagen_principal,imagen_url,activa,"
+                "comercio_id,direccion_mostrar,created_at,"
+                "orden_grilla_at"
+            )
+            .eq("activa", True)
+            .order("orden_grilla_at", desc=True)
+            .range(inicio, fin)
+            .execute()
+        )
+
+        pagina = list(respuesta.data or [])
+
+        if not pagina:
+            break
+
+        datos.extend(pagina)
+
+        if len(pagina) < (fin - inicio + 1):
+            break
+
+        inicio += len(pagina)
 
     with CACHE_PORTADA_PUBLICACIONES_LOCK:
         if (
@@ -1387,12 +1407,28 @@ def inicio():
 
     comercio = session.get("comercio") or comercio_default()
     publicaciones_finales = []
+    publicaciones_para_mas_vistas = []
     publicaciones_mas_vistas = []
     comercios_relacionados = []
     historias_publicas = []
     busqueda_id = None
 
-    busqueda = request.args.get("q", "").strip()
+    # CLICKLOCAL: FILTRO CATEGORIA INDEPENDIENTE V1
+    busqueda_usuario = request.args.get("q", "").strip()
+
+    categoria_seleccionada = request.args.get(
+        "categoria",
+        ""
+    ).strip()
+
+    if categoria_seleccionada not in CATEGORIAS_HOME:
+        categoria_seleccionada = ""
+
+    # CLICKLOCAL: FILTRO EXACTO DE CATEGORIA V2
+    #
+    # "busqueda" contiene solamente lo escrito por la persona.
+    # La categoría se procesa como un filtro independiente.
+    busqueda = busqueda_usuario
 
     # CLICKLOCAL: MACROCATEGORIA INICIAL POR DEFECTO V1
     # Sin búsqueda ni macro explícita, la portada abre
@@ -1401,6 +1437,15 @@ def inicio():
         "macro",
         ""
     ).strip()
+
+    if categoria_seleccionada and not macro_slug:
+        for macro_opcion in MACROCATEGORIAS_HOME:
+            if (
+                categoria_seleccionada
+                in macro_opcion.get("categorias", ())
+            ):
+                macro_slug = macro_opcion["slug"]
+                break
 
     if not macro_slug and not busqueda:
         macro_slug = MACROCATEGORIAS_HOME[0]["slug"]
@@ -1734,7 +1779,7 @@ def inicio():
 
         # 1) PRIMER NIVEL: PUBLICACIONES ACTIVAS
         # ====================================================
-        limite = 200 if busqueda else 80
+        limite = 5000 if not busqueda else 1000
 
         # CLICKLOCAL: CACHE PUBLICACIONES PORTADA V1
         _clicklocal_consulta_inicio_1542 = (
@@ -1775,6 +1820,15 @@ def inicio():
                 and not comercio_pertenece_a_macro(
                     comercio_pub,
                     macro_slug
+                )
+            ):
+                continue
+
+            if (
+                categoria_seleccionada
+                and not comercio_pertenece_a_categoria(
+                    comercio_pub,
+                    categoria_seleccionada
                 )
             ):
                 continue
@@ -1869,6 +1923,11 @@ def inicio():
                 ),
                 reverse=True
             )
+
+            publicaciones_para_mas_vistas = list(
+                publicaciones_finales
+            )
+
         else:
             publicaciones_finales.sort(
                 key=lambda item: (
@@ -1877,6 +1936,110 @@ def inicio():
                     or ""
                 ),
                 reverse=True
+            )
+
+            publicaciones_para_mas_vistas = list(
+                publicaciones_finales
+            )
+
+            import datetime as _clicklocal_rotacion_datetime
+            import hashlib as _clicklocal_rotacion_hashlib
+
+            try:
+                from zoneinfo import (
+                    ZoneInfo as _ClickLocalRotacionZoneInfo
+                )
+
+                clave_dia_rotacion = (
+                    _clicklocal_rotacion_datetime.datetime.now(
+                        _ClickLocalRotacionZoneInfo(
+                            "America/Argentina/Buenos_Aires"
+                        )
+                    )
+                    .date()
+                    .isoformat()
+                )
+
+            except Exception:
+                clave_dia_rotacion = (
+                    _clicklocal_rotacion_datetime
+                    .date
+                    .today()
+                    .isoformat()
+                )
+
+            contexto_rotacion = (
+                f"categoria:{categoria_seleccionada}"
+                if categoria_seleccionada
+                else f"macro:{macro_slug}"
+            )
+
+            publicaciones_por_comercio_rotacion = {}
+
+            for item_rotacion in publicaciones_finales:
+                comercio_id_rotacion = str(
+                    item_rotacion.get("comercio_id") or ""
+                ).strip()
+
+                if not comercio_id_rotacion:
+                    continue
+
+                publicaciones_por_comercio_rotacion.setdefault(
+                    comercio_id_rotacion,
+                    [],
+                ).append(item_rotacion)
+
+            publicaciones_representativas = []
+
+            for (
+                comercio_id_rotacion,
+                publicaciones_comercio_rotacion,
+            ) in publicaciones_por_comercio_rotacion.items():
+
+                publicaciones_comercio_rotacion.sort(
+                    key=lambda item_rotacion: (
+                        _clicklocal_rotacion_hashlib.sha256(
+                            (
+                                clave_dia_rotacion
+                                + "|publicacion|"
+                                + comercio_id_rotacion
+                                + "|"
+                                + str(
+                                    item_rotacion.get("id") or ""
+                                )
+                            ).encode("utf-8")
+                        ).hexdigest(),
+                        str(item_rotacion.get("id") or ""),
+                    )
+                )
+
+                publicaciones_representativas.append(
+                    publicaciones_comercio_rotacion[0]
+                )
+
+            publicaciones_representativas.sort(
+                key=lambda item_rotacion: (
+                    _clicklocal_rotacion_hashlib.sha256(
+                        (
+                            clave_dia_rotacion
+                            + "|"
+                            + contexto_rotacion
+                            + "|comercio|"
+                            + str(
+                                item_rotacion.get(
+                                    "comercio_id"
+                                ) or ""
+                            )
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                    str(
+                        item_rotacion.get("comercio_id") or ""
+                    ),
+                )
+            )
+
+            publicaciones_finales = (
+                publicaciones_representativas[:80]
             )
 
         # ====================================================
@@ -1954,6 +2117,15 @@ def inicio():
                 comercio_lista = comercios_listas_por_id.get(comercio_id, {})
 
                 if comercio_lista.get("activo") is False:
+                    continue
+
+                if (
+                    categoria_seleccionada
+                    and not comercio_pertenece_a_categoria(
+                        comercio_lista,
+                        categoria_seleccionada
+                    )
+                ):
                     continue
 
                 comercios_vistos.add(comercio_id)
@@ -2450,7 +2622,7 @@ def inicio():
 
         publicaciones_con_visitas = []
 
-        for item in publicaciones_finales:
+        for item in publicaciones_para_mas_vistas:
             if item.get("tipo") != "publicacion":
                 continue
 
@@ -2521,6 +2693,8 @@ def inicio():
         historias_publicas=historias_publicas,
         comercios_para_descubrir=comercios_para_descubrir,
         busqueda=busqueda,
+        busqueda_input=busqueda_usuario,
+        categoria_seleccionada=categoria_seleccionada,
         macrocategorias=MACROCATEGORIAS_HOME,
         macro_slug=macro_slug,
         macro_activa=macro_activa
@@ -2534,7 +2708,12 @@ def inicio():
 @app.route("/api/publicaciones-recientes")
 def publicaciones_recientes_api():
     try:
+        import datetime as _clicklocal_api_datetime
+        import hashlib as _clicklocal_api_hashlib
+
         TAMANO_BLOQUE = 40
+        MAXIMO_PUBLICACIONES = 5000
+        TAMANO_PAGINA_SUPABASE = 1000
 
         try:
             offset = max(
@@ -2552,24 +2731,61 @@ def publicaciones_recientes_api():
         if macro_slug not in MACROCATEGORIAS_POR_SLUG:
             macro_slug = ""
 
-        publicaciones_res = (
-            supabase_admin
-            .table("publicaciones")
-            .select(
-                "id,nombre,precio,descripcion,imagenes,"
-                "imagen_principal,imagen_url,activa,comercio_id,"
-                "direccion_mostrar,created_at,orden_grilla_at"
-            )
-            .eq("activa", True)
-            .order("orden_grilla_at", desc=True)
-            .range(
-                offset,
-                offset + TAMANO_BLOQUE - 1
-            )
-            .execute()
-        )
+        categoria_seleccionada = request.args.get(
+            "categoria",
+            ""
+        ).strip()
 
-        publicaciones = publicaciones_res.data or []
+        if categoria_seleccionada not in CATEGORIAS_HOME:
+            categoria_seleccionada = ""
+
+        publicaciones = []
+        inicio_pagina = 0
+
+        while inicio_pagina < MAXIMO_PUBLICACIONES:
+            fin_pagina = min(
+                inicio_pagina + TAMANO_PAGINA_SUPABASE,
+                MAXIMO_PUBLICACIONES,
+            ) - 1
+
+            publicaciones_res = (
+                supabase_admin
+                .table("publicaciones")
+                .select(
+                    "id,nombre,precio,descripcion,imagenes,"
+                    "imagen_principal,imagen_url,activa,"
+                    "comercio_id,direccion_mostrar,created_at,"
+                    "orden_grilla_at"
+                )
+                .eq("activa", True)
+                .order("orden_grilla_at", desc=True)
+                .range(
+                    inicio_pagina,
+                    fin_pagina,
+                )
+                .execute()
+            )
+
+            pagina_publicaciones = list(
+                publicaciones_res.data or []
+            )
+
+            if not pagina_publicaciones:
+                break
+
+            publicaciones.extend(
+                pagina_publicaciones
+            )
+
+            if (
+                len(pagina_publicaciones)
+                < TAMANO_PAGINA_SUPABASE
+            ):
+                break
+
+            inicio_pagina += len(
+                pagina_publicaciones
+            )
 
         comercio_ids = list({
             pub.get("comercio_id")
@@ -2580,24 +2796,42 @@ def publicaciones_recientes_api():
         comercios_por_id = {}
 
         if comercio_ids:
-            comercios_res = (
-                supabase_admin
-                .table("comercios")
-                .select(
-                    "id,nombre_negocio,direccion,"
-                    "direccion_mostrar,venta_online,ciudad,"
-                    "categoria,activo,plan"
-                )
-                .in_("id", comercio_ids)
-                .execute()
-            )
+            TAMANO_LOTE_COMERCIOS = 200
 
-            comercios_por_id = {
-                comercio.get("id"): comercio
-                for comercio in (comercios_res.data or [])
-                if comercio.get("id")
-                and comercio.get("activo") is not False
-            }
+            for posicion in range(
+                0,
+                len(comercio_ids),
+                TAMANO_LOTE_COMERCIOS,
+            ):
+                lote_ids = comercio_ids[
+                    posicion:
+                    posicion + TAMANO_LOTE_COMERCIOS
+                ]
+
+                comercios_res = (
+                    supabase_admin
+                    .table("comercios")
+                    .select(
+                        "id,nombre_negocio,direccion,"
+                        "direccion_mostrar,venta_online,ciudad,"
+                        "categoria,activo,plan"
+                    )
+                    .in_("id", lote_ids)
+                    .execute()
+                )
+
+                for comercio in (
+                    comercios_res.data or []
+                ):
+                    comercio_id = comercio.get("id")
+
+                    if (
+                        comercio_id
+                        and comercio.get("activo") is not False
+                    ):
+                        comercios_por_id[
+                            comercio_id
+                        ] = comercio
 
         categorias_por_comercio = (
             obtener_categorias_secundarias_por_comercio(
@@ -2631,7 +2865,10 @@ def publicaciones_recientes_api():
                 or ""
             )
 
-        def ubicacion_publica(comercio, direccion_publicacion=None):
+        def ubicacion_publica(
+            comercio,
+            direccion_publicacion=None,
+        ):
             direccion = (
                 direccion_publicacion
                 or comercio.get("direccion_mostrar")
@@ -2640,7 +2877,9 @@ def publicaciones_recientes_api():
                 or ""
             )
 
-            venta_online = bool(comercio.get("venta_online"))
+            venta_online = bool(
+                comercio.get("venta_online")
+            )
 
             if direccion and venta_online:
                 return f"{direccion} · Venta online"
@@ -2653,11 +2892,42 @@ def publicaciones_recientes_api():
 
             return "Consultar ubicación"
 
-        items = []
+        try:
+            from zoneinfo import (
+                ZoneInfo as _ClickLocalApiZoneInfo
+            )
+
+            clave_dia = (
+                _clicklocal_api_datetime.datetime.now(
+                    _ClickLocalApiZoneInfo(
+                        "America/Argentina/Buenos_Aires"
+                    )
+                )
+                .date()
+                .isoformat()
+            )
+
+        except Exception:
+            clave_dia = (
+                _clicklocal_api_datetime
+                .date
+                .today()
+                .isoformat()
+            )
+
+        contexto = (
+            f"categoria:{categoria_seleccionada}"
+            if categoria_seleccionada
+            else f"macro:{macro_slug}"
+        )
+
+        candidatas_por_comercio = {}
 
         for pub in publicaciones:
             comercio_id = pub.get("comercio_id")
-            comercio = comercios_por_id.get(comercio_id)
+            comercio = comercios_por_id.get(
+                comercio_id
+            )
 
             if not comercio:
                 continue
@@ -2671,27 +2941,108 @@ def publicaciones_recientes_api():
             ):
                 continue
 
-            items.append({
-                "id": pub.get("id"),
+            if (
+                categoria_seleccionada
+                and not comercio_pertenece_a_categoria(
+                    comercio,
+                    categoria_seleccionada
+                )
+            ):
+                continue
+
+            candidatas_por_comercio.setdefault(
+                comercio_id,
+                [],
+            ).append(pub)
+
+        publicaciones_representativas = []
+
+        for (
+            comercio_id,
+            publicaciones_comercio,
+        ) in candidatas_por_comercio.items():
+
+            publicaciones_comercio.sort(
+                key=lambda pub: (
+                    _clicklocal_api_hashlib.sha256(
+                        (
+                            clave_dia
+                            + "|publicacion|"
+                            + str(comercio_id)
+                            + "|"
+                            + str(pub.get("id") or "")
+                        ).encode("utf-8")
+                    ).hexdigest(),
+                    str(pub.get("id") or ""),
+                )
+            )
+
+            publicacion = publicaciones_comercio[0]
+            comercio = comercios_por_id[
+                comercio_id
+            ]
+
+            publicaciones_representativas.append({
+                "id": publicacion.get("id"),
                 "comercio_id": comercio_id,
-                "nombre": pub.get("nombre") or "",
-                "precio": formatear_precio(pub.get("precio")),
-                "imagen_url": imagen_publica(pub),
+                "nombre": (
+                    publicacion.get("nombre") or ""
+                ),
+                "precio": formatear_precio(
+                    publicacion.get("precio")
+                ),
+                "imagen_url": imagen_publica(
+                    publicacion
+                ),
                 "comercio": (
                     comercio.get("nombre_negocio")
                     or "Comercio local"
                 ),
                 "direccion_mostrar": ubicacion_publica(
                     comercio,
-                    pub.get("direccion_mostrar")
+                    publicacion.get(
+                        "direccion_mostrar"
+                    )
                 ),
-                "categoria": comercio.get("categoria") or "",
+                "categoria": (
+                    comercio.get("categoria") or ""
+                ),
             })
+
+        publicaciones_representativas.sort(
+            key=lambda item: (
+                _clicklocal_api_hashlib.sha256(
+                    (
+                        clave_dia
+                        + "|"
+                        + contexto
+                        + "|comercio|"
+                        + str(
+                            item.get("comercio_id") or ""
+                        )
+                    ).encode("utf-8")
+                ).hexdigest(),
+                str(item.get("comercio_id") or ""),
+            )
+        )
+
+        items = publicaciones_representativas[
+            offset:
+            offset + TAMANO_BLOQUE
+        ]
+
+        siguiente_offset = offset + len(items)
 
         return {
             "items": items,
-            "siguiente_offset": offset + len(publicaciones),
-            "hay_mas": len(publicaciones) == TAMANO_BLOQUE,
+            "siguiente_offset": siguiente_offset,
+            "hay_mas": (
+                siguiente_offset
+                < len(publicaciones_representativas)
+            ),
+            "total_comercios": len(
+                publicaciones_representativas
+            ),
         }
 
     except Exception as e:
@@ -2880,6 +3231,32 @@ def comercio_pertenece_a_macro(comercio, macro_slug):
             set(macro["categorias"])
         )
     )
+
+def comercio_pertenece_a_categoria(
+    comercio,
+    categoria_seleccionada,
+):
+    categoria_buscada = str(
+        categoria_seleccionada or ""
+    ).strip()
+
+    if not categoria_buscada:
+        return True
+
+    categorias_comercio = {
+        str(comercio.get("categoria") or "").strip()
+    }
+
+    categorias_comercio.update({
+        str(categoria or "").strip()
+        for categoria in (
+            comercio.get("categorias_secundarias") or []
+        )
+        if str(categoria or "").strip()
+    })
+
+    return categoria_buscada in categorias_comercio
+
 
 app.jinja_env.globals.update({
     "CATEGORIAS_COMERCIO": CATEGORIAS_COMERCIO,

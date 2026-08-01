@@ -3158,7 +3158,7 @@ html {
             class="input-busqueda"
             type="text"
             name="q"
-            value="{{ busqueda or '' }}"
+            value="{{ busqueda_input or '' }}"
             placeholder="¿Qué estás buscando en Paraná?"
             enterkeyhint="search"
           />
@@ -3300,7 +3300,7 @@ html {
 
   <main>
 
-    {% if not busqueda %}
+    {% if not busqueda_input %}
 
     <!-- CLICKLOCAL: MACROCATEGORÍAS -->
     <section class="seccion macrocategorias-home">
@@ -3378,6 +3378,29 @@ html {
           </button>
         </div>
 
+        <!-- CLICKLOCAL: CATEGORIA SELECCIONADA V1 -->
+        {% if categoria_seleccionada %}
+          <div
+            class="categoria-filtro-activo"
+            id="categoriaFiltroActivo"
+          >
+            <span>
+              Estás viendo:
+              <strong>{{ categoria_seleccionada }}</strong>
+            </span>
+
+            <a
+              href="{{ url_for('inicio', macro=macro_slug) }}"
+              id="quitarCategoriaSeleccionada"
+              class="categoria-filtro-quitar"
+              aria-label="Quitar categoría {{ categoria_seleccionada }}"
+            >
+              Quitar filtro ×
+            </a>
+          </div>
+        {% endif %}
+        <!-- FIN CLICKLOCAL: CATEGORIA SELECCIONADA V1 -->
+
         <div class="categorias-scroll-wrap">
 
           <button class="flecha-categorias" type="button" onclick="moverCategoriasHome(-1)">←</button>
@@ -3415,8 +3438,15 @@ html {
               %}
 
               <a
-                href="{{ url_for('inicio', q=categoria_opcion) }}"
-                class="categoria-card"
+                href="{{ url_for(
+                  'inicio',
+                  categoria=categoria_opcion
+                ) }}"
+                class="categoria-card{% if categoria_seleccionada == categoria_opcion %} categoria-card-activa{% endif %}"
+                data-clicklocal-categoria="{{ categoria_opcion }}"
+                {% if categoria_seleccionada == categoria_opcion %}
+                  aria-current="true"
+                {% endif %}
               >
                 <span
                   class="categoria-card-circulo{% if not imagen_categoria %} categoria-card-circulo-sin-imagen{% endif %}"
@@ -3945,7 +3975,11 @@ html {
             </h2>
 
             <p class="publicaciones-contexto-b1">
-              {{ macro_activa.nombre }}
+              {% if categoria_seleccionada %}
+                {{ categoria_seleccionada }}
+              {% else %}
+                {{ macro_activa.nombre }}
+              {% endif %}
             </p>
           </div>
         </div>
@@ -3989,7 +4023,13 @@ html {
           {% else %}
 
             <div class="panel-vacio">
-              Todavía no hay publicaciones recientes.
+              {% if categoria_seleccionada %}
+                Todavía no hay publicaciones disponibles en
+                <strong>{{ categoria_seleccionada }}</strong>.
+                Probá con otra categoría o volvé pronto.
+              {% else %}
+                Todavía no hay publicaciones recientes.
+              {% endif %}
             </div>
 
           {% endif %}
@@ -4064,6 +4104,10 @@ document.addEventListener("DOMContentLoaded", function () {
   let hayMas = true;
 
   const macroSeleccionada = {{ macro_slug | tojson }};
+
+  /* CLICKLOCAL: CATEGORIA EN SCROLL V2 */
+  const categoriaSeleccionada =
+    {{ categoria_seleccionada | tojson }};
 
   function cantidadPorBloque() {
     return window.matchMedia(
@@ -4216,6 +4260,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 ? "&macro=" +
                   encodeURIComponent(macroSeleccionada)
                 : ""
+            ) +
+            (
+              categoriaSeleccionada
+                ? "&categoria=" +
+                  encodeURIComponent(
+                    categoriaSeleccionada
+                  )
+                : ""
             ),
           {
             credentials: "same-origin",
@@ -4329,7 +4381,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function publicacionesTerminadas() {
     return (
       tarjetasOcultas().length === 0
-      && boton.hidden === true
+      && hayMas === false
     );
   }
 
@@ -8612,6 +8664,225 @@ html {
 }
 </style>
 <!-- FIN CLICKLOCAL: PRECIO BORDO Y RECIENTES MOVIL DOS COLUMNAS V1 -->
+
+
+<!-- CLICKLOCAL: CATEGORIA SELECCIONADA V1 - ESTILOS Y SESIÓN -->
+<style>
+  .categoria-card-activa .categoria-card-circulo {
+    outline: 3px solid #681823;
+    outline-offset: 4px;
+  }
+
+  .categoria-card-activa {
+    font-weight: 700;
+  }
+
+  .categoria-filtro-activo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 16px 0 20px;
+    padding: 12px 15px;
+    border: 1px solid rgba(104, 24, 35, 0.18);
+    border-radius: 14px;
+    background: rgba(247, 241, 232, 0.82);
+  }
+
+  .categoria-filtro-activo span {
+    min-width: 0;
+  }
+
+  .categoria-filtro-quitar {
+    flex: 0 0 auto;
+    color: #681823;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .categoria-filtro-quitar:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 620px) {
+    .categoria-filtro-activo {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 7px;
+    }
+  }
+</style>
+
+<script>
+(function () {
+  const CLAVE_CATEGORIA =
+    "clicklocal_categoria_seleccionada_v1";
+
+  const CLAVE_MACRO =
+    "clicklocal_macro_categoria_v1";
+
+  function iniciarCategoriaSeleccionada() {
+    const parametros =
+      new URLSearchParams(window.location.search);
+
+    const categoriaActual =
+      parametros.get("categoria") || "";
+
+    const macroActual =
+      parametros.get("macro") || "";
+
+    const busquedaActual =
+      parametros.get("q") || "";
+
+    document
+      .querySelectorAll(
+        ".macro-chip-b1, .macrocategoria-card"
+      )
+      .forEach(function (enlaceMacro) {
+        enlaceMacro.addEventListener(
+          "click",
+          function () {
+            window.sessionStorage.removeItem(
+              CLAVE_CATEGORIA
+            );
+
+            window.sessionStorage.removeItem(
+              CLAVE_MACRO
+            );
+          }
+        );
+      });
+
+    document
+      .querySelectorAll("[data-clicklocal-categoria]")
+      .forEach(function (enlace) {
+        enlace.addEventListener("click", function () {
+          const categoria =
+            enlace.getAttribute(
+              "data-clicklocal-categoria"
+            ) || "";
+
+          /* CLICKLOCAL: CATEGORIA SIN MACRO ARRASTRADA V1 */
+          if (categoria) {
+            window.sessionStorage.setItem(
+              CLAVE_CATEGORIA,
+              categoria
+            );
+
+            window.sessionStorage.removeItem(
+              CLAVE_MACRO
+            );
+          }
+        });
+      });
+
+    const quitar =
+      document.getElementById(
+        "quitarCategoriaSeleccionada"
+      );
+
+    if (quitar) {
+      quitar.addEventListener("click", function () {
+        window.sessionStorage.removeItem(
+          CLAVE_CATEGORIA
+        );
+
+        window.sessionStorage.removeItem(
+          CLAVE_MACRO
+        );
+      });
+    }
+
+    /*
+      Recupera la categoría al volver a la portada dentro
+      de la misma pestaña. Una búsqueda escrita tiene prioridad.
+    */
+    if (
+      !categoriaActual
+      && !busquedaActual
+      && !parametros.has("categoria")
+    ) {
+      const categoriaGuardada =
+        window.sessionStorage.getItem(
+          CLAVE_CATEGORIA
+        );
+
+      if (categoriaGuardada) {
+        const destino =
+          new URL(window.location.href);
+
+        destino.searchParams.set(
+          "categoria",
+          categoriaGuardada
+        );
+
+        const macroGuardada =
+          window.sessionStorage.getItem(
+            CLAVE_MACRO
+          );
+
+        if (macroGuardada) {
+          destino.searchParams.set(
+            "macro",
+            macroGuardada
+          );
+        }
+
+        window.location.replace(
+          destino.pathname
+          + destino.search
+          + destino.hash
+        );
+
+        return;
+      }
+    }
+
+    /*
+      Conserva categoría y macro al enviar una búsqueda
+      desde el formulario.
+    */
+    const formulario =
+      document.getElementById("buscador-form");
+
+    if (formulario && categoriaActual) {
+      const ocultoCategoria =
+        document.createElement("input");
+
+      ocultoCategoria.type = "hidden";
+      ocultoCategoria.name = "categoria";
+      ocultoCategoria.value = categoriaActual;
+
+      formulario.appendChild(
+        ocultoCategoria
+      );
+
+      if (macroActual) {
+        const ocultoMacro =
+          document.createElement("input");
+
+        ocultoMacro.type = "hidden";
+        ocultoMacro.name = "macro";
+        ocultoMacro.value = macroActual;
+
+        formulario.appendChild(
+          ocultoMacro
+        );
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      iniciarCategoriaSeleccionada
+    );
+  } else {
+    iniciarCategoriaSeleccionada();
+  }
+})();
+</script>
+<!-- FIN CLICKLOCAL: CATEGORIA SELECCIONADA V1 -->
 
 </body>
 </html>
