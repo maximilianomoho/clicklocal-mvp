@@ -1303,6 +1303,12 @@ def obtener_publicaciones_portada_cache(limite):
             .get(limite)
         )
 
+        datos_anteriores = (
+            list(entrada.get("datos") or [])
+            if entrada
+            else []
+        )
+
         if entrada:
             antiguedad = ahora - entrada["actualizado_en"]
 
@@ -1317,41 +1323,56 @@ def obtener_publicaciones_portada_cache(limite):
         )
 
     datos = []
-    tamano_pagina = 1000
+    tamano_pagina = 500
     inicio = 0
 
-    while inicio < limite:
-        fin = min(
-            inicio + tamano_pagina,
-            limite,
-        ) - 1
+    try:
+        while inicio < limite:
+            fin = min(
+                inicio + tamano_pagina,
+                limite,
+            ) - 1
 
-        respuesta = (
-            supabase_admin
-            .table("publicaciones")
-            .select(
-                "id,nombre,precio,descripcion,imagenes,"
-                "imagen_principal,imagen_url,activa,"
-                "comercio_id,direccion_mostrar,created_at,"
-                "orden_grilla_at"
+            respuesta = (
+                supabase_admin
+                .table("publicaciones")
+                .select(
+                    "id,nombre,precio,descripcion,imagenes,"
+                    "imagen_principal,imagen_url,activa,"
+                    "comercio_id,direccion_mostrar,created_at,"
+                    "orden_grilla_at"
+                )
+                .eq("activa", True)
+                .order("orden_grilla_at", desc=True)
+                .range(inicio, fin)
+                .execute()
             )
-            .eq("activa", True)
-            .order("orden_grilla_at", desc=True)
-            .range(inicio, fin)
-            .execute()
-        )
 
-        pagina = list(respuesta.data or [])
+            pagina = list(respuesta.data or [])
 
-        if not pagina:
-            break
+            if not pagina:
+                break
 
-        datos.extend(pagina)
+            datos.extend(pagina)
 
-        if len(pagina) < (fin - inicio + 1):
-            break
+            if len(pagina) < (fin - inicio + 1):
+                break
 
-        inicio += len(pagina)
+            inicio += len(pagina)
+
+    except Exception as error:
+        if datos_anteriores:
+            print(
+                "PORTADA CACHE publicaciones: "
+                "falló la actualización; se conserva "
+                "la caché anterior:",
+                error,
+                flush=True
+            )
+
+            return list(datos_anteriores), True
+
+        raise
 
     with CACHE_PORTADA_PUBLICACIONES_LOCK:
         if (
@@ -1366,6 +1387,315 @@ def obtener_publicaciones_portada_cache(limite):
             }
 
     return list(datos), False
+
+
+# ============================================================
+# CLICKLOCAL: ROTACIÓN EQUITATIVA POR EXPOSICIÓN V2
+# ============================================================
+
+_EXPOSICION_TABLA_DISPONIBLE = None
+
+
+def contexto_exposicion_valido(contexto):
+    contexto = str(contexto or "").strip()
+
+    if not contexto or len(contexto) > 180:
+        return False
+
+    return (
+        contexto.startswith("macro:")
+        or contexto.startswith("categoria:")
+    )
+
+
+def obtener_estado_exposiciones_comercios(
+    contexto,
+    comercio_ids,
+):
+    global _EXPOSICION_TABLA_DISPONIBLE
+
+    contexto = str(contexto or "").strip()
+
+    ids = list({
+        str(comercio_id or "").strip()
+        for comercio_id in comercio_ids or []
+        if str(comercio_id or "").strip()
+    })
+
+    if (
+        not contexto_exposicion_valido(contexto)
+        or not ids
+    ):
+        return {}
+
+    if _EXPOSICION_TABLA_DISPONIBLE is False:
+        return {}
+
+    estados = {}
+    tamano_lote = 200
+
+    try:
+        for inicio_lote in range(
+            0,
+            len(ids),
+            tamano_lote,
+        ):
+            lote = ids[
+                inicio_lote:
+                inicio_lote + tamano_lote
+            ]
+
+            respuesta = (
+                supabase_admin
+                .table("exposicion_comercios")
+                .select(
+                    "comercio_id,ultima_exposicion_at,"
+                    "exposiciones_ponderadas,"
+                    "exposiciones_altas,"
+                    "exposiciones_medias,"
+                    "exposiciones_bajas,"
+                    "total_exposiciones"
+                )
+                .eq("contexto", contexto)
+                .in_("comercio_id", lote)
+                .execute()
+            )
+
+            for fila in respuesta.data or []:
+                comercio_id = str(
+                    fila.get("comercio_id") or ""
+                ).strip()
+
+                if comercio_id:
+                    estados[comercio_id] = fila
+
+        _EXPOSICION_TABLA_DISPONIBLE = True
+        return estados
+
+    except Exception as error:
+        texto_error = str(error or "").lower()
+
+        if (
+            "exposicion_comercios" in texto_error
+            or "does not exist" in texto_error
+            or "schema cache" in texto_error
+        ):
+            if _EXPOSICION_TABLA_DISPONIBLE is not False:
+                print(
+                    "ROTACION ETAPA 2: tabla todavía no "
+                    "disponible; se conserva rotación diaria.",
+                    flush=True
+                )
+
+            _EXPOSICION_TABLA_DISPONIBLE = False
+
+        else:
+            print(
+                "ERROR cargando estado de exposiciones:",
+                error,
+                flush=True
+            )
+
+        return {}
+
+
+def ordenar_publicaciones_por_deuda_exposicion(
+    publicaciones,
+    contexto,
+    clave_desempate,
+):
+    import hashlib as _clicklocal_deuda_hashlib
+
+    publicaciones = list(publicaciones or [])
+
+    estados = obtener_estado_exposiciones_comercios(
+        contexto,
+        [
+            item.get("comercio_id")
+            for item in publicaciones
+        ],
+    )
+
+    def clave(item):
+        comercio_id = str(
+            item.get("comercio_id") or ""
+        ).strip()
+
+        estado = estados.get(
+            comercio_id,
+            {},
+        )
+
+        ultima_exposicion = (
+            estado.get("ultima_exposicion_at")
+            or ""
+        )
+
+        nunca_expuesto = (
+            0 if not ultima_exposicion else 1
+        )
+
+        try:
+            ponderadas = float(
+                estado.get(
+                    "exposiciones_ponderadas",
+                    0,
+                ) or 0
+            )
+        except (TypeError, ValueError):
+            ponderadas = 0.0
+
+        try:
+            total = int(
+                estado.get(
+                    "total_exposiciones",
+                    0,
+                ) or 0
+            )
+        except (TypeError, ValueError):
+            total = 0
+
+        desempate = (
+            _clicklocal_deuda_hashlib.sha256(
+                (
+                    str(clave_desempate or "")
+                    + "|"
+                    + str(contexto or "")
+                    + "|"
+                    + comercio_id
+                ).encode("utf-8")
+            ).hexdigest()
+        )
+
+        return (
+            nunca_expuesto,
+            ultima_exposicion,
+            ponderadas,
+            total,
+            desempate,
+            comercio_id,
+        )
+
+    publicaciones.sort(
+        key=clave,
+    )
+
+    return publicaciones
+
+
+@app.route(
+    "/analytics/exposiciones-grilla",
+    methods=["POST"],
+)
+def analytics_exposiciones_grilla():
+    contexto = str(
+        (request.get_json(silent=True) or {}).get(
+            "contexto"
+        ) or ""
+    ).strip()
+
+    cuerpo = request.get_json(
+        silent=True
+    ) or {}
+
+    items_entrada = cuerpo.get("items")
+
+    if not contexto_exposicion_valido(contexto):
+        return {
+            "ok": False,
+            "error": "contexto_invalido",
+        }, 400
+
+    if not isinstance(items_entrada, list):
+        return {
+            "ok": False,
+            "error": "items_invalidos",
+        }, 400
+
+    items_limpios = []
+    comercios_vistos = set()
+
+    for item in items_entrada[:80]:
+        if not isinstance(item, dict):
+            continue
+
+        comercio_id = uuid_o_none(
+            item.get("comercio_id")
+        )
+
+        if (
+            not comercio_id
+            or comercio_id in comercios_vistos
+        ):
+            continue
+
+        try:
+            posicion = max(
+                1,
+                min(
+                    5000,
+                    int(item.get("posicion") or 999),
+                )
+            )
+        except (TypeError, ValueError):
+            posicion = 999
+
+        try:
+            peso = max(
+                0.10,
+                min(
+                    1.00,
+                    float(item.get("peso") or 0.30),
+                )
+            )
+        except (TypeError, ValueError):
+            peso = 0.30
+
+        comercios_vistos.add(comercio_id)
+
+        items_limpios.append({
+            "comercio_id": comercio_id,
+            "posicion": posicion,
+            "peso": round(peso, 2),
+        })
+
+    if not items_limpios:
+        return "", 204
+
+    try:
+        resultado = (
+            supabase_admin
+            .rpc(
+                "registrar_exposiciones_comercios",
+                {
+                    "p_contexto": contexto,
+                    "p_items": items_limpios,
+                },
+            )
+            .execute()
+        )
+
+        return {
+            "ok": True,
+            "registradas": (
+                resultado.data
+                if isinstance(resultado.data, int)
+                else len(items_limpios)
+            ),
+        }
+
+    except Exception as error:
+        print(
+            "ERROR registrando exposiciones de grilla:",
+            error,
+            flush=True
+        )
+
+        # La medición no debe romper la experiencia pública.
+        return {
+            "ok": False,
+            "error": "registro_no_disponible",
+        }, 202
 
 
 # ============================================================
@@ -1779,7 +2109,7 @@ def inicio():
 
         # 1) PRIMER NIVEL: PUBLICACIONES ACTIVAS
         # ====================================================
-        limite = 5000 if not busqueda else 1000
+        limite = 1000
 
         # CLICKLOCAL: CACHE PUBLICACIONES PORTADA V1
         _clicklocal_consulta_inicio_1542 = (
@@ -2017,30 +2347,25 @@ def inicio():
                     publicaciones_comercio_rotacion[0]
                 )
 
-            publicaciones_representativas.sort(
-                key=lambda item_rotacion: (
-                    _clicklocal_rotacion_hashlib.sha256(
-                        (
-                            clave_dia_rotacion
-                            + "|"
-                            + contexto_rotacion
-                            + "|comercio|"
-                            + str(
-                                item_rotacion.get(
-                                    "comercio_id"
-                                ) or ""
-                            )
-                        ).encode("utf-8")
-                    ).hexdigest(),
-                    str(
-                        item_rotacion.get("comercio_id") or ""
-                    ),
+            publicaciones_representativas = (
+                ordenar_publicaciones_por_deuda_exposicion(
+                    publicaciones_representativas,
+                    contexto_rotacion,
+                    clave_dia_rotacion,
                 )
             )
 
             publicaciones_finales = (
                 publicaciones_representativas[:80]
             )
+
+            for posicion_exposicion, item_exposicion in enumerate(
+                publicaciones_finales,
+                start=1,
+            ):
+                item_exposicion[
+                    "_posicion_exposicion"
+                ] = posicion_exposicion
 
         # ====================================================
         # 2) SEGUNDO NIVEL: LISTAS BUSCABLES
@@ -2697,7 +3022,12 @@ def inicio():
         categoria_seleccionada=categoria_seleccionada,
         macrocategorias=MACROCATEGORIAS_HOME,
         macro_slug=macro_slug,
-        macro_activa=macro_activa
+        macro_activa=macro_activa,
+        contexto_exposicion=(
+            f"categoria:{categoria_seleccionada}"
+            if categoria_seleccionada
+            else f"macro:{macro_slug}"
+        )
     )
     print("PORTADA render HTML: "f"{_clicklocal_time.perf_counter() - _clicklocal_render_inicio:.3f} s", flush=True)
     print("PORTADA TOTAL: "f"{_clicklocal_time.perf_counter() - _clicklocal_portada_inicio:.3f} s", flush=True)
@@ -2712,8 +3042,7 @@ def publicaciones_recientes_api():
         import hashlib as _clicklocal_api_hashlib
 
         TAMANO_BLOQUE = 40
-        MAXIMO_PUBLICACIONES = 5000
-        TAMANO_PAGINA_SUPABASE = 1000
+        MAXIMO_PUBLICACIONES = 1000
 
         try:
             offset = max(
@@ -2739,53 +3068,12 @@ def publicaciones_recientes_api():
         if categoria_seleccionada not in CATEGORIAS_HOME:
             categoria_seleccionada = ""
 
-        publicaciones = []
-        inicio_pagina = 0
-
-        while inicio_pagina < MAXIMO_PUBLICACIONES:
-            fin_pagina = min(
-                inicio_pagina + TAMANO_PAGINA_SUPABASE,
-                MAXIMO_PUBLICACIONES,
-            ) - 1
-
-            publicaciones_res = (
-                supabase_admin
-                .table("publicaciones")
-                .select(
-                    "id,nombre,precio,descripcion,imagenes,"
-                    "imagen_principal,imagen_url,activa,"
-                    "comercio_id,direccion_mostrar,created_at,"
-                    "orden_grilla_at"
-                )
-                .eq("activa", True)
-                .order("orden_grilla_at", desc=True)
-                .range(
-                    inicio_pagina,
-                    fin_pagina,
-                )
-                .execute()
-            )
-
-            pagina_publicaciones = list(
-                publicaciones_res.data or []
-            )
-
-            if not pagina_publicaciones:
-                break
-
-            publicaciones.extend(
-                pagina_publicaciones
-            )
-
-            if (
-                len(pagina_publicaciones)
-                < TAMANO_PAGINA_SUPABASE
-            ):
-                break
-
-            inicio_pagina += len(
-                pagina_publicaciones
-            )
+        (
+            publicaciones,
+            _publicaciones_api_desde_cache,
+        ) = obtener_publicaciones_portada_cache(
+            MAXIMO_PUBLICACIONES
+        )
 
         comercio_ids = list({
             pub.get("comercio_id")
@@ -3009,20 +3297,11 @@ def publicaciones_recientes_api():
                 ),
             })
 
-        publicaciones_representativas.sort(
-            key=lambda item: (
-                _clicklocal_api_hashlib.sha256(
-                    (
-                        clave_dia
-                        + "|"
-                        + contexto
-                        + "|comercio|"
-                        + str(
-                            item.get("comercio_id") or ""
-                        )
-                    ).encode("utf-8")
-                ).hexdigest(),
-                str(item.get("comercio_id") or ""),
+        publicaciones_representativas = (
+            ordenar_publicaciones_por_deuda_exposicion(
+                publicaciones_representativas,
+                contexto,
+                clave_dia,
             )
         )
 
@@ -3030,6 +3309,12 @@ def publicaciones_recientes_api():
             offset:
             offset + TAMANO_BLOQUE
         ]
+
+        for posicion_local, item in enumerate(
+            items,
+            start=offset + 1,
+        ):
+            item["posicion_exposicion"] = posicion_local
 
         siguiente_offset = offset + len(items)
 

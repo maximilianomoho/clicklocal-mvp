@@ -3993,7 +3993,14 @@ html {
 
             {% for pub in publicaciones %}
 
-              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
+              <a
+                href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}"
+                class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}"
+                data-clicklocal-exposicion="1"
+                data-comercio-id="{{ pub.comercio_id }}"
+                data-publicacion-id="{{ pub.id }}"
+                data-posicion-exposicion="{{ pub._posicion_exposicion or loop.index }}"
+              >
                 {% if pub.tiene_historia %}
                   <span class="publicacion-historia-indicador">
                     Historia
@@ -4109,6 +4116,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const categoriaSeleccionada =
     {{ categoria_seleccionada | tojson }};
 
+  const contextoExposicion =
+    {{ contexto_exposicion | tojson }};
+
   function cantidadPorBloque() {
     return window.matchMedia(
       "(max-width: 1020px)"
@@ -4159,6 +4169,7 @@ document.addEventListener("DOMContentLoaded", function () {
       .slice(0, cantidad)
       .forEach(function (tarjeta) {
         tarjeta.hidden = false;
+        observarTarjetaExposicion(tarjeta);
       });
   }
 
@@ -4181,6 +4192,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     enlace.className = "publicacion-card";
     enlace.hidden = true;
+
+    enlace.dataset.clicklocalExposicion = "1";
+    enlace.dataset.comercioId =
+      String(item.comercio_id || "");
+    enlace.dataset.publicacionId =
+      String(item.id || "");
+    enlace.dataset.posicionExposicion =
+      String(item.posicion_exposicion || "");
 
     const imagen = document.createElement("img");
 
@@ -4346,6 +4365,244 @@ document.addEventListener("DOMContentLoaded", function () {
   );
 
   /*
+    Exposición real de tarjetas:
+    - mínimo 50 % visible;
+    - durante al menos 1 segundo;
+    - una vez por comercio durante esta carga;
+    - envío agrupado al servidor.
+  */
+  const exposicionesRegistradas = new Set();
+  const temporizadoresExposicion = new Map();
+  const colaExposiciones = [];
+  let envioExposicionesProgramado = null;
+  let observadorExposiciones = null;
+
+  function pesoPorPosicion(posicion) {
+    if (posicion <= 4) {
+      return 1.00;
+    }
+
+    if (posicion <= 8) {
+      return 0.75;
+    }
+
+    if (posicion <= 12) {
+      return 0.50;
+    }
+
+    return 0.30;
+  }
+
+  function posicionActualTarjeta(tarjeta) {
+    const posicionGuardada = Number(
+      tarjeta.dataset.posicionExposicion
+    );
+
+    if (
+      Number.isFinite(posicionGuardada)
+      && posicionGuardada > 0
+    ) {
+      return posicionGuardada;
+    }
+
+    return (
+      todasLasTarjetas().indexOf(tarjeta) + 1
+    );
+  }
+
+  async function enviarExposiciones() {
+    envioExposicionesProgramado = null;
+
+    if (
+      !contextoExposicion
+      || colaExposiciones.length === 0
+    ) {
+      return;
+    }
+
+    const items = colaExposiciones.splice(
+      0,
+      colaExposiciones.length
+    );
+
+    try {
+      await fetch(
+        "/analytics/exposiciones-grilla",
+        {
+          method: "POST",
+          credentials: "same-origin",
+          keepalive: true,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
+          },
+          body: JSON.stringify({
+            contexto: contextoExposicion,
+            items: items
+          })
+        }
+      );
+
+    } catch (error) {
+      console.debug(
+        "No se pudo registrar exposición de grilla:",
+        error
+      );
+    }
+  }
+
+  function programarEnvioExposiciones() {
+    if (envioExposicionesProgramado) {
+      return;
+    }
+
+    envioExposicionesProgramado = window.setTimeout(
+      enviarExposiciones,
+      1200
+    );
+  }
+
+  function confirmarExposicion(tarjeta) {
+    if (
+      !tarjeta
+      || tarjeta.hidden
+      || !contextoExposicion
+    ) {
+      return;
+    }
+
+    const comercioId =
+      String(tarjeta.dataset.comercioId || "");
+
+    if (
+      !comercioId
+      || exposicionesRegistradas.has(comercioId)
+    ) {
+      return;
+    }
+
+    const posicion = posicionActualTarjeta(
+      tarjeta
+    );
+
+    exposicionesRegistradas.add(comercioId);
+
+    colaExposiciones.push({
+      comercio_id: comercioId,
+      publicacion_id:
+        String(
+          tarjeta.dataset.publicacionId || ""
+        ),
+      posicion: posicion,
+      peso: pesoPorPosicion(posicion)
+    });
+
+    programarEnvioExposiciones();
+  }
+
+  function observarTarjetaExposicion(tarjeta) {
+    if (
+      !observadorExposiciones
+      || !tarjeta
+      || tarjeta.hidden
+      || tarjeta.dataset.clicklocalExposicion !== "1"
+    ) {
+      return;
+    }
+
+    observadorExposiciones.observe(tarjeta);
+  }
+
+  function observarTarjetasExposicion() {
+    todasLasTarjetas().forEach(
+      observarTarjetaExposicion
+    );
+  }
+
+  if (
+    contextoExposicion
+    && "IntersectionObserver" in window
+  ) {
+    observadorExposiciones =
+      new IntersectionObserver(
+        function (entradas) {
+          entradas.forEach(function (entrada) {
+            const tarjeta = entrada.target;
+            const comercioId = String(
+              tarjeta.dataset.comercioId || ""
+            );
+
+            if (
+              entrada.isIntersecting
+              && entrada.intersectionRatio >= 0.5
+              && !tarjeta.hidden
+              && !exposicionesRegistradas.has(
+                comercioId
+              )
+            ) {
+              if (
+                temporizadoresExposicion.has(
+                  tarjeta
+                )
+              ) {
+                return;
+              }
+
+              const temporizador =
+                window.setTimeout(
+                  function () {
+                    temporizadoresExposicion.delete(
+                      tarjeta
+                    );
+
+                    confirmarExposicion(
+                      tarjeta
+                    );
+                  },
+                  1000
+                );
+
+              temporizadoresExposicion.set(
+                tarjeta,
+                temporizador
+              );
+
+            } else {
+              const temporizador =
+                temporizadoresExposicion.get(
+                  tarjeta
+                );
+
+              if (temporizador) {
+                window.clearTimeout(
+                  temporizador
+                );
+
+                temporizadoresExposicion.delete(
+                  tarjeta
+                );
+              }
+            }
+          });
+        },
+        {
+          root: null,
+          rootMargin: "0px",
+          threshold: [0, 0.5, 1]
+        }
+      );
+  }
+
+  window.addEventListener(
+    "pagehide",
+    function () {
+      if (colaExposiciones.length > 0) {
+        enviarExposiciones();
+      }
+    }
+  );
+
+  /*
     Scroll infinito automático.
     Conserva mostrarMasPublicaciones() como única función de carga,
     por lo que mantiene el endpoint, la macrocategoría, el offset,
@@ -4454,6 +4711,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   prepararBloqueInicial();
   actualizarBoton();
+  observarTarjetasExposicion();
 
   if ("IntersectionObserver" in window) {
     observadorScroll = new IntersectionObserver(
