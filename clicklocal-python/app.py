@@ -2787,7 +2787,7 @@ def inicio():
                 candidato["id"]
             )
 
-            if len(comercios_para_descubrir) >= 6:
+            if len(comercios_para_descubrir) >= 3:
                 break
 
         if len(comercios_para_descubrir) < 3:
@@ -2803,7 +2803,7 @@ def inicio():
                     candidato["id"]
                 )
 
-                if len(comercios_para_descubrir) >= 6:
+                if len(comercios_para_descubrir) >= 3:
                     break
 
     # ====================================================
