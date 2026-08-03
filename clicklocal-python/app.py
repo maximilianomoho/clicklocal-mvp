@@ -1316,22 +1316,75 @@ def obtener_publicaciones_portada_cache(limite):
             CACHE_PORTADA_PUBLICACIONES["version"]
         )
 
-    respuesta = (
-        supabase_admin
-        .table("publicaciones")
-        .select(
-            "id,nombre,precio,descripcion,imagenes,"
-            "imagen_principal,imagen_url,activa,"
-            "comercio_id,direccion_mostrar,created_at,"
-            "orden_grilla_at"
-        )
-        .eq("activa", True)
-        .order("orden_grilla_at", desc=True)
-        .limit(limite)
-        .execute()
+    campos_publicacion = (
+        "id,nombre,precio,descripcion,imagenes,"
+        "imagen_principal,imagen_url,activa,"
+        "comercio_id,direccion_mostrar,created_at,"
+        "orden_grilla_at"
     )
 
-    datos = list(respuesta.data or [])
+    if limite <= 80:
+        # La portada necesita candidatos recientes y antiguos.
+        # Se consultan ambos extremos y se eliminan duplicados.
+        respuesta_recientes = (
+            supabase_admin
+            .table("publicaciones")
+            .select(campos_publicacion)
+            .eq("activa", True)
+            .order("orden_grilla_at", desc=True)
+            .limit(limite)
+            .execute()
+        )
+
+        respuesta_antiguas = (
+            supabase_admin
+            .table("publicaciones")
+            .select(campos_publicacion)
+            .eq("activa", True)
+            .order("orden_grilla_at", desc=False)
+            .limit(limite)
+            .execute()
+        )
+
+        datos_por_id = {}
+
+        for publicacion in (
+            list(respuesta_recientes.data or [])
+            + list(respuesta_antiguas.data or [])
+        ):
+            publicacion_id = str(
+                publicacion.get("id") or ""
+            ).strip()
+
+            if not publicacion_id:
+                continue
+
+            datos_por_id[publicacion_id] = publicacion
+
+        datos = list(datos_por_id.values())
+
+        datos.sort(
+            key=lambda item: (
+                item.get("orden_grilla_at")
+                or item.get("created_at")
+                or ""
+            ),
+            reverse=True
+        )
+    else:
+        # Las búsquedas conservan la consulta actual:
+        # los 200 candidatos más recientes o editados.
+        respuesta = (
+            supabase_admin
+            .table("publicaciones")
+            .select(campos_publicacion)
+            .eq("activa", True)
+            .order("orden_grilla_at", desc=True)
+            .limit(limite)
+            .execute()
+        )
+
+        datos = list(respuesta.data or [])
 
     with CACHE_PORTADA_PUBLICACIONES_LOCK:
         if (
@@ -1346,6 +1399,298 @@ def obtener_publicaciones_portada_cache(limite):
             }
 
     return list(datos), False
+
+
+# ============================================================
+# CLICKLOCAL: MEZCLA SIMPLE PUBLICACIONES ANTIGUAS V1
+#
+# La portada combina:
+# - 50 % recientes o editadas;
+# - 30 % de antigüedad intermedia;
+# - 20 % antiguas.
+#
+# No registra exposiciones ni modifica datos.
+# ============================================================
+
+def mezclar_publicaciones_portada(
+    publicaciones,
+    limite=80,
+):
+    ordenadas = list(publicaciones or [])
+
+    if not ordenadas or limite <= 0:
+        return []
+
+    ordenadas.sort(
+        key=lambda item: (
+            item.get("orden_grilla_at")
+            or item.get("created_at")
+            or ""
+        ),
+        reverse=True
+    )
+
+    cantidad_salida = min(
+        limite,
+        len(ordenadas),
+    )
+
+    cantidad_recientes = max(
+        1,
+        round(cantidad_salida * 0.50),
+    )
+
+    cantidad_antiguas = round(
+        cantidad_salida * 0.20
+    )
+
+    cantidad_intermedias = (
+        cantidad_salida
+        - cantidad_recientes
+        - cantidad_antiguas
+    )
+
+    recientes = ordenadas[:cantidad_recientes]
+
+    ids_elegidos = {
+        str(item.get("id") or "")
+        for item in recientes
+    }
+
+    antiguas = []
+
+    for item in reversed(ordenadas):
+        item_id = str(item.get("id") or "")
+
+        if item_id in ids_elegidos:
+            continue
+
+        antiguas.append(item)
+        ids_elegidos.add(item_id)
+
+        if len(antiguas) >= cantidad_antiguas:
+            break
+
+    antiguas.reverse()
+
+    candidatas_intermedias = [
+        item
+        for item in ordenadas
+        if str(item.get("id") or "")
+        not in ids_elegidos
+    ]
+
+    intermedias = []
+
+    if (
+        cantidad_intermedias > 0
+        and candidatas_intermedias
+    ):
+        if (
+            len(candidatas_intermedias)
+            <= cantidad_intermedias
+        ):
+            intermedias = list(
+                candidatas_intermedias
+            )
+        else:
+            paso = (
+                len(candidatas_intermedias)
+                / cantidad_intermedias
+            )
+
+            indices_usados = set()
+
+            for posicion in range(
+                cantidad_intermedias
+            ):
+                indice = min(
+                    int(posicion * paso),
+                    len(candidatas_intermedias) - 1,
+                )
+
+                while (
+                    indice in indices_usados
+                    and indice + 1
+                    < len(candidatas_intermedias)
+                ):
+                    indice += 1
+
+                indices_usados.add(indice)
+
+                intermedias.append(
+                    candidatas_intermedias[indice]
+                )
+
+    resultado = []
+
+    grupos = (
+        (recientes, 5),
+        (intermedias, 3),
+        (antiguas, 2),
+    )
+
+    posiciones = {
+        id(lista): 0
+        for lista, _ in grupos
+    }
+
+    while len(resultado) < cantidad_salida:
+        agregada_en_vuelta = False
+
+        for lista, cantidad in grupos:
+            posicion = posiciones[id(lista)]
+
+            for _ in range(cantidad):
+                if posicion >= len(lista):
+                    break
+
+                resultado.append(lista[posicion])
+                posicion += 1
+                agregada_en_vuelta = True
+
+                if len(resultado) >= cantidad_salida:
+                    break
+
+            posiciones[id(lista)] = posicion
+
+            if len(resultado) >= cantidad_salida:
+                break
+
+        if not agregada_en_vuelta:
+            break
+
+    ids_resultado = {
+        str(item.get("id") or "")
+        for item in resultado
+    }
+
+    for item in ordenadas:
+        if len(resultado) >= cantidad_salida:
+            break
+
+        item_id = str(item.get("id") or "")
+
+        if item_id in ids_resultado:
+            continue
+
+        resultado.append(item)
+        ids_resultado.add(item_id)
+
+    # Distribuir mejor los comercios dentro de cada tramo.
+    #
+    # Regla:
+    # - bloques visuales de hasta 10 publicaciones;
+    # - máximo ideal de 2 publicaciones por comercio;
+    # - si no existen suficientes alternativas, completar el
+    #   bloque sin ocultar ni eliminar publicaciones.
+    pendientes = list(resultado)
+    resultado_equilibrado = []
+
+    TAMANO_BLOQUE_VISUAL = 10
+    MAXIMO_POR_COMERCIO_EN_BLOQUE = 2
+
+    while pendientes:
+        bloque = []
+        conteo_por_comercio = {}
+
+        while (
+            pendientes
+            and len(bloque) < TAMANO_BLOQUE_VISUAL
+        ):
+            indice_elegido = None
+
+            comercio_anterior = (
+                str(
+                    bloque[-1].get("comercio_id")
+                    or ""
+                )
+                if bloque
+                else ""
+            )
+
+            # Primera pasada:
+            # respetar el máximo y evitar repetición inmediata.
+            for indice, item in enumerate(pendientes):
+                comercio_id = str(
+                    item.get("comercio_id")
+                    or f"sin-comercio:{item.get('id')}"
+                )
+
+                cantidad_actual = (
+                    conteo_por_comercio.get(
+                        comercio_id,
+                        0,
+                    )
+                )
+
+                if (
+                    cantidad_actual
+                    >= MAXIMO_POR_COMERCIO_EN_BLOQUE
+                ):
+                    continue
+
+                if (
+                    comercio_anterior
+                    and comercio_id == comercio_anterior
+                ):
+                    continue
+
+                indice_elegido = indice
+                break
+
+            # Segunda pasada:
+            # respetar el máximo aunque no pueda evitarse
+            # una repetición inmediata.
+            if indice_elegido is None:
+                for indice, item in enumerate(pendientes):
+                    comercio_id = str(
+                        item.get("comercio_id")
+                        or f"sin-comercio:{item.get('id')}"
+                    )
+
+                    cantidad_actual = (
+                        conteo_por_comercio.get(
+                            comercio_id,
+                            0,
+                        )
+                    )
+
+                    if (
+                        cantidad_actual
+                        < MAXIMO_POR_COMERCIO_EN_BLOQUE
+                    ):
+                        indice_elegido = indice
+                        break
+
+            # Último recurso:
+            # si quedan pocos comercios y todos alcanzaron el
+            # máximo ideal, continuar sin perder publicaciones.
+            if indice_elegido is None:
+                indice_elegido = 0
+
+            item_elegido = pendientes.pop(
+                indice_elegido
+            )
+
+            comercio_elegido = str(
+                item_elegido.get("comercio_id")
+                or f"sin-comercio:{item_elegido.get('id')}"
+            )
+
+            bloque.append(item_elegido)
+
+            conteo_por_comercio[comercio_elegido] = (
+                conteo_por_comercio.get(
+                    comercio_elegido,
+                    0,
+                )
+                + 1
+            )
+
+        resultado_equilibrado.extend(bloque)
+
+    return resultado_equilibrado
 
 
 # ============================================================
@@ -1898,6 +2243,13 @@ def inicio():
                     or ""
                 ),
                 reverse=True
+            )
+
+            publicaciones_finales = (
+                mezclar_publicaciones_portada(
+                    publicaciones_finales,
+                    limite=limite,
+                )
             )
 
         # ====================================================

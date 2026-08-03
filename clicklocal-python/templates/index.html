@@ -4088,17 +4088,34 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   /*
-   * El servidor actualmente entrega el primer bloque histórico
-   * de 80 posiciones. Se conservan esas posiciones para que el
-   * endpoint existente continúe desde el lugar correcto.
+   * La portada inicial contiene una mezcla de posiciones
+   * recientes, intermedias y antiguas. El endpoint comienza
+   * desde cero y los IDs ya visibles se descartan, evitando
+   * tanto duplicados como publicaciones omitidas.
    */
-  let offset = 80;
+  let offset = 0;
   let cargando = false;
   let hayMas = true;
 
   const macroSeleccionada = {{ macro_slug | tojson }};
   const categoriaSeleccionada =
     {{ categoria_seleccionada | tojson }};
+
+  const publicacionesYaMostradas = new Set();
+
+  grilla.querySelectorAll(
+    'a[href*="/detalle/"]'
+  ).forEach(function (enlace) {
+    const coincidencia = enlace
+      .getAttribute("href")
+      ?.match(/\/detalle\/([^?#/]+)/);
+
+    if (coincidencia && coincidencia[1]) {
+      publicacionesYaMostradas.add(
+        decodeURIComponent(coincidencia[1])
+      );
+    }
+  });
 
   let alineacionInicialPendiente =
     Boolean(categoriaSeleccionada);
@@ -4420,6 +4437,25 @@ document.addEventListener("DOMContentLoaded", function () {
             document.createDocumentFragment();
 
           items.forEach(function (item) {
+            const publicacionId = String(
+              item.id || ""
+            );
+
+            if (
+              publicacionId
+              && publicacionesYaMostradas.has(
+                publicacionId
+              )
+            ) {
+              return;
+            }
+
+            if (publicacionId) {
+              publicacionesYaMostradas.add(
+                publicacionId
+              );
+            }
+
             fragmento.appendChild(
               crearCard(item)
             );
