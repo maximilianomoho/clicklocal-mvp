@@ -1394,6 +1394,14 @@ def inicio():
 
     busqueda = request.args.get("q", "").strip()
 
+    categoria_seleccionada = request.args.get(
+        "categoria",
+        ""
+    ).strip()
+
+    if categoria_seleccionada not in CATEGORIAS_HOME:
+        categoria_seleccionada = ""
+
     # CLICKLOCAL: MACROCATEGORIA INICIAL POR DEFECTO V1
     # Sin búsqueda ni macro explícita, la portada abre
     # automáticamente la primera macrocategoría disponible.
@@ -1402,7 +1410,11 @@ def inicio():
         ""
     ).strip()
 
-    if not macro_slug and not busqueda:
+    if (
+        not macro_slug
+        and not busqueda
+        and not categoria_seleccionada
+    ):
         macro_slug = MACROCATEGORIAS_HOME[0]["slug"]
 
     macro_activa = MACROCATEGORIAS_POR_SLUG.get(
@@ -1410,7 +1422,7 @@ def inicio():
     )
 
     if not macro_activa:
-        if busqueda:
+        if busqueda or categoria_seleccionada:
             macro_slug = ""
         else:
             macro_slug = MACROCATEGORIAS_HOME[0]["slug"]
@@ -1775,6 +1787,15 @@ def inicio():
                 and not comercio_pertenece_a_macro(
                     comercio_pub,
                     macro_slug
+                )
+            ):
+                continue
+
+            if (
+                categoria_seleccionada
+                and not comercio_pertenece_a_categoria(
+                    comercio_pub,
+                    categoria_seleccionada
                 )
             ):
                 continue
@@ -2521,6 +2542,7 @@ def inicio():
         historias_publicas=historias_publicas,
         comercios_para_descubrir=comercios_para_descubrir,
         busqueda=busqueda,
+        categoria_seleccionada=categoria_seleccionada,
         macrocategorias=MACROCATEGORIAS_HOME,
         macro_slug=macro_slug,
         macro_activa=macro_activa
@@ -2551,6 +2573,14 @@ def publicaciones_recientes_api():
 
         if macro_slug not in MACROCATEGORIAS_POR_SLUG:
             macro_slug = ""
+
+        categoria_seleccionada = request.args.get(
+            "categoria",
+            ""
+        ).strip()
+
+        if categoria_seleccionada not in CATEGORIAS_HOME:
+            categoria_seleccionada = ""
 
         publicaciones_res = (
             supabase_admin
@@ -2667,6 +2697,15 @@ def publicaciones_recientes_api():
                 and not comercio_pertenece_a_macro(
                     comercio,
                     macro_slug
+                )
+            ):
+                continue
+
+            if (
+                categoria_seleccionada
+                and not comercio_pertenece_a_categoria(
+                    comercio,
+                    categoria_seleccionada
                 )
             ):
                 continue
@@ -2880,6 +2919,33 @@ def comercio_pertenece_a_macro(comercio, macro_slug):
             set(macro["categorias"])
         )
     )
+
+
+def comercio_pertenece_a_categoria(
+    comercio,
+    categoria_seleccionada,
+):
+    categoria_buscada = str(
+        categoria_seleccionada or ""
+    ).strip()
+
+    if not categoria_buscada:
+        return True
+
+    categorias_comercio = {
+        str(comercio.get("categoria") or "").strip()
+    }
+
+    categorias_comercio.update({
+        str(categoria or "").strip()
+        for categoria in (
+            comercio.get("categorias_secundarias") or []
+        )
+        if str(categoria or "").strip()
+    })
+
+    return categoria_buscada in categorias_comercio
+
 
 app.jinja_env.globals.update({
     "CATEGORIAS_COMERCIO": CATEGORIAS_COMERCIO,
@@ -6596,6 +6662,42 @@ def detalle_sin_id():
 @app.route("/detalle/<publicacion_id>")
 def detalle(publicacion_id):
     comercio = comercio_default()
+
+    categoria_origen = request.args.get(
+        "categoria",
+        ""
+    ).strip()
+
+    if categoria_origen not in CATEGORIAS_HOME:
+        categoria_origen = ""
+
+    macro_origen = request.args.get(
+        "macro",
+        ""
+    ).strip()
+
+    if macro_origen not in MACROCATEGORIAS_POR_SLUG:
+        macro_origen = ""
+
+    parametros_regreso = {}
+
+    if categoria_origen:
+        parametros_regreso["categoria"] = (
+            categoria_origen
+        )
+
+    if macro_origen:
+        parametros_regreso["macro"] = macro_origen
+
+    if parametros_regreso:
+        regreso_galeria_url = url_for(
+            "inicio",
+            _anchor="publicaciones-recientes",
+            **parametros_regreso,
+        )
+    else:
+        regreso_galeria_url = url_for("inicio")
+
     ultima_busqueda_publica = session.get("ultima_busqueda_publica") or {}
     busqueda_id_origen = uuid_o_none(ultima_busqueda_publica.get("busqueda_id"))
     consulta_origen = str(ultima_busqueda_publica.get("consulta") or "").strip()
@@ -6718,7 +6820,8 @@ def detalle(publicacion_id):
     return render_template(
         "detalle.html",
         comercio=comercio,
-        publicacion=publicacion_encontrada
+        publicacion=publicacion_encontrada,
+        regreso_galeria_url=regreso_galeria_url,
     )
 
 

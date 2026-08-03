@@ -3415,8 +3415,15 @@ html {
               %}
 
               <a
-                href="{{ url_for('inicio', q=categoria_opcion) }}"
-                class="categoria-card"
+                href="{{ url_for(
+                  'inicio',
+                  categoria=categoria_opcion,
+                  _anchor='publicaciones-recientes'
+                ) }}"
+                class="categoria-card{% if categoria_opcion == categoria_seleccionada %} categoria-card-activa{% endif %}"
+                {% if categoria_opcion == categoria_seleccionada %}
+                  aria-current="page"
+                {% endif %}
               >
                 <span
                   class="categoria-card-circulo{% if not imagen_categoria %} categoria-card-circulo-sin-imagen{% endif %}"
@@ -3560,7 +3567,12 @@ html {
 
             {% for pub in publicaciones_destacadas %}
 
-              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}{% if not busqueda and loop.index > 8 %} publicacion-card-extra{% endif %}">
+              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}{{ url_for(
+                  'detalle',
+                  publicacion_id=pub.id,
+                  categoria=categoria_seleccionada,
+                  macro=macro_slug
+                ) }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}{% if not busqueda and loop.index > 8 %} publicacion-card-extra{% endif %}">
                 {% if pub.tiene_historia %}
                   <span class="publicacion-historia-indicador">
                     Historia
@@ -3927,14 +3939,17 @@ html {
 <!-- FIN CLICKLOCAL: COMERCIOS PARA DESCUBRIR B1 V1 -->
 
     <!-- CLICKLOCAL: RECIENTES SOLO POR MACROCATEGORIA V1 -->
-    {% if not busqueda and macro_activa %}
+    {% if not busqueda and (macro_activa or categoria_seleccionada) %}
     <!-- PUBLICACIONES RECIENTES -->
     <section
       class="seccion publicaciones-seccion publicaciones-recientes"
     >
       <div class="contenedor">
 
-        <div class="publicaciones-encabezado-b1">
+        <div
+          id="publicaciones-recientes"
+          class="publicaciones-encabezado-b1"
+        >
           <div>
             <p class="publicaciones-etiqueta-b1">
               RECIÉN LLEGADOS
@@ -3945,7 +3960,11 @@ html {
             </h2>
 
             <p class="publicaciones-contexto-b1">
-              {{ macro_activa.nombre }}
+              {% if categoria_seleccionada %}
+                {{ categoria_seleccionada }}
+              {% else %}
+                {{ macro_activa.nombre }}
+              {% endif %}
             </p>
           </div>
         </div>
@@ -3959,7 +3978,12 @@ html {
 
             {% for pub in publicaciones %}
 
-              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}/detalle/{{ pub.id }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
+              <a href="{% if pub.tipo == 'cartelera' %}/comercio/{{ pub.comercio_id }}{% else %}{{ url_for(
+                  'detalle',
+                  publicacion_id=pub.id,
+                  categoria=categoria_seleccionada,
+                  macro=macro_slug
+                ) }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
                 {% if pub.tiene_historia %}
                   <span class="publicacion-historia-indicador">
                     Historia
@@ -3988,8 +4012,13 @@ html {
 
           {% else %}
 
-            <div class="panel-vacio">
-              Todavía no hay publicaciones recientes.
+            <div
+              id="panelVacioPublicacionesRecientes"
+              class="panel-vacio"
+              role="status"
+              aria-live="polite"
+            >
+              Cargando publicaciones...
             </div>
 
           {% endif %}
@@ -4035,7 +4064,7 @@ html {
     <p>La forma más simple de mostrar y encontrar comercios locales.</p>
   </footer>
 
-{% if not busqueda and macro_activa %}
+{% if not busqueda and (macro_activa or categoria_seleccionada) %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const grilla = document.getElementById(
@@ -4048,6 +4077,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const estado = document.getElementById(
     "scrollPublicacionesEstado"
+  );
+
+  let panelVacio = document.getElementById(
+    "panelVacioPublicacionesRecientes"
   );
 
   if (!grilla || !boton) {
@@ -4064,6 +4097,75 @@ document.addEventListener("DOMContentLoaded", function () {
   let hayMas = true;
 
   const macroSeleccionada = {{ macro_slug | tojson }};
+  const categoriaSeleccionada =
+    {{ categoria_seleccionada | tojson }};
+
+  let alineacionInicialPendiente =
+    Boolean(categoriaSeleccionada);
+
+  function alinearPublicacionesRecientes() {
+    if (!categoriaSeleccionada) {
+      return;
+    }
+
+    const ancla = document.getElementById(
+      "publicaciones-recientes"
+    );
+
+    if (!ancla) {
+      return;
+    }
+
+    const header = document.querySelector(".header");
+    const alturaHeader = header
+      ? Math.ceil(header.getBoundingClientRect().height)
+      : 0;
+
+    const separacion = 8;
+
+    const destino = Math.max(
+      0,
+      window.scrollY +
+        ancla.getBoundingClientRect().top -
+        alturaHeader -
+        separacion
+    );
+
+    window.scrollTo({
+      top: destino,
+      left: 0,
+      behavior: "auto",
+    });
+  }
+
+  function completarAlineacionInicial() {
+    if (!alineacionInicialPendiente) {
+      return;
+    }
+
+    alineacionInicialPendiente = false;
+
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        alinearPublicacionesRecientes();
+      });
+    });
+
+    window.setTimeout(
+      alinearPublicacionesRecientes,
+      120
+    );
+
+    window.setTimeout(
+      alinearPublicacionesRecientes,
+      320
+    );
+
+    window.setTimeout(
+      alinearPublicacionesRecientes,
+      650
+    );
+  }
 
   function cantidadPorBloque() {
     return window.matchMedia(
@@ -4083,6 +4185,41 @@ document.addEventListener("DOMContentLoaded", function () {
     return todasLasTarjetas().filter(function (tarjeta) {
       return tarjeta.hidden === true;
     });
+  }
+
+  function actualizarPanelVacio(estaCargando) {
+    const cantidadTarjetas =
+      todasLasTarjetas().length;
+
+    if (cantidadTarjetas > 0) {
+      if (panelVacio) {
+        panelVacio.remove();
+        panelVacio = null;
+      }
+
+      return;
+    }
+
+    if (!panelVacio) {
+      panelVacio = document.createElement("div");
+      panelVacio.id =
+        "panelVacioPublicacionesRecientes";
+      panelVacio.className = "panel-vacio";
+      panelVacio.setAttribute("role", "status");
+      panelVacio.setAttribute(
+        "aria-live",
+        "polite"
+      );
+      grilla.appendChild(panelVacio);
+    }
+
+    if (estaCargando || hayMas) {
+      panelVacio.textContent =
+        "Cargando publicaciones...";
+    } else {
+      panelVacio.textContent =
+        "Todavía no hay publicaciones recientes.";
+    }
   }
 
   function prepararBloqueInicial() {
@@ -4132,8 +4269,34 @@ document.addEventListener("DOMContentLoaded", function () {
   function crearCard(item) {
     const enlace = document.createElement("a");
 
+    const parametrosDetalle =
+      new URLSearchParams();
+
+    if (categoriaSeleccionada) {
+      parametrosDetalle.set(
+        "categoria",
+        categoriaSeleccionada
+      );
+    }
+
+    if (macroSeleccionada) {
+      parametrosDetalle.set(
+        "macro",
+        macroSeleccionada
+      );
+    }
+
+    const consultaDetalle =
+      parametrosDetalle.toString();
+
     enlace.href =
-      "/detalle/" + encodeURIComponent(item.id);
+      "/detalle/" +
+      encodeURIComponent(item.id) +
+      (
+        consultaDetalle
+          ? "?" + consultaDetalle
+          : ""
+      );
 
     enlace.className = "publicacion-card";
     enlace.hidden = true;
@@ -4196,6 +4359,8 @@ document.addEventListener("DOMContentLoaded", function () {
     boton.disabled = true;
     boton.textContent = "Cargando...";
 
+    actualizarPanelVacio(true);
+
     if (estado) {
       estado.hidden = false;
     }
@@ -4215,6 +4380,14 @@ document.addEventListener("DOMContentLoaded", function () {
               macroSeleccionada
                 ? "&macro=" +
                   encodeURIComponent(macroSeleccionada)
+                : ""
+            ) +
+            (
+              categoriaSeleccionada
+                ? "&categoria=" +
+                  encodeURIComponent(
+                    categoriaSeleccionada
+                  )
                 : ""
             ),
           {
@@ -4253,6 +4426,7 @@ document.addEventListener("DOMContentLoaded", function () {
           });
 
           grilla.appendChild(fragmento);
+          actualizarPanelVacio(false);
           break;
         }
       }
@@ -4268,6 +4442,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     } finally {
       cargando = false;
+
+      actualizarPanelVacio(false);
+      completarAlineacionInicial();
 
       if (estado) {
         estado.hidden = true;
@@ -4292,6 +4469,19 @@ document.addEventListener("DOMContentLoaded", function () {
     "click",
     mostrarMasPublicaciones
   );
+
+  /*
+   * Algunas categorías no tienen publicaciones dentro de las
+   * primeras 80 posiciones generales. En ese caso se inicia
+   * inmediatamente la búsqueda en los bloques siguientes.
+   */
+  window.setTimeout(function () {
+    if (todasLasTarjetas().length === 0) {
+      mostrarMasPublicaciones();
+    } else {
+      actualizarPanelVacio(false);
+    }
+  }, 0);
 
   /*
     Scroll infinito automático.
@@ -4402,6 +4592,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   prepararBloqueInicial();
   actualizarBoton();
+
+  if (todasLasTarjetas().length > 0) {
+    completarAlineacionInicial();
+  }
 
   if ("IntersectionObserver" in window) {
     observadorScroll = new IntersectionObserver(
@@ -5577,8 +5771,41 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    const activa = contenedor.querySelector(
+      ".categoria-card-activa"
+    );
+
+    if (!activa) {
+      contenedor.scrollTo({
+        left: 0,
+        top: 0,
+        behavior: "auto",
+      });
+
+      return;
+    }
+
+    const anchoVisible =
+      contenedor.clientWidth;
+
+    const maximo = Math.max(
+      0,
+      contenedor.scrollWidth - anchoVisible
+    );
+
+    const centroActiva =
+      activa.offsetLeft + (activa.offsetWidth / 2);
+
+    const objetivo = Math.max(
+      0,
+      Math.min(
+        centroActiva - (anchoVisible / 2),
+        maximo
+      )
+    );
+
     contenedor.scrollTo({
-      left: 0,
+      left: objetivo,
       top: 0,
       behavior: "auto",
     });
@@ -6041,6 +6268,34 @@ document.addEventListener("DOMContentLoaded", function () {
 </style>
 <!-- FIN CLICKLOCAL: IMAGENES CATEGORIAS B1 V1 -->
 
+<!-- CLICKLOCAL: CATEGORIA ACTIVA BORDO V1 -->
+<style>
+.seccion.categorias
+.categoria-card-activa
+.categoria-card-circulo {
+  border-color: #7A1F2B !important;
+  border-width: 5px !important;
+  box-shadow:
+    0 0 0 4px rgba(122, 31, 43, 0.14),
+    0 12px 28px rgba(91, 23, 32, 0.16) !important;
+}
+
+.seccion.categorias
+.categoria-card-activa
+.categoria-card-texto {
+  color: #7A1F2B !important;
+  font-weight: 800 !important;
+}
+
+.seccion.categorias
+.categoria-card-activa:focus-visible {
+  outline: 3px solid rgba(122, 31, 43, 0.28);
+  outline-offset: 5px;
+}
+</style>
+<!-- FIN CLICKLOCAL: CATEGORIA ACTIVA BORDO V1 -->
+
+
 <!-- CLICKLOCAL: AJUSTE RECORTE LATERAL CATEGORIAS V1 -->
 <style>
 /*
@@ -6094,8 +6349,41 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    const activa = contenedor.querySelector(
+      ".categoria-card-activa"
+    );
+
+    if (!activa) {
+      contenedor.scrollTo({
+        left: 0,
+        top: 0,
+        behavior: "auto",
+      });
+
+      return;
+    }
+
+    const anchoVisible =
+      contenedor.clientWidth;
+
+    const maximo = Math.max(
+      0,
+      contenedor.scrollWidth - anchoVisible
+    );
+
+    const centroActiva =
+      activa.offsetLeft + (activa.offsetWidth / 2);
+
+    const objetivo = Math.max(
+      0,
+      Math.min(
+        centroActiva - (anchoVisible / 2),
+        maximo
+      )
+    );
+
     contenedor.scrollTo({
-      left: 0,
+      left: objetivo,
       top: 0,
       behavior: "auto",
     });
@@ -6703,6 +6991,14 @@ html {
 .publicaciones-seccion
 .publicacion-card[hidden] {
   display: none !important;
+}
+
+#publicaciones-recientes {
+  scroll-margin-top: 84px;
+}
+
+.publicaciones-recientes {
+  min-height: calc(100vh - 140px);
 }
 
 #historiasClickLocal {
