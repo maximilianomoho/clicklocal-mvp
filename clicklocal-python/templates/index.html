@@ -5324,6 +5324,178 @@ document.addEventListener("DOMContentLoaded", function () {
 <!-- FIN CLICKLOCAL: ALTURA DINAMICA CABECERA V1 -->
 
 
+
+<!-- CLICKLOCAL: ROTACION MACRO INICIAL POR SESION V1 -->
+<script>
+(function () {
+  const CLAVE_ULTIMA_MACRO =
+    "clicklocal_ultima_macro_inicial_v1";
+
+  const CLAVE_MACRO_SESION =
+    "clicklocal_macro_sesion_v1";
+
+  const macrosDisponibles = [
+    {% for macro in macrocategorias %}
+      {{ macro.slug | tojson }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  if (!macrosDisponibles.length) {
+    return;
+  }
+
+  const parametros = new URLSearchParams(
+    window.location.search
+  );
+
+  const macroExplicita = (
+    parametros.get("macro") || ""
+  ).trim();
+
+  const categoriaExplicita = (
+    parametros.get("categoria") || ""
+  ).trim();
+
+  const busquedaExplicita = (
+    parametros.get("q") || ""
+  ).trim();
+
+  /*
+   * Toda decisión explícita del visitante tiene prioridad.
+   * La macro elegida también queda recordada durante
+   * la sesión actual.
+   */
+  if (
+    macroExplicita ||
+    categoriaExplicita ||
+    busquedaExplicita
+  ) {
+    if (macrosDisponibles.includes(macroExplicita)) {
+      try {
+        window.sessionStorage.setItem(
+          CLAVE_MACRO_SESION,
+          macroExplicita
+        );
+      } catch (error) {
+        /*
+         * Si el navegador bloquea el almacenamiento,
+         * la navegación normal sigue funcionando.
+         */
+      }
+    }
+
+    return;
+  }
+
+  /*
+   * Si la sesión ya tiene una macro asignada,
+   * se conserva y no se avanza al recargar.
+   */
+  try {
+    const macroDeSesion =
+      window.sessionStorage.getItem(
+        CLAVE_MACRO_SESION
+      );
+
+    if (macrosDisponibles.includes(macroDeSesion)) {
+      const destino =
+        "/?macro=" +
+        encodeURIComponent(macroDeSesion);
+
+      window.location.replace(destino);
+      return;
+    }
+  } catch (error) {
+    /*
+     * Continuar con la asignación automática.
+     */
+  }
+
+  let ultimoIndice = -1;
+
+  try {
+    const valorGuardado =
+      window.localStorage.getItem(
+        CLAVE_ULTIMA_MACRO
+      );
+
+    const indiceGuardado = Number.parseInt(
+      valorGuardado,
+      10
+    );
+
+    if (
+      Number.isInteger(indiceGuardado) &&
+      indiceGuardado >= 0 &&
+      indiceGuardado < macrosDisponibles.length
+    ) {
+      ultimoIndice = indiceGuardado;
+    }
+  } catch (error) {
+    /*
+     * Si localStorage está bloqueado, se usará
+     * una asignación inicial válida.
+     */
+  }
+
+  let siguienteIndice;
+
+  if (ultimoIndice >= 0) {
+    siguienteIndice =
+      (ultimoIndice + 1) % macrosDisponibles.length;
+  } else {
+    /*
+     * La primera entrada se distribuye entre las macros
+     * para que los navegadores nuevos no empiecen todos
+     * necesariamente en Moda.
+     */
+    try {
+      const numeroAleatorio = new Uint32Array(1);
+      window.crypto.getRandomValues(numeroAleatorio);
+
+      siguienteIndice =
+        numeroAleatorio[0] % macrosDisponibles.length;
+    } catch (error) {
+      siguienteIndice =
+        Date.now() % macrosDisponibles.length;
+    }
+  }
+
+  const macroAsignada =
+    macrosDisponibles[siguienteIndice];
+
+  try {
+    window.localStorage.setItem(
+      CLAVE_ULTIMA_MACRO,
+      String(siguienteIndice)
+    );
+  } catch (error) {
+    /*
+     * La redirección sigue siendo válida aunque
+     * no pueda persistirse la rotación.
+     */
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      CLAVE_MACRO_SESION,
+      macroAsignada
+    );
+  } catch (error) {
+    /*
+     * La URL conservará igualmente la macro asignada.
+     */
+  }
+
+  const destino =
+    "/?macro=" +
+    encodeURIComponent(macroAsignada);
+
+  window.location.replace(destino);
+})();
+</script>
+<!-- FIN CLICKLOCAL: ROTACION MACRO INICIAL POR SESION V1 -->
+
 <!-- CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 JS -->
 <script>
 document.addEventListener("DOMContentLoaded", function () {
