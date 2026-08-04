@@ -364,8 +364,9 @@
     margin: 26px auto 0;
     padding: 22px 26px;
     border-radius: 26px;
-    background: rgba(255, 255, 255, 0.20);
-    color: #ffffff;
+    background: rgba(255, 255, 255, 0.88);
+    color: #681823;
+    border: 1px solid rgba(104, 24, 35, 0.12);
     backdrop-filter: blur(8px);
     box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
   }
@@ -375,14 +376,14 @@
     font-size: 32px;
     line-height: 1.15;
     letter-spacing: -0.03em;
-    color: #ffffff;
+    color: #681823;
   }
 
   .hero-respuesta-buscador p {
     margin: 0;
     font-size: 17px;
     line-height: 1.5;
-    color: #ffffff;
+    color: #4f453f;
   }
 
   .seccion-locales-compactos {
@@ -2026,6 +2027,92 @@ html {
   }
 }
 </style>
+
+<style>
+/* CLICKLOCAL: BOTÓN LIMPIAR BUSCADOR V1 */
+.buscador-campo .boton-limpiar-busqueda {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  z-index: 3;
+
+  width: 34px;
+  height: 34px;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #681823;
+
+  font-family:
+    Arial,
+    sans-serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.buscador-campo .boton-limpiar-busqueda[hidden] {
+  display: none !important;
+}
+
+.buscador-campo .boton-limpiar-busqueda:hover {
+  background: rgba(104, 24, 35, 0.08);
+}
+
+.buscador-campo .boton-limpiar-busqueda:focus-visible {
+  outline: 3px solid rgba(104, 24, 35, 0.24);
+  outline-offset: 2px;
+}
+
+/*
+  Si el micrófono está disponible, la X se corre hacia
+  la izquierda para evitar superposición.
+*/
+.buscador-campo:has(
+  .boton-microfono:not([hidden])
+) .boton-limpiar-busqueda {
+  right: 58px;
+}
+
+.buscador-campo:has(
+  .boton-microfono:not([hidden])
+) .input-busqueda {
+  padding-right: 102px !important;
+}
+
+@media (max-width: 640px) {
+  .buscador-campo .boton-limpiar-busqueda {
+    right: 11px;
+    width: 32px;
+    height: 32px;
+    font-size: 26px;
+  }
+
+  .buscador-campo:has(
+    .boton-microfono:not([hidden])
+  ) .boton-limpiar-busqueda {
+    right: 54px;
+  }
+
+  .buscador-campo:has(
+    .boton-microfono:not([hidden])
+  ) .input-busqueda {
+    padding-right: 94px !important;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: BOTÓN LIMPIAR BUSCADOR V1 -->
+
 <!-- FIN CLICKLOCAL: IDENTIDAD HEADER Y BUSCADOR B1 V1 -->
 
 
@@ -3164,6 +3251,17 @@ html {
           />
 
           <button
+            id="boton-limpiar-busqueda"
+            class="boton-limpiar-busqueda"
+            type="button"
+            aria-label="Limpiar búsqueda"
+            title="Limpiar búsqueda"
+            hidden
+          >
+            ×
+          </button>
+
+          <button
             id="boton-microfono"
             class="boton-microfono"
             type="button"
@@ -3248,11 +3346,9 @@ html {
         <!-- RESPUESTA AMIGABLE DEL BUSCADOR EN HERO -->
         {% if busqueda %}
           {% set frases_buscador = [
-            'Hola, lo que buscás lo podés encontrar en estos comercios',
-            'Hola, estos comercios tienen lo que estás buscando',
-            'Hola, lo que estás buscando lo vas a encontrar acá',
-            'Estos comercios pueden tener justo lo que necesitás',
-            'Encontramos locales que pueden ayudarte con tu búsqueda'
+            'Estos comercios pueden tener lo que buscás',
+            'Encontramos comercios que pueden ayudarte con tu búsqueda',
+            'Estos comercios pueden tener justo lo que necesitás'
           ] %}
 
           <div class="hero-respuesta-buscador">
@@ -4670,6 +4766,65 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 {% endif %}
 
+
+  <script>
+    /* CLICKLOCAL: LIMPIAR Y SELECCIONAR BUSCADOR V1 */
+    document.addEventListener("DOMContentLoaded", function () {
+      const input = document.getElementById(
+        "buscador-input"
+      );
+
+      const botonLimpiar = document.getElementById(
+        "boton-limpiar-busqueda"
+      );
+
+      if (!input || !botonLimpiar) {
+        return;
+      }
+
+      let seleccionInicialRealizada = false;
+
+      function actualizarBotonLimpiar() {
+        const tieneTexto = input.value.trim().length > 0;
+        botonLimpiar.hidden = !tieneTexto;
+      }
+
+      botonLimpiar.addEventListener(
+        "click",
+        function () {
+          input.value = "";
+          actualizarBotonLimpiar();
+          input.focus();
+        }
+      );
+
+      input.addEventListener(
+        "input",
+        actualizarBotonLimpiar
+      );
+
+      input.addEventListener(
+        "focus",
+        function () {
+          if (
+            seleccionInicialRealizada
+            || !input.value.trim()
+          ) {
+            return;
+          }
+
+          seleccionInicialRealizada = true;
+
+          window.setTimeout(function () {
+            input.select();
+          }, 0);
+        }
+      );
+
+      actualizarBotonLimpiar();
+    });
+    /* FIN CLICKLOCAL: LIMPIAR Y SELECCIONAR BUSCADOR V1 */
+  </script>
 
   <script src="/static/pwa.js"></script>
 

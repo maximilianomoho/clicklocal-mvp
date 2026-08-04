@@ -1856,7 +1856,7 @@ def inicio():
             reverse=True
         ):
             texto_normalizado = re.sub(
-                r"\\b" + re.escape(frase) + r"\\b",
+                r"\b" + re.escape(frase) + r"\b",
                 concepto,
                 texto_normalizado
             )
@@ -1880,10 +1880,16 @@ def inicio():
     def variantes_token(token):
         variantes = {token}
 
-        # Permite plurales simples:
-        # hamburguesas -> hamburguesa, mates -> mate, etc.
+        # Plurales simples y controlados:
+        # mates -> mate
+        # hamburguesas -> hamburguesa
+        # collares -> collar
+        # animales -> animal
         if len(token) > 3 and token.endswith("s"):
             variantes.add(token[:-1])
+
+        if len(token) > 4 and token.endswith("es"):
+            variantes.add(token[:-2])
 
         variantes_base = set(variantes)
 
@@ -1891,18 +1897,40 @@ def inicio():
             if variantes_base.intersection(grupo):
                 variantes.update(grupo)
 
-        return variantes
+        return {
+            variante
+            for variante in variantes
+            if len(variante) >= 2
+        }
 
     def calcular_score_busqueda(texto, peso=1):
+        import re
+
         if not busqueda_normalizada:
             return 1, []
 
         texto_normalizado = normalizar_texto(texto)
+        palabras_texto = texto_normalizado.split()
+        variantes_texto = set()
+
+        for palabra in palabras_texto:
+            variantes_texto.update(
+                variantes_token(palabra)
+            )
+
         score = 0
         coincidencias = []
 
         for token in palabras_clave_busqueda:
-            if any(variante in texto_normalizado for variante in variantes_token(token)):
+            variantes_busqueda = variantes_token(token)
+
+            encontro_token = bool(
+                variantes_busqueda.intersection(
+                    variantes_texto
+                )
+            )
+
+            if encontro_token:
                 score += peso
                 coincidencias.append(token)
 
@@ -1940,13 +1968,14 @@ def inicio():
         if not busqueda_normalizada:
             return True
 
-        total_conceptos = len(palabras_clave_busqueda)
-        conceptos_encontrados = len(set(coincidencias or []))
+        conceptos_encontrados = len(
+            set(coincidencias or [])
+        )
 
-        if total_conceptos <= 1:
-            return conceptos_encontrados >= 1
-
-        return conceptos_encontrados >= 2
+        # Una coincidencia importante alcanza para mostrar
+        # un posible resultado. Las coincidencias adicionales
+        # mejoran el puntaje y el orden.
+        return conceptos_encontrados >= 1
 
     def imagen_publica_de_publicacion(pub):
         imagenes = pub.get("imagenes") or []
