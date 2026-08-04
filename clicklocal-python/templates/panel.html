@@ -277,25 +277,70 @@
           }
         }
 
-        iframe.addEventListener(
-          "load",
-          function () {
-            try {
-              iframe.contentWindow.addEventListener(
+        let ventanaConectada = null;
+        let documentoConectado = null;
+
+        function conectarDetectorScroll() {
+          try {
+            const ventana = iframe.contentWindow;
+            const documento = iframe.contentDocument;
+
+            if (!ventana || !documento) {
+              return false;
+            }
+
+            if (ventana !== ventanaConectada) {
+              ventana.addEventListener(
                 "scroll",
                 revisarFinalDocumento,
                 { passive: true }
               );
 
-              revisarFinalDocumento();
-            } catch (error) {
-              console.error(
-                "No se pudo iniciar el control "
-                + "de desplazamiento.",
-                error
-              );
+              ventanaConectada = ventana;
             }
+
+            if (documento !== documentoConectado) {
+              documento.addEventListener(
+                "scroll",
+                revisarFinalDocumento,
+                { passive: true }
+              );
+
+              documentoConectado = documento;
+            }
+
+            revisarFinalDocumento();
+            return true;
+          } catch (error) {
+            console.error(
+              "No se pudo iniciar el control "
+              + "de desplazamiento.",
+              error
+            );
+
+            return false;
           }
+        }
+
+        iframe.addEventListener(
+          "load",
+          conectarDetectorScroll
+        );
+
+        conectarDetectorScroll();
+
+        let intentosConexion = 0;
+
+        const intervaloConexion = window.setInterval(
+          function () {
+            intentosConexion += 1;
+            conectarDetectorScroll();
+
+            if (intentosConexion >= 10) {
+              window.clearInterval(intervaloConexion);
+            }
+          },
+          300
         );
 
         casilla.addEventListener(
