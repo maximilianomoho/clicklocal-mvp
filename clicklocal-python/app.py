@@ -2179,11 +2179,6 @@ def inicio():
                 str(pub.get("descripcion") or ""),
                 str(comercio_pub.get("nombre_negocio") or ""),
                 str(comercio_pub.get("categoria") or ""),
-                str(
-                    comercio_pub.get(
-                        "_categorias_secundarias_texto"
-                    ) or ""
-                ),
                 str(comercio_pub.get("ciudad") or ""),
             ])
 
@@ -2198,11 +2193,6 @@ def inicio():
                 " ".join([
                     str(comercio_pub.get("nombre_negocio") or ""),
                     str(comercio_pub.get("categoria") or ""),
-                str(
-                    comercio_pub.get(
-                        "_categorias_secundarias_texto"
-                    ) or ""
-                ),
                     str(comercio_pub.get("ciudad") or ""),
                 ]),
                 peso=1
@@ -2548,11 +2538,6 @@ def inicio():
                     str(historia.get("texto") or ""),
                     str(nombre_negocio),
                     str(comercio_historia.get("categoria") or ""),
-                    str(
-                        comercio_historia.get(
-                            "_categorias_secundarias_texto"
-                        ) or ""
-                    ),
                     str(comercio_historia.get("ciudad") or ""),
                 ])
 
@@ -3165,6 +3150,7 @@ CATEGORIAS_COMERCIO = (
     "Mercería y manualidades",
     "Librería, papelería e insumos comerciales",
     "Deportes",
+    "Ferretería, Sanitarios y Electricidad",
     CATEGORIA_CINE_TEATRO,
     "Otros",
 )
@@ -3256,6 +3242,14 @@ MACROCATEGORIAS_HOME = (
         ),
     },
     {
+        "slug": "construccion-ferreteria",
+        "nombre": "Construcción y Ferretería",
+        "icono": "◆",
+        "categorias": (
+            "Ferretería, Sanitarios y Electricidad",
+        ),
+    },
+    {
         "slug": "ocio-experiencias",
         "nombre": "Ocio y Experiencias",
         "icono": "★",
@@ -3283,23 +3277,11 @@ def comercio_pertenece_a_macro(comercio, macro_slug):
     if not macro:
         return True
 
-    categorias_comercio = {
-        str(comercio.get("categoria") or "").strip()
-    }
+    categoria_principal = str(
+        comercio.get("categoria") or ""
+    ).strip()
 
-    categorias_comercio.update({
-        str(categoria or "").strip()
-        for categoria in (
-            comercio.get("categorias_secundarias") or []
-        )
-        if str(categoria or "").strip()
-    })
-
-    return bool(
-        categorias_comercio.intersection(
-            set(macro["categorias"])
-        )
-    )
+    return categoria_principal in set(macro["categorias"])
 
 
 def comercio_pertenece_a_categoria(
@@ -3313,19 +3295,11 @@ def comercio_pertenece_a_categoria(
     if not categoria_buscada:
         return True
 
-    categorias_comercio = {
-        str(comercio.get("categoria") or "").strip()
-    }
+    categoria_principal = str(
+        comercio.get("categoria") or ""
+    ).strip()
 
-    categorias_comercio.update({
-        str(categoria or "").strip()
-        for categoria in (
-            comercio.get("categorias_secundarias") or []
-        )
-        if str(categoria or "").strip()
-    })
-
-    return categoria_buscada in categorias_comercio
+    return categoria_principal == categoria_buscada
 
 
 app.jinja_env.globals.update({
@@ -4418,14 +4392,16 @@ def panel():
         direccion = request.form.get("direccion", "").strip()
         descripcion = request.form.get("descripcion", "").strip()
         categoria = request.form.get("categoria", "").strip()
-        categoria_secundaria_2 = request.form.get(
-            "categoria_secundaria_2",
-            ""
-        ).strip()
-        categoria_secundaria_3 = request.form.get(
-            "categoria_secundaria_3",
-            ""
-        ).strip()
+        categoria_secundaria_2 = (
+            categorias_secundarias_panel[0]
+            if len(categorias_secundarias_panel) >= 1
+            else ""
+        )
+        categoria_secundaria_3 = (
+            categorias_secundarias_panel[1]
+            if len(categorias_secundarias_panel) >= 2
+            else ""
+        )
 
         if not nombre_negocio or not whatsapp or not direccion:
             return "Faltan datos obligatorios: nombre del comercio, WhatsApp o dirección.", 400

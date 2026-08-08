@@ -87,10 +87,10 @@
         </div>
 
         <div class="campo">
-          <label>Categoría principal *</label>
+          <label>Categoría *</label>
           <select name="categoria" required>
             <option value="" selected disabled>
-              Seleccionar categoría principal
+              Seleccionar categoría
             </option>
             {% for categoria_opcion in CATEGORIAS_AUTOGESTION %}
               <option value="{{ categoria_opcion }}">
@@ -100,34 +100,6 @@
           </select>
         </div>
 
-        <div class="campo">
-          <label>Segunda categoría (opcional)</label>
-          <select name="categoria_secundaria_2">
-            <option value="">Sin segunda categoría</option>
-            {% for categoria_opcion in CATEGORIAS_SECUNDARIAS_PERMITIDAS %}
-              <option value="{{ categoria_opcion }}">
-                {{ categoria_opcion }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="campo">
-          <label>Tercera categoría (opcional)</label>
-          <select name="categoria_secundaria_3">
-            <option value="">Sin tercera categoría</option>
-            {% for categoria_opcion in CATEGORIAS_SECUNDARIAS_PERMITIDAS %}
-              <option value="{{ categoria_opcion }}">
-                {{ categoria_opcion }}
-              </option>
-            {% endfor %}
-          </select>
-
-          <small>
-            No repitas categorías. Cine y Teatro funciona
-            como categoría única.
-          </small>
-        </div>
 
         <div class="campo">
           <label>Descripción breve</label>

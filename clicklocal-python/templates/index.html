@@ -3480,7 +3480,50 @@ html {
 
           <div class="grilla-categorias categorias-scroll" id="categoriasHome">
 
-            {% set imagenes_categorias = {
+            {#
+          ============================================================
+          CLICKLOCAL — ESTÁNDAR DE IMÁGENES DE CATEGORÍAS
+          ============================================================
+
+          Usar este estándar cada vez que se agregue una categoría:
+
+          ARCHIVO FUENTE
+          - Dimensiones: 1254 x 1254 px.
+          - Relación de aspecto: 1:1 (cuadrada).
+          - Formato recomendado/final: WebP.
+          - Peso objetivo aproximado: 100 KB a 250 KB.
+            Las imágenes actuales están aproximadamente entre 90 KB
+            y 266 KB.
+          - Una imagen PNG de ~1,7 MB puede servir como archivo de
+            origen, pero NO es el formato/peso recomendado para producción.
+
+          ESTILO VISUAL
+          - Fondo cálido / beige, coherente con el resto de ClickLocal.
+          - Producto o escena centrada y claramente reconocible
+            incluso cuando se muestra en tamaño pequeño.
+          - La imagen debe ocupar el cuadrado completo (full bleed).
+          - NO incorporar círculo, aro ni borde blanco dentro del archivo.
+          - Dejar margen visual suficiente para que object-fit: cover
+            pueda recortar sin cortar los elementos importantes.
+
+          PRESENTACIÓN EN CLICKLOCAL
+          - .categoria-card-circulo usa aspect-ratio: 1 / 1.
+          - El círculo lo genera CSS con border-radius: 50%.
+          - El borde blanco lo genera CSS: 5px solid #FFFFFF.
+          - La sombra también la genera CSS.
+          - .categoria-card-imagen usa:
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              border-radius: 50%.
+
+          IMPORTANTE:
+          El archivo de imagen debe ser CUADRADO, sin círculo incorporado.
+          ClickLocal es quien realiza el recorte circular y el borde.
+          ============================================================
+        #}
+
+        {% set imagenes_categorias = {
               "Gastronomía": "gastronomia.webp",
               "Alimentos y bebidas": "alimentos-bebidas.webp",
               "Indumentaria": "indumentaria.webp",
@@ -3500,6 +3543,7 @@ html {
               "Turismo y excursiones": "turismo-excursiones.webp",
               "Regalos, juguetes y artesanías": "regalos-juguetes-artesanias.webp",
               "Mercería y manualidades": "merceria-manualidades.webp",
+              "Ferretería, Sanitarios y Electricidad": "ferreteria-sanitarios-electricidad.webp",
               "Librería, papelería e insumos comerciales": "libreria-papeleria-insumos-comerciales.webp",
               "Deportes": "deportes.webp",
               "Cine y Teatro": "cine-teatro.webp"
