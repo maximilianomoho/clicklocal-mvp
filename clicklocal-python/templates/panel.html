@@ -383,6 +383,13 @@
         <p class="titulo-chico">MI COMERCIO</p>
         <h1>Hola, {{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}</h1>
         <p>Administrá tus publicaciones, listas buscables y datos del comercio.</p>
+        <p style="margin-top: 8px; font-size: 14px; opacity: 0.95;">
+          <strong>Categoría:</strong>
+          {{ comercio.categoria or "Sin categoría" }}
+          {% if comercio.categoria == "Otros" %}
+            · pendiente de revisión
+          {% endif %}
+        </p>
       </div>
 
       <div class="panel-plan">

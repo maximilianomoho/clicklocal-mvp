@@ -8139,6 +8139,7 @@ def admin():
             ) if whatsapp_numero else None,
             "ciudad": c.get("ciudad") or "Paraná",
             "categoria": c.get("categoria") or c.get("rubro") or "-",
+            "descripcion": c.get("descripcion") or "Sin descripción.",
             "plan": plan,
             "estado_plan": estado_plan,
             "solicitud_premium": solicitud_premium,
@@ -8164,6 +8165,85 @@ def admin():
         c for c in comercios
         if c.get("solicitud_premium") and c.get("plan") != "premium"
     ]
+
+    categorias_por_revisar = [
+        c for c in comercios
+        if str(c.get("categoria") or "").strip() == "Otros"
+    ]
+
+    categorias_reasignacion = [
+        categoria
+        for categoria in CATEGORIAS_COMERCIO
+        if categoria != "Otros"
+    ]
+
+    # ========================================================
+    # ULTIMOS MOVIMIENTOS DEL ADMIN
+    # ========================================================
+
+    comercios_por_id_admin = {
+        str(c.get("id")): c
+        for c in comercios
+        if c.get("id")
+    }
+
+    ultimos_comercios = sorted(
+        comercios,
+        key=lambda c: str(c.get("created_at") or ""),
+        reverse=True
+    )[:10]
+
+    for comercio_admin in ultimos_comercios:
+        comercio_admin["created_at_mostrar"] = (
+            formatear_fecha_argentina(
+                comercio_admin.get("created_at")
+            )
+        )
+
+    ultimas_publicaciones = []
+
+    publicaciones_ordenadas = sorted(
+        [
+            pub for pub in publicaciones_raw
+            if pub.get("eliminada") is not True
+        ],
+        key=lambda pub: str(pub.get("created_at") or ""),
+        reverse=True
+    )[:10]
+
+    for pub in publicaciones_ordenadas:
+        comercio_id_pub = str(
+            pub.get("comercio_id") or ""
+        )
+
+        comercio_pub = comercios_por_id_admin.get(
+            comercio_id_pub,
+            {}
+        )
+
+        ultimas_publicaciones.append({
+            "id": pub.get("id"),
+            "nombre": (
+                pub.get("nombre")
+                or pub.get("titulo")
+                or "Sin nombre"
+            ),
+            "comercio_nombre": (
+                comercio_pub.get("nombre")
+                or "Comercio no identificado"
+            ),
+            "categoria": (
+                comercio_pub.get("categoria")
+                or "-"
+            ),
+            "created_at": pub.get("created_at"),
+            "created_at_mostrar": (
+                formatear_fecha_argentina(
+                    pub.get("created_at")
+                )
+            ),
+            "activa": es_publicacion_activa(pub),
+        })
 
     total_publicaciones_activas = sum(
         1 for pub in publicaciones_raw
@@ -8205,6 +8285,10 @@ def admin():
         resumen=resumen,
         comercios=comercios,
         solicitudes_premium=solicitudes_premium,
+        categorias_por_revisar=categorias_por_revisar,
+        categorias_reasignacion=categorias_reasignacion,
+        ultimos_comercios=ultimos_comercios,
+        ultimas_publicaciones=ultimas_publicaciones,
         error=error,
         admin_user=session.get("admin_user")
     )
@@ -8688,6 +8772,66 @@ def admin_moderacion_ocultar(publicacion_id):
             url_for(
                 "admin_moderacion",
                 accion_error="1"
+            )
+        )
+
+
+@app.route(
+    "/admin/asignar-categoria/<comercio_id>",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_asignar_categoria(comercio_id):
+    invalidar_cache_publicaciones_portada()
+
+    categoria_nueva = str(
+        request.form.get("categoria", "") or ""
+    ).strip()
+
+    categorias_validas = {
+        categoria
+        for categoria in CATEGORIAS_COMERCIO
+        if categoria != "Otros"
+    }
+
+    if categoria_nueva not in categorias_validas:
+        return redirect(
+            url_for(
+                "admin",
+                categoria_error="1"
+            )
+        )
+
+    try:
+        (
+            supabase_admin
+            .table("comercios")
+            .update({
+                "categoria": categoria_nueva
+            })
+            .eq("id", comercio_id)
+            .execute()
+        )
+
+        return redirect(
+            url_for(
+                "admin",
+                categoria_asignada="1"
+            )
+        )
+
+    except Exception as e:
+        print(
+            "ERROR ASIGNANDO CATEGORIA DESDE ADMIN:",
+            type(e),
+            e,
+            flush=True
+        )
+
+        return redirect(
+            url_for(
+                "admin",
+                categoria_error="1"
             )
         )
 

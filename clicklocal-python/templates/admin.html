@@ -483,6 +483,220 @@
 
     </section>
 
+    {% if categorias_por_revisar %}
+    <section class="admin-layout" style="display:block; margin-bottom: 24px;">
+
+      <article class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <p class="titulo-chico">REVISIÓN</p>
+            <h2>⚠️ Categorías por revisar</h2>
+            <p style="margin:6px 0 0; color:#6b7280;">
+              Comercios que eligieron “Otros” porque no encontraron
+              una categoría adecuada.
+            </p>
+          </div>
+        </div>
+
+        <div class="admin-tabla-contenedor">
+          <table class="admin-tabla">
+            <thead>
+              <tr>
+                <th>Comercio</th>
+                <th>Descripción</th>
+                <th>Categoría actual</th>
+                <th>Nueva categoría</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for c in categorias_por_revisar %}
+                <tr>
+                  <td>
+                    <strong>{{ c.nombre }}</strong>
+                  </td>
+
+                  <td style="min-width:280px; white-space:normal;">
+                    {{ c.descripcion }}
+                  </td>
+
+                  <td>
+                    <span
+                      class="admin-plan"
+                      style="background:#fef3c7; color:#92400e;"
+                    >
+                      Otros
+                    </span>
+                  </td>
+
+                  <td>
+                    <form
+                      method="POST"
+                      action="{{ url_for(
+                        'admin_asignar_categoria',
+                        comercio_id=c.id
+                      ) }}"
+                      style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:0;"
+                    >
+                      <select
+                        name="categoria"
+                        required
+                        class="admin-mini-link"
+                        style="max-width:300px; cursor:pointer;"
+                      >
+                        <option value="">
+                          Elegir categoría...
+                        </option>
+
+                        {% for categoria_opcion in categorias_reasignacion %}
+                          <option value="{{ categoria_opcion }}">
+                            {{ categoria_opcion }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                  </td>
+
+                  <td>
+                      <button
+                        type="submit"
+                        class="admin-mini-link"
+                        style="border:0; cursor:pointer;"
+                        onclick="return confirm(
+                          '¿Asignar esta categoría al comercio?'
+                        );"
+                      >
+                        Asignar
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </article>
+
+    </section>
+    {% endif %}
+
+    <section class="admin-layout" style="display:block; margin-bottom: 24px;">
+
+      <article class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <p class="titulo-chico">ACTIVIDAD RECIENTE</p>
+            <h2>🆕 Últimos negocios registrados</h2>
+          </div>
+        </div>
+
+        {% if ultimos_comercios %}
+          <div class="admin-tabla-contenedor">
+            <table class="admin-tabla">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Comercio</th>
+                  <th>Categoría</th>
+                  <th>Publicaciones</th>
+                  <th>Perfil</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in ultimos_comercios %}
+                  <tr>
+                    <td>{{ c.created_at_mostrar }}</td>
+                    <td><strong>{{ c.nombre }}</strong></td>
+                    <td>{{ c.categoria }}</td>
+                    <td>{{ c.publicaciones_total }}</td>
+                    <td>
+                      {% if c.perfil_url %}
+                        <a
+                          class="admin-mini-link"
+                          href="{{ c.perfil_url }}"
+                          target="_blank"
+                        >
+                          Ver
+                        </a>
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="admin-vacio">
+            Todavía no hay comercios registrados.
+          </div>
+        {% endif %}
+      </article>
+
+    </section>
+
+    <section class="admin-layout" style="display:block; margin-bottom: 24px;">
+
+      <article class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <p class="titulo-chico">ACTIVIDAD RECIENTE</p>
+            <h2>📸 Últimas publicaciones</h2>
+          </div>
+        </div>
+
+        {% if ultimas_publicaciones %}
+          <div class="admin-tabla-contenedor">
+            <table class="admin-tabla">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Publicación</th>
+                  <th>Comercio</th>
+                  <th>Categoría</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in ultimas_publicaciones %}
+                  <tr>
+                    <td>{{ p.created_at_mostrar }}</td>
+                    <td><strong>{{ p.nombre }}</strong></td>
+                    <td>{{ p.comercio_nombre }}</td>
+                    <td>{{ p.categoria }}</td>
+                    <td>
+                      {% if p.activa %}
+                        <span
+                          class="admin-plan"
+                          style="background:#dcfce7; color:#166534;"
+                        >
+                          Activa
+                        </span>
+                      {% else %}
+                        <span
+                          class="admin-plan"
+                          style="background:#f3f4f6; color:#6b7280;"
+                        >
+                          Inactiva
+                        </span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="admin-vacio">
+            Todavía no hay publicaciones.
+          </div>
+        {% endif %}
+      </article>
+
+    </section>
+
     <section class="admin-layout" style="display:block; margin-bottom: 24px;">
 
       <article class="admin-card">
