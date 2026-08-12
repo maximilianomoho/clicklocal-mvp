@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contactar a ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+
+  <header class="auth-header">
+    <div class="auth-logo">
+      <a href="/" style="text-decoration:none; color:inherit;">
+        <strong>ClickLocal</strong>
+        <small>📍 Paraná</small>
+      </a>
+    </div>
+
+    <div>
+      <a href="/" class="auth-link">Inicio</a>
+    </div>
+  </header>
+
+  <main class="auth-main">
+
+    <section class="auth-card">
+
+      <div class="auth-encabezado">
+        <p class="titulo-chico">AYUDA</p>
+        <h1>Contactar a ClickLocal</h1>
+        <p>
+          Dejanos tus datos y contanos qué necesitás.
+          Te contactaremos para ayudarte.
+        </p>
+      </div>
+
+      {% if enviado %}
+        <div
+          style="
+            padding:16px;
+            border-radius:14px;
+            background:#e8f7ee;
+            color:#166534;
+            font-weight:700;
+            margin-bottom:18px;
+          "
+        >
+          Recibimos tu consulta correctamente.
+          ClickLocal se pondrá en contacto con vos.
+        </div>
+
+        <a href="/" class="boton-form-secundario">
+          Volver a ClickLocal
+        </a>
+
+      {% else %}
+
+        {% if error %}
+          <div class="alerta-error">
+            {{ error }}
+          </div>
+        {% endif %}
+
+        <form class="formulario" method="POST" action="/contacto">
+
+          <input type="hidden" name="origen" value="{{ origen or 'contacto' }}">
+          <input type="hidden" name="comercio_id" value="{{ comercio_id or '' }}">
+
+          <div class="campo">
+            <label>Nombre *</label>
+            <input
+              type="text"
+              name="nombre"
+              value="{{ nombre or '' }}"
+              placeholder="Tu nombre"
+              required
+            />
+          </div>
+
+          <div class="campo">
+            <label>Email</label>
+            <input
+              type="email"
+              name="email"
+              value="{{ email or '' }}"
+              placeholder="tunombre@email.com"
+            />
+          </div>
+
+          <div class="campo">
+            <label>WhatsApp</label>
+            <input
+              type="tel"
+              name="whatsapp"
+              value="{{ whatsapp or '' }}"
+              placeholder="Ej: 343 000 0000"
+            />
+          </div>
+
+          <div class="campo">
+            <label>Motivo</label>
+            <input
+              type="text"
+              name="motivo"
+              value="{{ motivo or 'Consulta general' }}"
+            />
+          </div>
+
+          <div class="campo">
+            <label>¿En qué podemos ayudarte? *</label>
+            <textarea
+              name="mensaje"
+              rows="5"
+              placeholder="Contanos brevemente qué pasó..."
+              required
+            >{{ mensaje or '' }}</textarea>
+          </div>
+
+          <button type="submit" class="boton-principal-form">
+            Enviar consulta
+          </button>
+
+        </form>
+
+      {% endif %}
+
+    </section>
+
+  </main>
+
+</body>
+</html>

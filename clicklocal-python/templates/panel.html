@@ -17,9 +17,64 @@
 
 <body>
 
+  {% if modo_gestor %}
+  <div
+    style="
+      position:relative;
+      z-index:99998;
+      box-sizing:border-box;
+      width:100%;
+      padding:12px 16px;
+      background:#172554;
+      color:white;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:16px;
+      flex-wrap:wrap;
+      font-family:Arial, sans-serif;
+    "
+  >
+    <div style="line-height:1.35;">
+      <strong>🛠 Modo gestor</strong>
+      · Estás administrando
+      <strong>
+        {{ comercio.nombre_negocio or comercio.nombre or 'este comercio' }}
+      </strong>
+
+      {% if admin_user %}
+        <span style="opacity:.75;">
+          · {{ admin_user }}
+        </span>
+      {% endif %}
+    </div>
+
+    <form
+      method="POST"
+      action="{{ url_for('admin_salir_gestor') }}"
+      style="margin:0;"
+    >
+      <button
+        type="submit"
+        style="
+          border:0;
+          border-radius:9px;
+          padding:8px 12px;
+          cursor:pointer;
+          background:white;
+          color:#172554;
+          font-weight:800;
+        "
+      >
+        ← Volver al administrador
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
   {% set version_aceptada = comercio.terminos_version or "" %}
 
-  {% if version_aceptada != TERMINOS_VERSION %}
+  {% if not modo_gestor and version_aceptada != TERMINOS_VERSION %}
   <!-- CLICKLOCAL: ACEPTACIÓN OBLIGATORIA DE TÉRMINOS -->
   <div
     id="modal-terminos"
@@ -412,6 +467,18 @@
         {% endif %}
         <a href="#datos" class="panel-menu-link">Mis datos</a>
         <a href="#plan" class="panel-menu-link">Mi plan</a>
+        <a
+          href="{{ url_for(
+              'contacto',
+              motivo='Consulta desde mi comercio',
+              whatsapp=comercio.whatsapp or '',
+              origen='panel',
+              comercio_id=comercio.id
+          ) }}"
+          class="panel-menu-link"
+        >
+          Ayuda / Contactar a ClickLocal
+        </a>
       </aside>
 
 

@@ -3611,6 +3611,122 @@ def contexto_terminos():
     }
 
 
+# ============================================================
+# CLICKLOCAL — CONTACTO / SOPORTE
+# ============================================================
+
+@app.route("/contacto", methods=["GET", "POST"])
+def contacto():
+    motivo_inicial = (
+        request.args.get("motivo")
+        or request.form.get("motivo")
+        or "Consulta general"
+    ).strip()
+
+    whatsapp_inicial = (
+        request.args.get("whatsapp")
+        or request.form.get("whatsapp")
+        or ""
+    ).strip()
+
+    origen = (
+        request.args.get("origen")
+        or request.form.get("origen")
+        or "contacto"
+    ).strip()
+
+    comercio_id = (
+        request.args.get("comercio_id")
+        or request.form.get("comercio_id")
+        or ""
+    ).strip()
+
+    if request.method == "POST":
+        nombre = request.form.get("nombre", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        whatsapp = request.form.get("whatsapp", "").strip()
+        motivo = request.form.get("motivo", "").strip()
+        mensaje = request.form.get("mensaje", "").strip()
+
+        if not nombre or not mensaje:
+            return render_template(
+                "contacto.html",
+                error="Completá tu nombre y el mensaje.",
+                nombre=nombre,
+                email=email,
+                whatsapp=whatsapp,
+                motivo=motivo or motivo_inicial,
+                mensaje=mensaje,
+                origen=origen,
+                comercio_id=comercio_id,
+            ), 400
+
+        whatsapp_guardar = (
+            limpiar_numero_whatsapp(whatsapp)
+            if whatsapp
+            else None
+        )
+
+        try:
+            supabase_admin.table("consultas_soporte").insert({
+                "nombre": nombre,
+                "email": email or None,
+                "whatsapp": whatsapp_guardar,
+                "motivo": motivo or "Consulta general",
+                "mensaje": mensaje,
+                "origen": origen or "contacto",
+                "comercio_id": comercio_id or None,
+                "estado": "pendiente",
+            }).execute()
+
+            return render_template(
+                "contacto.html",
+                enviado=True,
+                nombre="",
+                email="",
+                whatsapp="",
+                motivo="Consulta general",
+                mensaje="",
+                origen="contacto",
+                comercio_id="",
+            )
+
+        except Exception as e:
+            print(
+                "ERROR GUARDANDO CONSULTA SOPORTE:",
+                type(e),
+                e,
+                flush=True
+            )
+
+            return render_template(
+                "contacto.html",
+                error=(
+                    "No pudimos enviar tu consulta en este momento. "
+                    "Intentá nuevamente."
+                ),
+                nombre=nombre,
+                email=email,
+                whatsapp=whatsapp,
+                motivo=motivo or motivo_inicial,
+                mensaje=mensaje,
+                origen=origen,
+                comercio_id=comercio_id,
+            ), 500
+
+    return render_template(
+        "contacto.html",
+        enviado=False,
+        nombre="",
+        email="",
+        whatsapp=whatsapp_inicial,
+        motivo=motivo_inicial,
+        mensaje="",
+        origen=origen,
+        comercio_id=comercio_id,
+    )
+
+
 # TÉRMINOS Y CONDICIONES
 @app.route("/terminos")
 @app.route("/terminos.html")
@@ -3655,6 +3771,17 @@ def registro():
         if not nombre_negocio or not email or not whatsapp or not direccion or not password:
             return "Faltan datos obligatorios: nombre del negocio, email, WhatsApp, dirección o contraseña.", 400
 
+        whatsapp_limpio = limpiar_numero_whatsapp(whatsapp)
+
+        if not whatsapp_limpio:
+            return render_template(
+                "registro.html",
+                error=(
+                    "El WhatsApp ingresado no es válido. "
+                    "Ingresá un número de celular, por ejemplo 343 000 0000."
+                )
+            ), 400
+
         categorias_validadas, error_categorias = (
             validar_categorias_registro(
                 categoria,
@@ -3679,6 +3806,84 @@ def registro():
 
         direccion_mostrar = direccion
 
+        # ========================================================
+        # CLICKLOCAL — PROTECCION ANTI DUPLICADOS POR WHATSAPP
+        #
+        # Compara números normalizados para detectar como iguales:
+        # 3434547410
+        # 543434547410
+        # 5493434547410
+        #
+        # Se revisan también cuentas bloqueadas para evitar crear
+        # una nueva cuenta encima de una cuenta ya existente.
+        # ========================================================
+        try:
+            comercios_whatsapp_res = (
+                supabase_admin
+                .table("comercios")
+                .select(
+                    "id,nombre_negocio,email,whatsapp,activo"
+                )
+                .execute()
+            )
+
+            for comercio_existente in (
+                comercios_whatsapp_res.data or []
+            ):
+                whatsapp_existente = limpiar_numero_whatsapp(
+                    comercio_existente.get("whatsapp")
+                )
+
+                if (
+                    whatsapp_existente
+                    and whatsapp_existente == whatsapp_limpio
+                ):
+                    nombre_existente = (
+                        comercio_existente.get("nombre_negocio")
+                        or "un comercio existente"
+                    )
+
+                    print(
+                        "REGISTRO BLOQUEADO POR WHATSAPP DUPLICADO:",
+                        nombre_existente,
+                        whatsapp_limpio,
+                        flush=True
+                    )
+
+                    return render_template(
+                        "registro.html",
+                        error=(
+                            "Ya existe un comercio registrado con "
+                            "este WhatsApp. Iniciá sesión con la "
+                            "cuenta existente."
+                        ),
+                        soporte_url=url_for(
+                            "contacto",
+                            motivo=(
+                                "Problema para acceder a una "
+                                "cuenta existente"
+                            ),
+                            whatsapp=whatsapp,
+                            origen="registro_duplicado",
+                        )
+                    ), 409
+
+        except Exception as e:
+            print(
+                "ERROR VERIFICANDO WHATSAPP DUPLICADO:",
+                type(e),
+                e,
+                flush=True
+            )
+
+            return render_template(
+                "registro.html",
+                error=(
+                    "No pudimos verificar el WhatsApp en este "
+                    "momento. Intentá nuevamente."
+                )
+            ), 500
+
         try:
             auth_res = supabase_admin.auth.admin.create_user({
                 "email": email,
@@ -3695,7 +3900,7 @@ def registro():
                 "user_id": user.id,
                 "nombre_negocio": nombre_negocio,
                 "email": email,
-                "whatsapp": whatsapp,
+                "whatsapp": whatsapp_limpio,
                 "direccion": direccion,
                 "direccion_mostrar": direccion_mostrar,
                 "venta_online": venta_online,
@@ -4031,9 +4236,81 @@ def revisar_premium_vencidos():
             print("ERROR venciendo Premium:", comercio_id, e, flush=True)
 
 
+
+# ============================================================
+# CLICKLOCAL — CUENTA GESTOR MVP
+#
+# El administrador conserva su propia sesión.
+# session["gestor_comercio_id"] identifica únicamente el
+# comercio que está siendo administrado.
+#
+# session["user_id"] NO se suplanta ni se modifica.
+# ============================================================
+
+def _modo_gestor_activo():
+    return bool(
+        session.get("admin_logueado")
+        and session.get("gestor_comercio_id")
+    )
+
+
+def _user_id_panel_efectivo():
+    """
+    Devuelve el user_id propietario del comercio que puede operar
+    actualmente en el panel.
+
+    Modo normal:
+        devuelve session["user_id"].
+
+    Modo gestor:
+        valida la sesión admin y obtiene el user_id real del dueño
+        mediante gestor_comercio_id.
+
+    Nunca escribe ni reemplaza session["user_id"].
+    """
+
+    if _modo_gestor_activo():
+        comercio_id = session.get("gestor_comercio_id")
+
+        try:
+            comercio_res = (
+                supabase_admin
+                .table("comercios")
+                .select("id,user_id,activo")
+                .eq("id", comercio_id)
+                .limit(1)
+                .execute()
+            )
+
+            comercios = comercio_res.data or []
+
+            if not comercios:
+                return None
+
+            comercio = comercios[0]
+
+            user_id_propietario = comercio.get("user_id")
+
+            if not user_id_propietario:
+                return None
+
+            return user_id_propietario
+
+        except Exception as e:
+            print(
+                "ERROR RESOLVIENDO CUENTA GESTOR:",
+                type(e),
+                e,
+                flush=True
+            )
+            return None
+
+    return session.get("user_id")
+
+
 @app.route("/panel/subir-foto-publicacion", methods=["POST"])
 def subir_foto_publicacion_secuencial():
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return {
@@ -4133,7 +4410,7 @@ def subir_foto_publicacion_secuencial():
 
 @app.route("/panel/logo/subir", methods=["POST"])
 def subir_logo_negocio():
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
     comercio_sesion = dict(session.get("comercio") or {})
 
     if not user_id:
@@ -4283,7 +4560,7 @@ def subir_logo_negocio():
 
 @app.route("/panel/logo/quitar", methods=["POST"])
 def quitar_logo_negocio():
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
     comercio_sesion = dict(session.get("comercio") or {})
 
     if not user_id:
@@ -4331,7 +4608,7 @@ def quitar_logo_negocio():
 @app.route("/panel", methods=["GET", "POST"])
 @app.route("/panel.html", methods=["GET", "POST"])
 def panel():
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return redirect(url_for("login"))
@@ -4362,6 +4639,14 @@ def panel():
             pass
 
     if user_id and comercio.get("activo") is False:
+        if _modo_gestor_activo():
+            session.pop("gestor_comercio_id", None)
+            session.pop("comercio", None)
+            session.pop("publicaciones", None)
+            return redirect(
+                url_for("admin", gestor_error="comercio_bloqueado")
+            )
+
         session.pop("user_id", None)
         session.pop("comercio", None)
         session.pop("publicaciones", None)
@@ -5553,7 +5838,9 @@ def panel():
         es_premium=es_premium,
         historias=historias,
         historias_activas=historias_activas,
-        limite_historias_activas=2
+        limite_historias_activas=2,
+        modo_gestor=_modo_gestor_activo(),
+        admin_user=session.get("admin_user")
     )
 
 
@@ -5838,7 +6125,7 @@ def _historias_activas_del_comercio(comercio_id):
 
 
 def _contexto_comercio_para_historias():
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return None, None, "login"
@@ -6321,7 +6608,7 @@ def eliminar_historia_panel(historia_id):
 
 @app.route("/panel/cartelera/crear", methods=["POST"])
 def crear_cartelera_panel():
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
 
@@ -6545,7 +6832,7 @@ def crear_cartelera_panel():
 
 
 def _cartelera_panel_contexto(cartelera_id):
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
 
@@ -6694,7 +6981,7 @@ def eliminar_cartelera_panel(cartelera_id):
 @app.route("/listas/guardar", methods=["POST"])
 def guardar_lista_buscable():
     comercio = session.get("comercio") or {}
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return redirect(url_for("login"))
@@ -6770,7 +7057,7 @@ def guardar_lista_buscable():
 @app.route("/listas/editar/<lista_id>", methods=["POST"])
 def editar_lista_buscable(lista_id):
     comercio = session.get("comercio") or {}
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return redirect(url_for("login"))
@@ -6871,7 +7158,7 @@ def editar_lista_buscable(lista_id):
 @app.route("/listas/eliminar/<lista_id>", methods=["POST"])
 def eliminar_lista_buscable(lista_id):
     comercio = session.get("comercio") or {}
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return redirect(url_for("login"))
@@ -6922,7 +7209,7 @@ def eliminar_publicacion(publicacion_id):
     invalidar_cache_publicaciones_portada()
 
     comercio = session.get("comercio") or comercio_default()
-    user_id = session.get("user_id")
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return redirect(url_for("login"))
@@ -7930,7 +8217,10 @@ def perfil():
 
 @app.route("/solicitar-premium", methods=["POST"])
 def solicitar_premium():
-    user_id = session.get("user_id")
+    if _modo_gestor_activo():
+        return redirect(url_for("panel") + "#plan")
+
+    user_id = _user_id_panel_efectivo()
 
     if not user_id:
         return redirect(url_for("login"))
@@ -8025,7 +8315,116 @@ def logout():
 def admin_logout():
     session.pop("admin_logueado", None)
     session.pop("admin_user", None)
+    session.pop("gestor_comercio_id", None)
+    session.pop("comercio", None)
+    session.pop("publicaciones", None)
     return redirect(url_for("admin_login"))
+
+
+
+@app.route(
+    "/admin/gestionar/<comercio_id>",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_gestionar_comercio(comercio_id):
+    """
+    Entra al panel de un comercio usando la sesión propia
+    del administrador.
+
+    No conoce ni modifica la contraseña del comercio.
+    No reemplaza session["user_id"].
+    """
+
+    try:
+        uuid.UUID(str(comercio_id))
+    except Exception:
+        return redirect(
+            url_for("admin", gestor_error="id_invalido")
+        )
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select(
+                "id,user_id,nombre_negocio,"
+                "activo,categoria,logo_url"
+            )
+            .eq("id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+
+        comercios = comercio_res.data or []
+
+        if not comercios:
+            return redirect(
+                url_for("admin", gestor_error="no_encontrado")
+            )
+
+        comercio = comercios[0]
+
+        if comercio.get("activo") is False:
+            return redirect(
+                url_for(
+                    "admin",
+                    gestor_error="comercio_bloqueado"
+                )
+            )
+
+        if not comercio.get("user_id"):
+            return redirect(
+                url_for(
+                    "admin",
+                    gestor_error="sin_propietario"
+                )
+            )
+
+        session["gestor_comercio_id"] = comercio["id"]
+
+        # Evitamos conservar datos de otro comercio en caché
+        # de sesión. El /panel volverá a cargar los datos reales.
+        session.pop("comercio", None)
+        session.pop("publicaciones", None)
+
+        session.modified = True
+
+        return redirect(
+            url_for("panel", gestor="1")
+        )
+
+    except Exception as e:
+        print(
+            "ERROR INICIANDO CUENTA GESTOR:",
+            type(e),
+            e,
+            flush=True
+        )
+
+        return redirect(
+            url_for("admin", gestor_error="servidor")
+        )
+
+
+@app.route(
+    "/admin/gestor/salir",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_salir_gestor():
+    session.pop("gestor_comercio_id", None)
+
+    # commerce/publicaciones pertenecen al comercio gestionado.
+    # Se limpian para evitar mezclar información.
+    session.pop("comercio", None)
+    session.pop("publicaciones", None)
+
+    session.modified = True
+
+    return redirect(
+        url_for("admin", gestor_fin="1")
+    )
 
 
 @app.route("/admin")
@@ -8037,6 +8436,8 @@ def admin():
     error = None
     comercios_raw = []
     publicaciones_raw = []
+    consultas_soporte = []
+    consultas_soporte_resueltas = []
 
     try:
         comercios_res = (
@@ -8062,6 +8463,60 @@ def admin():
             error += f" | No se pudieron cargar las publicaciones: {e}"
         else:
             error = f"No se pudieron cargar las publicaciones: {e}"
+
+    try:
+        soporte_res = (
+            supabase_admin
+            .table("consultas_soporte")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(100)
+            .execute()
+        )
+        consultas_soporte = soporte_res.data or []
+
+        consultas_soporte.sort(
+            key=lambda consulta: (
+                0
+                if str(
+                    consulta.get("estado") or ""
+                ).strip().lower() == "pendiente"
+                else 1,
+                str(consulta.get("created_at") or "")
+            ),
+            reverse=False
+        )
+
+        pendientes = [
+            c for c in consultas_soporte
+            if str(c.get("estado") or "").strip().lower()
+            == "pendiente"
+        ]
+
+        resueltas = [
+            c for c in consultas_soporte
+            if str(c.get("estado") or "").strip().lower()
+            != "pendiente"
+        ]
+
+        pendientes.sort(
+            key=lambda c: str(c.get("created_at") or ""),
+            reverse=True
+        )
+
+        resueltas.sort(
+            key=lambda c: str(c.get("created_at") or ""),
+            reverse=True
+        )
+
+        consultas_soporte = pendientes
+        consultas_soporte_resueltas = resueltas
+
+    except Exception as e:
+        if error:
+            error += f" | No se pudieron cargar las consultas de soporte: {e}"
+        else:
+            error = f"No se pudieron cargar las consultas de soporte: {e}"
 
     def es_publicacion_activa(pub):
         if "activa" in pub:
@@ -8278,6 +8733,12 @@ def admin():
         "total_solicitudes_premium": len(solicitudes_premium),
         "total_bloqueados": total_bloqueados,
         "total_moderacion_pendiente": total_moderacion_pendiente,
+        "total_consultas_soporte": sum(
+            1
+            for consulta in consultas_soporte
+            if str(consulta.get("estado") or "").lower()
+            == "pendiente"
+        ),
     }
 
     return render_template(
@@ -8289,11 +8750,87 @@ def admin():
         categorias_reasignacion=categorias_reasignacion,
         ultimos_comercios=ultimos_comercios,
         ultimas_publicaciones=ultimas_publicaciones,
+        consultas_soporte=consultas_soporte,
+        consultas_soporte_resueltas=consultas_soporte_resueltas,
         error=error,
         admin_user=session.get("admin_user")
     )
 
 
+
+
+# ============================================================
+# CLICKLOCAL — SOPORTE ADMIN
+# ============================================================
+
+@app.route(
+    "/admin/soporte/<consulta_id>/resolver",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_resolver_consulta_soporte(consulta_id):
+    try:
+        from uuid import UUID
+        consulta_id_valido = str(UUID(str(consulta_id)))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(url_for("admin"))
+
+    try:
+        (
+            supabase_admin
+            .table("consultas_soporte")
+            .update({
+                "estado": "resuelta",
+                "resuelta_at": datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat(),
+                "resuelta_por": session.get("admin_user"),
+            })
+            .eq("id", consulta_id_valido)
+            .execute()
+        )
+
+    except Exception as e:
+        print(
+            "ERROR RESOLVIENDO CONSULTA SOPORTE:",
+            type(e),
+            e,
+            flush=True
+        )
+
+    return redirect(url_for("admin"))
+
+
+@app.route(
+    "/admin/soporte/<consulta_id>/eliminar",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_eliminar_consulta_soporte(consulta_id):
+    try:
+        from uuid import UUID
+        consulta_id_valido = str(UUID(str(consulta_id)))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(url_for("admin"))
+
+    try:
+        (
+            supabase_admin
+            .table("consultas_soporte")
+            .delete()
+            .eq("id", consulta_id_valido)
+            .execute()
+        )
+
+    except Exception as e:
+        print(
+            "ERROR ELIMINANDO CONSULTA SOPORTE:",
+            type(e),
+            e,
+            flush=True
+        )
+
+    return redirect(url_for("admin"))
 
 
 # ============================================================

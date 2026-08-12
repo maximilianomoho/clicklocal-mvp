@@ -53,6 +53,18 @@
           {{ error }}
         </div>
 
+        {% if soporte_url %}
+          <div style="margin:12px 0 18px;">
+            <a
+              href="{{ soporte_url }}"
+              class="boton-form-secundario"
+              style="display:inline-block;"
+            >
+              Necesito ayuda
+            </a>
+          </div>
+        {% endif %}
+
       {% endif %}
       <form class="formulario" method="POST" action="/registro">
 

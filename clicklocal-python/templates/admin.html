@@ -437,6 +437,154 @@
 
   <main class="admin-main">
 
+<section class="admin-card" style="margin-top:24px;">
+  <h2 style="margin-top:0;">
+    📩 Consultas de soporte
+    {% if resumen.total_consultas_soporte %}
+      <span
+        style="
+          display:inline-block;
+          margin-left:8px;
+          padding:4px 9px;
+          border-radius:999px;
+          background:#fee2e2;
+          color:#991b1b;
+          font-size:13px;
+        "
+      >
+        {{ resumen.total_consultas_soporte }} pendientes
+      </span>
+    {% endif %}
+  </h2>
+
+  {% if consultas_soporte %}
+    <div class="admin-tabla-contenedor">
+      <table class="admin-tabla">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Nombre</th>
+            <th>Contacto</th>
+            <th>Motivo</th>
+            <th>Mensaje</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for consulta in consultas_soporte %}
+            <tr>
+              <td>{{ consulta.created_at or '-' }}</td>
+
+              <td>
+                <strong>{{ consulta.nombre or '-' }}</strong>
+              </td>
+
+              <td>
+                {% if consulta.whatsapp %}
+                  WhatsApp: {{ consulta.whatsapp }}<br>
+                {% endif %}
+                {% if consulta.email %}
+                  {{ consulta.email }}
+                {% endif %}
+              </td>
+
+              <td>{{ consulta.motivo or 'Consulta general' }}</td>
+
+              <td style="max-width:380px;">
+                {{ consulta.mensaje or '-' }}
+              </td>
+
+              <td>
+                {% if consulta.estado == 'pendiente' %}
+                  <strong style="color:#b45309;">Pendiente</strong>
+                {% else %}
+                  <strong style="color:#166534;">Resuelta</strong>
+                {% endif %}
+              </td>
+
+              <td style="min-width:190px;">
+                <div
+                  style="
+                    display:flex;
+                    align-items:center;
+                    gap:8px;
+                    flex-wrap:wrap;
+                  "
+                >
+                  {% if consulta.estado == 'pendiente' %}
+                    <form
+                      method="POST"
+                      action="{{ url_for(
+                          'admin_resolver_consulta_soporte',
+                          consulta_id=consulta.id
+                      ) }}"
+                      style="margin:0;"
+                    >
+                      <button
+                        type="submit"
+                        style="
+                          border:1px solid #15803d;
+                          border-radius:8px;
+                          padding:7px 11px;
+                          background:#f0fdf4;
+                          color:#166534;
+                          font-size:13px;
+                          font-weight:700;
+                          white-space:nowrap;
+                          cursor:pointer;
+                        "
+                      >
+                        ✓ Resolver
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  <form
+                    method="POST"
+                    action="{{ url_for(
+                        'admin_eliminar_consulta_soporte',
+                        consulta_id=consulta.id
+                    ) }}"
+                    onsubmit="return confirm(
+                      '¿Eliminar definitivamente esta consulta?'
+                    );"
+                    style="margin:0;"
+                  >
+                    <button
+                      type="submit"
+                      style="
+                        border:1px solid #fecaca;
+                        border-radius:8px;
+                        padding:7px 11px;
+                        background:#fff;
+                        color:#b91c1c;
+                        font-size:13px;
+                        font-weight:600;
+                        white-space:nowrap;
+                        cursor:pointer;
+                      "
+                    >
+                      Eliminar
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="admin-vacio">
+      Todavía no hay consultas de soporte.
+    </div>
+  {% endif %}
+</section>
+
+
+
     <section class="admin-hero">
       <div>
         <p class="titulo-chico">ADMINISTRACIÓN</p>
@@ -841,6 +989,29 @@
                     </td>
                     <td>
                       {% if c.id %}
+
+                        {% if c.activo %}
+                          <form
+                            method="POST"
+                            action="{{ url_for('admin_gestionar_comercio', comercio_id=c.id) }}"
+                            style="margin: 0 0 6px 0;"
+                          >
+                            <button
+                              type="submit"
+                              class="admin-mini-link"
+                              style="
+                                border:0;
+                                cursor:pointer;
+                                background:#dbeafe;
+                                color:#1d4ed8;
+                                font-weight:800;
+                              "
+                            >
+                              Administrar
+                            </button>
+                          </form>
+                        {% endif %}
+
                         {% if c.activo %}
                           <form method="POST" action="{{ url_for('admin_bloquear_comercio', comercio_id=c.id) }}" style="margin: 0;" onsubmit="return confirm('¿Bloquear este comercio y ocultar su contenido?');">
                             <button type="submit" class="admin-mini-link" style="border: 0; cursor: pointer; background: #fee2e2; color: #991b1b;">
@@ -893,7 +1064,103 @@
 
     </section>
 
-  </main>
+  
+
+
+
+<section class="admin-card" style="margin-top:32px;">
+  <h2 style="margin-top:0;">
+    Historial de consultas resueltas
+  </h2>
+
+  {% if consultas_soporte_resueltas %}
+    <div class="admin-tabla-contenedor">
+      <table class="admin-tabla">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Nombre</th>
+            <th>Contacto</th>
+            <th>Motivo</th>
+            <th>Mensaje</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for consulta in consultas_soporte_resueltas %}
+            <tr>
+              <td>{{ consulta.created_at or '-' }}</td>
+
+              <td>
+                <strong>{{ consulta.nombre or '-' }}</strong>
+              </td>
+
+              <td>
+                {% if consulta.whatsapp %}
+                  WhatsApp: {{ consulta.whatsapp }}<br>
+                {% endif %}
+                {% if consulta.email %}
+                  {{ consulta.email }}
+                {% endif %}
+              </td>
+
+              <td>{{ consulta.motivo or 'Consulta general' }}</td>
+
+              <td style="max-width:380px;">
+                {{ consulta.mensaje or '-' }}
+              </td>
+
+              <td>
+                <strong style="color:#166534;">
+                  Resuelta
+                </strong>
+              </td>
+
+              <td>
+                <form
+                  method="POST"
+                  action="{{ url_for(
+                      'admin_eliminar_consulta_soporte',
+                      consulta_id=consulta.id
+                  ) }}"
+                  onsubmit="return confirm(
+                    '¿Eliminar definitivamente esta consulta?'
+                  );"
+                  style="margin:0;"
+                >
+                  <button
+                    type="submit"
+                    style="
+                      border:1px solid #fecaca;
+                      border-radius:8px;
+                      padding:7px 11px;
+                      background:#fff;
+                      color:#b91c1c;
+                      font-size:13px;
+                      font-weight:600;
+                      white-space:nowrap;
+                      cursor:pointer;
+                    "
+                  >
+                    Eliminar
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="admin-vacio">
+      Todavía no hay consultas resueltas.
+    </div>
+  {% endif %}
+</section>
+
+</main>
 
 
 <script>
