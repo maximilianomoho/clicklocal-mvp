@@ -1,0 +1,786 @@
+{% extends "panel.html" %}
+
+{% block retorno_terminos %}gastronomia{% endblock %}
+
+
+
+{% block panel_hero_texto %}
+<div>
+  <p class="titulo-chico">MI COMERCIO</p>
+
+  <h1>
+    Hola, {{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}
+  </h1>
+
+  <p>
+    Administrá tus productos, listas buscables y datos del comercio.
+  </p>
+
+  <p style="margin-top:8px; font-size:14px; opacity:.95;">
+    <strong>Categoría:</strong>
+    Gastronomía
+  </p>
+</div>
+{% endblock %}
+
+
+{% block panel_menu_principal %}
+<a
+  href="#producto"
+  class="panel-menu-link activo"
+>
+  Cargar producto
+</a>
+
+<a
+  href="#mis-productos"
+  class="panel-menu-link"
+>
+  Mis productos
+</a>
+
+<a
+  href="#listas"
+  class="panel-menu-link"
+>
+  Listas buscables
+</a>
+
+<a
+  href="#datos"
+  class="panel-menu-link"
+>
+  Mis datos
+</a>
+
+<a
+  href="#plan"
+  class="panel-menu-link"
+>
+  Mi plan
+</a>
+
+<a
+  href="{{ url_for(
+    'contacto',
+    motivo='Consulta desde mi comercio',
+    whatsapp=comercio.whatsapp or '',
+    origen='panel',
+    comercio_id=comercio.id
+  ) }}"
+  class="panel-menu-link"
+>
+  Ayuda / Contactar a ClickLocal
+</a>
+{% endblock %}
+
+
+{% block panel_contenido_principal %}
+
+<article
+  id="producto"
+  class="panel-card"
+>
+  <div class="panel-card-header">
+    <div>
+      <p
+        class="titulo-chico"
+        id="producto-titulo-chico"
+      >
+        PRODUCTOS
+      </p>
+
+      <h2 id="producto-titulo">
+        Cargar producto
+      </h2>
+    </div>
+
+    <span class="badge">
+      1 foto
+    </span>
+  </div>
+
+
+  {% if request.args.get("producto_ok") == "1" %}
+    <div
+      style="
+        margin-bottom:16px;
+        padding:14px;
+        border-radius:12px;
+        background:#e8f7ee;
+        color:#166534;
+        font-weight:700;
+      "
+    >
+      Producto cargado correctamente.
+    </div>
+  {% endif %}
+
+
+  {% if request.args.get("producto_editado") == "1" %}
+    <div
+      style="
+        margin-bottom:16px;
+        padding:14px;
+        border-radius:12px;
+        background:#e8f7ee;
+        color:#166534;
+        font-weight:700;
+      "
+    >
+      Producto actualizado correctamente.
+    </div>
+  {% endif %}
+
+
+  {% if request.args.get("producto_eliminado") == "1" %}
+    <div
+      style="
+        margin-bottom:16px;
+        padding:14px;
+        border-radius:12px;
+        background:#e8f7ee;
+        color:#166534;
+        font-weight:700;
+      "
+    >
+      Producto eliminado correctamente.
+    </div>
+  {% endif %}
+
+
+  {% if error_producto %}
+    <div
+      style="
+        margin-bottom:16px;
+        padding:14px;
+        border-radius:12px;
+        background:#ffe5e5;
+        color:#8a0000;
+        font-weight:700;
+      "
+    >
+      {{ error_producto }}
+    </div>
+  {% endif %}
+
+
+  <form
+    id="form-producto-gastronomia"
+    class="formulario panel-form"
+    method="POST"
+    action="{{ url_for(
+      'gastronomia.panel_gastronomia'
+    ) }}"
+    data-create-action="{{ url_for(
+      'gastronomia.panel_gastronomia'
+    ) }}"
+  >
+
+    <input
+      type="hidden"
+      name="imagen_url"
+      id="producto-imagen-url"
+      value=""
+    >
+
+
+    <div
+      style="
+        display:flex;
+        justify-content:flex-start;
+        margin-bottom:20px;
+      "
+    >
+      <label
+        for="producto-foto"
+        class="foto-box"
+        id="foto-producto-selector"
+        style="
+          width:180px;
+          height:180px;
+          min-height:180px;
+          position:relative;
+          overflow:hidden;
+          cursor:pointer;
+        "
+      >
+        <span id="foto-producto-texto">
+          +<br>
+          <small>Agregar foto</small>
+        </span>
+
+        <img
+          id="foto-producto-preview"
+          alt="Vista previa"
+          style="
+            display:none;
+            position:absolute;
+            inset:0;
+            width:100%;
+            height:100%;
+            object-fit:cover;
+          "
+        >
+      </label>
+
+      <input
+        type="file"
+        id="producto-foto"
+        accept="image/*"
+        hidden
+      >
+    </div>
+
+
+    <div class="campo">
+      <label>
+        Nombre del producto *
+      </label>
+
+      <input
+        type="text"
+        name="nombre"
+        id="gastronomia-nombre"
+        maxlength="100"
+        placeholder="Ej: Hamburguesa completa"
+        required
+      >
+    </div>
+
+
+    <div class="campo">
+      <label>
+        Precio *
+      </label>
+
+      <input
+        type="text"
+        name="precio"
+        id="gastronomia-precio"
+        inputmode="decimal"
+        placeholder="Ej: $ 12.000 o 12000"
+        required
+      >
+    </div>
+
+
+    <div class="campo">
+      <label>
+        Descripción
+      </label>
+
+      <textarea
+        name="descripcion"
+        id="gastronomia-descripcion"
+        maxlength="300"
+        placeholder="Descripción visible en el menú."
+      ></textarea>
+    </div>
+
+
+    <button
+      type="submit"
+      id="guardar-producto"
+      class="boton-principal-form"
+    >
+      Cargar producto
+    </button>
+
+    <button
+      type="button"
+      id="cancelar-edicion-producto"
+      class="boton-secundario"
+      style="
+        display:none;
+        margin-top:10px;
+      "
+    >
+      Cancelar edición
+    </button>
+
+
+    <p
+      id="producto-cargando"
+      style="
+        display:none;
+        margin-top:10px;
+        font-weight:700;
+        color:#006aa6;
+      "
+    >
+      Subiendo foto y guardando producto...
+    </p>
+
+  </form>
+</article>
+
+
+
+<article
+  id="mis-productos"
+  class="panel-card"
+>
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">
+        MENÚ
+      </p>
+
+      <h2>
+        Mis productos
+      </h2>
+    </div>
+
+    <span class="badge">
+      {{ productos | length }}
+      productos
+    </span>
+  </div>
+
+
+  <div class="panel-publicaciones-lista">
+
+    {% if productos %}
+
+      {% for producto in productos %}
+
+        <div class="panel-publicacion-item">
+
+          {% if producto.imagen_url %}
+            <img
+              src="{{ producto.imagen_url }}"
+              alt="{{ producto.nombre }}"
+            >
+          {% endif %}
+
+
+          <div>
+            <h3>
+              {{ producto.nombre }}
+            </h3>
+
+            <p class="panel-descripcion">
+              {{ producto.descripcion or "Sin descripción." }}
+            </p>
+
+
+            {% if producto.precio_promocional_mostrar %}
+
+              <p
+                class="precio"
+                style="margin-bottom:2px;"
+              >
+                {{ producto.precio_promocional_mostrar }}
+              </p>
+
+              <p
+                style="
+                  margin:0 0 8px;
+                  color:#777;
+                  text-decoration:line-through;
+                "
+              >
+                {{ producto.precio_mostrar }}
+              </p>
+
+            {% else %}
+
+              <p class="precio">
+                {{ producto.precio_mostrar }}
+              </p>
+
+            {% endif %}
+
+
+            {% if producto.activo %}
+              <span class="estado-activo">
+                Activo
+              </span>
+            {% else %}
+              <span class="estado-activo">
+                Pausado
+              </span>
+            {% endif %}
+
+
+            {% if producto.destacado %}
+              <span
+                class="estado-activo"
+                style="margin-left:5px;"
+              >
+                Destacado
+              </span>
+            {% endif %}
+
+          </div>
+
+
+          <div class="acciones-publicacion">
+
+            <button
+              type="button"
+              class="boton-editar-producto"
+              data-url="{{ url_for(
+                'gastronomia.editar_producto',
+                producto_id=producto.id
+              ) }}"
+              data-nombre="{{ producto.nombre | default('', true) | e }}"
+              data-precio="{{ producto.precio or '' }}"
+              data-descripcion="{{ producto.descripcion | default('', true) | e }}"
+              data-imagen="{{ producto.imagen_url or '' }}"
+            >
+              Editar
+            </button>
+
+
+            <a
+              href="{{ url_for(
+                'gastronomia.extras_producto',
+                producto_id=producto.id
+              ) }}"
+              style="
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                padding:8px 12px;
+                border:1px solid #ddd;
+                border-radius:10px;
+                background:#fff;
+                color:#681823;
+                font-weight:700;
+                text-decoration:none;
+              "
+            >
+              Extras
+            </a>
+
+            <form
+              method="POST"
+              action="{{ url_for(
+                'gastronomia.toggle_producto_activo',
+                producto_id=producto.id
+              ) }}"
+              style="display:inline;"
+            >
+              <button type="submit">
+                {% if producto.activo %}
+                  Pausar
+                {% else %}
+                  Reactivar
+                {% endif %}
+              </button>
+            </form>
+
+
+            <form
+              method="POST"
+              action="{{ url_for(
+                'gastronomia.eliminar_producto',
+                producto_id=producto.id
+              ) }}"
+              style="display:inline;"
+              onsubmit="return confirm(
+                '¿Seguro que querés eliminar este producto? Esta acción no se puede deshacer.'
+              );"
+            >
+              <button type="submit">
+                Eliminar
+              </button>
+            </form>
+
+          </div>
+
+        </div>
+
+      {% endfor %}
+
+    {% else %}
+
+      <p class="panel-descripcion">
+        Todavía no cargaste productos.
+      </p>
+
+    {% endif %}
+
+  </div>
+</article>
+
+
+
+<script>
+(function () {
+  const form =
+    document.getElementById(
+      "form-producto-gastronomia"
+    );
+
+  const foto =
+    document.getElementById(
+      "producto-foto"
+    );
+
+  const imagenUrl =
+    document.getElementById(
+      "producto-imagen-url"
+    );
+
+  const preview =
+    document.getElementById(
+      "foto-producto-preview"
+    );
+
+  const textoFoto =
+    document.getElementById(
+      "foto-producto-texto"
+    );
+
+  const boton =
+    document.getElementById(
+      "guardar-producto"
+    );
+
+  const cargando =
+    document.getElementById(
+      "producto-cargando"
+    );
+
+  const nombre =
+    document.getElementById(
+      "gastronomia-nombre"
+    );
+
+  const precio =
+    document.getElementById(
+      "gastronomia-precio"
+    );
+
+  const descripcion =
+    document.getElementById(
+      "gastronomia-descripcion"
+    );
+
+  const titulo =
+    document.getElementById(
+      "producto-titulo"
+    );
+
+  const cancelar =
+    document.getElementById(
+      "cancelar-edicion-producto"
+    );
+
+
+  if (!form || !foto || !imagenUrl) {
+    return;
+  }
+
+
+  function volverCrear() {
+    form.action =
+      form.dataset.createAction;
+
+    form.reset();
+
+    imagenUrl.value = "";
+
+    preview.style.display = "none";
+    preview.removeAttribute("src");
+
+    textoFoto.style.display = "";
+
+    titulo.textContent =
+      "Cargar producto";
+
+    boton.textContent =
+      "Cargar producto";
+
+    cancelar.style.display =
+      "none";
+  }
+
+
+  foto.addEventListener(
+    "change",
+    function () {
+      const archivo =
+        foto.files &&
+        foto.files[0];
+
+      imagenUrl.value = "";
+
+      if (!archivo) {
+        preview.style.display =
+          "none";
+
+        preview.removeAttribute(
+          "src"
+        );
+
+        textoFoto.style.display =
+          "";
+
+        return;
+      }
+
+      preview.src =
+        URL.createObjectURL(
+          archivo
+        );
+
+      preview.style.display =
+        "block";
+
+      textoFoto.style.display =
+        "none";
+    }
+  );
+
+
+  document
+    .querySelectorAll(
+      ".boton-editar-producto"
+    )
+    .forEach(function (editar) {
+
+      editar.addEventListener(
+        "click",
+        function () {
+
+          form.action =
+            editar.dataset.url;
+
+          nombre.value =
+            editar.dataset.nombre || "";
+
+          precio.value =
+            editar.dataset.precio || "";
+
+          descripcion.value =
+            editar.dataset.descripcion || "";
+
+          imagenUrl.value =
+            editar.dataset.imagen || "";
+
+          if (imagenUrl.value) {
+            preview.src =
+              imagenUrl.value;
+
+            preview.style.display =
+              "block";
+
+            textoFoto.style.display =
+              "none";
+          }
+
+          foto.value = "";
+
+          titulo.textContent =
+            "Editar producto";
+
+          boton.textContent =
+            "Guardar cambios";
+
+          cancelar.style.display =
+            "";
+
+          document
+            .getElementById(
+              "producto"
+            )
+            .scrollIntoView({
+              behavior: "smooth",
+              block: "start"
+            });
+        }
+      );
+    });
+
+
+  cancelar.addEventListener(
+    "click",
+    volverCrear
+  );
+
+
+  form.addEventListener(
+    "submit",
+    async function (evento) {
+
+      if (imagenUrl.value) {
+        return;
+      }
+
+      evento.preventDefault();
+
+      const archivo =
+        foto.files &&
+        foto.files[0];
+
+      if (!archivo) {
+        alert(
+          "Seleccioná una foto del producto."
+        );
+        return;
+      }
+
+      boton.disabled = true;
+
+      cargando.style.display =
+        "block";
+
+      try {
+        const datos =
+          new FormData();
+
+        datos.append(
+          "foto",
+          archivo
+        );
+
+        const respuesta =
+          await fetch(
+            "/panel/subir-foto-publicacion",
+            {
+              method: "POST",
+              body: datos
+            }
+          );
+
+        const resultado =
+          await respuesta.json();
+
+        if (
+          !respuesta.ok
+          || !resultado.ok
+          || !resultado.url
+        ) {
+          throw new Error(
+            resultado.error
+            || "No se pudo subir la foto."
+          );
+        }
+
+        imagenUrl.value =
+          resultado.url;
+
+        form.submit();
+
+      } catch (error) {
+
+        alert(
+          error.message
+          || "No se pudo subir la foto."
+        );
+
+        boton.disabled = false;
+
+        cargando.style.display =
+          "none";
+      }
+    }
+  );
+})();
+</script>
+
+{% endblock %}

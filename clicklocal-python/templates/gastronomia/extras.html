@@ -1,0 +1,495 @@
+{% extends "panel.html" %}
+
+{% block retorno_terminos %}gastronomia{% endblock %}
+
+
+{% block panel_hero_texto %}
+<div>
+  <p class="titulo-chico">
+    EXTRAS Y OPCIONES
+  </p>
+
+  <h1>
+    {{ producto.nombre }}
+  </h1>
+
+  <p>
+    Configurá agregados, elecciones y variantes
+    disponibles para este producto.
+  </p>
+
+  <p style="margin-top:8px; font-size:14px;">
+    <strong>Precio base:</strong>
+    {{ producto.precio_mostrar }}
+  </p>
+</div>
+{% endblock %}
+
+
+{% block panel_menu_principal %}
+
+<a
+  href="{{ url_for(
+    'gastronomia.panel_gastronomia'
+  ) }}#mis-productos"
+  class="panel-menu-link"
+>
+  ← Volver a productos
+</a>
+
+<a
+  href="#nuevo-grupo"
+  class="panel-menu-link activo"
+>
+  Crear grupo
+</a>
+
+<a
+  href="#grupos"
+  class="panel-menu-link"
+>
+  Grupos actuales
+</a>
+
+{% endblock %}
+
+
+{% block panel_contenido_principal %}
+
+<style>
+  .extras-explicacion{
+    margin:0 0 18px;
+    color:#666;
+    line-height:1.5;
+  }
+
+  .extras-aviso{
+    padding:13px 14px;
+    margin-bottom:16px;
+    border-radius:12px;
+    font-weight:700;
+  }
+
+  .extras-ok{
+    background:#e8f7ee;
+    color:#166534;
+  }
+
+  .extras-error{
+    background:#ffe5e5;
+    color:#8a0000;
+  }
+
+  .extras-grid{
+    display:grid;
+    grid-template-columns:
+      repeat(2,minmax(0,1fr));
+    gap:14px;
+  }
+
+  .extra-grupo{
+    border:1px solid #e5e0db;
+    border-radius:16px;
+    padding:18px;
+    background:#fff;
+  }
+
+  .extra-grupo-head{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:flex-start;
+    margin-bottom:15px;
+  }
+
+  .extra-grupo h3{
+    margin:0 0 5px;
+  }
+
+  .extra-regla{
+    margin:0;
+    color:#777;
+    font-size:13px;
+  }
+
+  .extra-opcion{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:center;
+    padding:10px 0;
+    border-top:1px solid #eee;
+  }
+
+  .extra-opcion-precio{
+    font-weight:800;
+    color:#681823;
+  }
+
+  .extra-form-opcion{
+    margin-top:15px;
+    padding-top:15px;
+    border-top:1px solid #eee;
+  }
+
+  .grupo-linea{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 140px 140px;
+    gap:12px;
+    align-items:end;
+  }
+
+  .extra-inline{
+    display:grid;
+    grid-template-columns:1fr 150px;
+    gap:10px;
+  }
+
+  .extra-delete{
+    border:1px solid #ddd;
+    border-radius:9px;
+    background:#fff;
+    padding:7px 9px;
+    cursor:pointer;
+  }
+
+  @media(max-width:760px){
+    .extras-grid{
+      grid-template-columns:1fr;
+    }
+
+    .grupo-linea,
+    .extra-inline{
+      grid-template-columns:1fr;
+    }
+  }
+</style>
+
+
+{% if request.args.get("grupo_ok") == "1" %}
+  <div class="extras-aviso extras-ok">
+    Grupo creado correctamente.
+  </div>
+{% endif %}
+
+{% if request.args.get("opcion_ok") == "1" %}
+  <div class="extras-aviso extras-ok">
+    Opción agregada correctamente.
+  </div>
+{% endif %}
+
+{% if request.args.get("grupo_eliminado") == "1" %}
+  <div class="extras-aviso extras-ok">
+    Grupo eliminado correctamente.
+  </div>
+{% endif %}
+
+{% if request.args.get("opcion_eliminada") == "1" %}
+  <div class="extras-aviso extras-ok">
+    Opción eliminada correctamente.
+  </div>
+{% endif %}
+
+
+{% if request.args.get("error") %}
+  <div class="extras-aviso extras-error">
+
+    {% if request.args.get("error") == "grupo_nombre" %}
+      Ingresá un nombre para el grupo.
+
+    {% elif request.args.get("error") == "limites" %}
+      Revisá el mínimo y máximo del grupo.
+
+    {% elif request.args.get("error") == "opcion_nombre" %}
+      Ingresá un nombre para la opción.
+
+    {% elif request.args.get("error") == "precio_extra" %}
+      El precio adicional ingresado no es válido.
+
+    {% else %}
+      No se pudo guardar el cambio.
+    {% endif %}
+
+  </div>
+{% endif %}
+
+
+<article
+  id="nuevo-grupo"
+  class="panel-card"
+>
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">
+        NUEVO GRUPO
+      </p>
+
+      <h2>
+        Crear grupo de opciones
+      </h2>
+    </div>
+  </div>
+
+  <p class="extras-explicacion">
+    Un grupo reúne opciones relacionadas.
+    Por ejemplo: Agregados, Salsas,
+    Punto de cocción o Tipo de pan.
+  </p>
+
+  <form
+    method="POST"
+    action="{{ url_for(
+      'gastronomia.crear_grupo_extra',
+      producto_id=producto.id
+    ) }}"
+    class="formulario panel-form"
+  >
+
+    <div class="grupo-linea">
+
+      <div class="campo">
+        <label>
+          Nombre del grupo *
+        </label>
+
+        <input
+          type="text"
+          name="nombre"
+          maxlength="80"
+          placeholder="Ej: Agregados"
+          required
+        >
+      </div>
+
+      <div class="campo">
+        <label>
+          Mínimo
+        </label>
+
+        <input
+          type="number"
+          name="minimo"
+          min="0"
+          value="0"
+        >
+      </div>
+
+      <div class="campo">
+        <label>
+          Máximo
+        </label>
+
+        <input
+          type="number"
+          name="maximo"
+          min="0"
+          value="0"
+        >
+      </div>
+
+    </div>
+
+    <p class="extras-explicacion">
+      Usá 0 / 0 si el grupo es completamente
+      opcional y sin límite obligatorio.
+    </p>
+
+    <button
+      type="submit"
+      class="boton-principal-form"
+    >
+      Crear grupo
+    </button>
+
+  </form>
+</article>
+
+
+<article
+  id="grupos"
+  class="panel-card"
+>
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">
+        CONFIGURACIÓN
+      </p>
+
+      <h2>
+        Grupos actuales
+      </h2>
+    </div>
+
+    <span class="badge">
+      {{ grupos | length }}
+      grupos
+    </span>
+  </div>
+
+
+  {% if grupos %}
+
+    <div class="extras-grid">
+
+      {% for grupo in grupos %}
+
+        <section class="extra-grupo">
+
+          <div class="extra-grupo-head">
+
+            <div>
+              <h3>
+                {{ grupo.nombre }}
+              </h3>
+
+              <p class="extra-regla">
+                Mínimo {{ grupo.minimo or 0 }}
+                ·
+                Máximo
+                {% if grupo.maximo %}
+                  {{ grupo.maximo }}
+                {% else %}
+                  sin límite
+                {% endif %}
+              </p>
+            </div>
+
+            <form
+              method="POST"
+              action="{{ url_for(
+                'gastronomia.eliminar_grupo_extra',
+                producto_id=producto.id,
+                grupo_id=grupo.id
+              ) }}"
+              onsubmit="return confirm(
+                '¿Eliminar este grupo y todas sus opciones?'
+              );"
+            >
+              <button
+                type="submit"
+                class="extra-delete"
+              >
+                Eliminar
+              </button>
+            </form>
+
+          </div>
+
+
+          {% if grupo.opciones %}
+
+            {% for opcion in grupo.opciones %}
+
+              <div class="extra-opcion">
+
+                <div>
+                  <strong>
+                    {{ opcion.nombre }}
+                  </strong>
+
+                  <div class="extra-opcion-precio">
+                    {% if opcion.precio_extra %}
+                      + {{ opcion.precio_extra_mostrar }}
+                    {% else %}
+                      Sin cargo
+                    {% endif %}
+                  </div>
+                </div>
+
+                <form
+                  method="POST"
+                  action="{{ url_for(
+                    'gastronomia.eliminar_opcion_extra',
+                    producto_id=producto.id,
+                    grupo_id=grupo.id,
+                    opcion_id=opcion.id
+                  ) }}"
+                  onsubmit="return confirm(
+                    '¿Eliminar esta opción?'
+                  );"
+                >
+                  <button
+                    type="submit"
+                    class="extra-delete"
+                  >
+                    ×
+                  </button>
+                </form>
+
+              </div>
+
+            {% endfor %}
+
+          {% else %}
+
+            <p class="extras-explicacion">
+              Todavía no hay opciones.
+            </p>
+
+          {% endif %}
+
+
+          <form
+            method="POST"
+            action="{{ url_for(
+              'gastronomia.crear_opcion_extra',
+              producto_id=producto.id,
+              grupo_id=grupo.id
+            ) }}"
+            class="extra-form-opcion"
+          >
+
+            <div class="campo">
+              <label>
+                Nueva opción
+              </label>
+
+              <input
+                type="text"
+                name="nombre"
+                maxlength="80"
+                placeholder="Ej: Cheddar"
+                required
+              >
+            </div>
+
+            <div class="campo">
+              <label>
+                Precio adicional
+              </label>
+
+              <input
+                type="text"
+                name="precio_extra"
+                inputmode="decimal"
+                placeholder="Ej: 1500"
+              >
+            </div>
+
+            <button
+              type="submit"
+              class="boton-principal-form"
+            >
+              Agregar opción
+            </button>
+
+          </form>
+
+        </section>
+
+      {% endfor %}
+
+    </div>
+
+  {% else %}
+
+    <p class="panel-descripcion">
+      Este producto todavía no tiene
+      grupos de opciones.
+    </p>
+
+  {% endif %}
+
+</article>
+
+{% endblock %}

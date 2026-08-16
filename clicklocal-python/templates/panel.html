@@ -177,6 +177,12 @@
             cursor:pointer;
           "
         >
+        <input
+          type="hidden"
+          name="volver_a"
+          value="{% block retorno_terminos %}panel{% endblock %}"
+        >
+
           <input
             type="checkbox"
             id="acepta-terminos-panel"
@@ -424,8 +430,29 @@
 
       <nav class="nav">
         <span class="nav-link">👤 {{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}</span>
-        <a href="/index.html" class="boton-secundario">Galería pública</a>
-        <a href="/logout" class="boton-secundario">Cerrar sesión</a>
+
+        <a
+          href="/index.html"
+          class="boton-secundario"
+        >
+          Galería pública
+        </a>
+
+        {% if request.path.startswith("/gastronomia") %}
+          <a
+            href="/gastronomia/"
+            class="boton-secundario"
+          >
+            Galería Gastronomía
+          </a>
+        {% endif %}
+
+        <a
+          href="/logout"
+          class="boton-secundario"
+        >
+          Cerrar sesión
+        </a>
       </nav>
     </div>
   </header>
@@ -434,6 +461,7 @@
   <main class="panel-main">
 
     <section class="panel-hero">
+      {% block panel_hero_texto %}
       <div>
         <p class="titulo-chico">MI COMERCIO</p>
         <h1>Hola, {{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}</h1>
@@ -446,6 +474,7 @@
           {% endif %}
         </p>
       </div>
+      {% endblock %}
 
       <div class="panel-plan">
         <span>Plan actual</span>
@@ -458,6 +487,7 @@
 
       <!-- COLUMNA IZQUIERDA -->
       <aside class="panel-menu">
+        {% block panel_menu_principal %}
         {% if es_cine_teatro %}
         <a href="#listas" class="panel-menu-link activo">Palabras para el buscador</a>
         {% else %}
@@ -479,12 +509,14 @@
         >
           Ayuda / Contactar a ClickLocal
         </a>
+        {% endblock %}
       </aside>
 
 
       <!-- COLUMNA PRINCIPAL -->
       <section class="panel-contenido">
 
+        {% block panel_contenido_principal %}
         <!-- CARGAR PUBLICACIÓN -->
         {% if not es_cine_teatro %}
 
@@ -1388,6 +1420,8 @@
 
         {% endif %}
 
+
+        {% endblock %}
 
         <!-- LISTAS BUSCABLES -->
         <article id="listas" class="panel-card">

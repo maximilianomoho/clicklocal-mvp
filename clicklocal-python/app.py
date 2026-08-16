@@ -18,6 +18,7 @@ import datetime
 import time
 from threading import Lock
 from config.supabase_config import supabase_auth, supabase_admin
+from gastronomia import gastronomia_bp
 
 
 def normalizar_precio(valor):
@@ -121,6 +122,7 @@ def formatear_precio(valor):
 
 app = Flask(__name__)
 app.jinja_env.filters["precio_arg"] = formatear_precio
+app.register_blueprint(gastronomia_bp)
 
 
 # Clave temporal para session en desarrollo local
@@ -4000,8 +4002,18 @@ def aceptar_terminos():
         request.form.get("acepta_terminos_panel") == "on"
     )
 
+    volver_a = str(
+        request.form.get("volver_a") or ""
+    ).strip()
+
+    destino = (
+        "gastronomia.panel_gastronomia"
+        if volver_a == "gastronomia"
+        else "panel"
+    )
+
     if not confirmacion:
-        return redirect(url_for("panel"))
+        return redirect(url_for(destino))
 
     fecha_aceptacion = datetime.datetime.now(
         datetime.timezone.utc
@@ -4040,7 +4052,7 @@ def aceptar_terminos():
 
         session["comercio"] = comercio_actualizado
 
-        return redirect(url_for("panel"))
+        return redirect(url_for(destino))
 
     except Exception as error:
         print(
@@ -4098,6 +4110,20 @@ def login():
             session["user_id"] = user.id
             session["comercio"] = comercio
             session["publicaciones"] = []
+
+            categoria_login = str(
+                comercio.get("categoria") or ""
+            ).strip().lower()
+
+            if categoria_login in {
+                "gastronomía",
+                "gastronomia",
+            }:
+                return redirect(
+                    url_for(
+                        "gastronomia.panel_gastronomia"
+                    )
+                )
 
             return redirect(url_for("panel"))
 
@@ -4637,6 +4663,35 @@ def panel():
                 comercio_id = comercio.get("id") or comercio.get("user_id") or comercio_id
         except Exception:
             pass
+
+    # ==========================================================
+    # CLICKLOCAL - REDIRECCION PANEL SEGUN BLOQUE
+    # Un comercio con Gastronomía activa no debe entrar al
+    # panel tradicional de publicaciones.
+    # ==========================================================
+
+    if request.method == "GET":
+        try:
+            gastronomia_res = (
+                supabase_admin
+                .table("gastronomia_configuracion")
+                .select("comercio_id,activo")
+                .eq("comercio_id", comercio_id)
+                .eq("activo", True)
+                .limit(1)
+                .execute()
+            )
+
+            if gastronomia_res.data:
+                return redirect("/gastronomia/panel")
+
+        except Exception as error:
+            print(
+                "AVISO DETECTANDO PANEL GASTRONOMIA:",
+                type(error),
+                error,
+                flush=True
+            )
 
     if user_id and comercio.get("activo") is False:
         if _modo_gestor_activo():

@@ -3555,11 +3555,11 @@ html {
               %}
 
               <a
-                href="{{ url_for(
+                href="{% if categoria_opcion == 'Gastronomía' %}/gastronomia/{% else %}{{ url_for(
                   'inicio',
                   categoria=categoria_opcion,
                   _anchor='publicaciones-recientes'
-                ) }}"
+                ) }}{% endif %}"
                 class="categoria-card{% if categoria_opcion == categoria_seleccionada %} categoria-card-activa{% endif %}"
                 {% if categoria_opcion == categoria_seleccionada %}
                   aria-current="page"
