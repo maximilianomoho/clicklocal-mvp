@@ -1,4 +1,4 @@
-from flask import abort, redirect, render_template, request, session, url_for
+from flask import abort, jsonify, redirect, render_template, request, session, url_for
 
 from config.supabase_config import supabase_admin
 
@@ -1345,3 +1345,611 @@ def eliminar_opcion_extra(
             opcion_eliminada="1"
         )
     )
+
+
+# ==============================================================
+# CLICKLOCAL GASTRONOMIA - REGISTRO DE PEDIDOS V1
+# ==============================================================
+
+def _normalizar_telefono_pedido(valor):
+    """
+    Normalización V1 para métricas internas.
+    Conserva únicamente dígitos.
+    """
+    return "".join(
+        caracter
+        for caracter in str(valor or "")
+        if caracter.isdigit()
+    )
+
+
+@gastronomia_bp.route(
+    "/comercio/<comercio_id>/pedido",
+    methods=["POST"]
+)
+def registrar_pedido(comercio_id):
+
+    payload = request.get_json(silent=True) or {}
+
+    nombre = str(
+        payload.get("nombre") or ""
+    ).strip()
+
+    apellido = str(
+        payload.get("apellido") or ""
+    ).strip()
+
+    telefono = str(
+        payload.get("whatsapp") or ""
+    ).strip()
+
+    telefono_normalizado = (
+        _normalizar_telefono_pedido(telefono)
+    )
+
+    modalidad = str(
+        payload.get("modalidad") or ""
+    ).strip().lower()
+
+    direccion = str(
+        payload.get("direccion") or ""
+    ).strip()
+
+    forma_pago = str(
+        payload.get("forma_pago") or ""
+    ).strip().lower()
+
+    observaciones = str(
+        payload.get("observaciones") or ""
+    ).strip()[:220]
+
+    detalle_cliente = payload.get("detalle") or []
+
+    # ----------------------------------------------------------
+    # Validaciones base
+    # ----------------------------------------------------------
+
+    if not nombre:
+        return jsonify({
+            "ok": False,
+            "error": "Ingresá tu nombre."
+        }), 400
+
+    if not apellido:
+        return jsonify({
+            "ok": False,
+            "error": "Ingresá tu apellido."
+        }), 400
+
+    if not telefono_normalizado:
+        return jsonify({
+            "ok": False,
+            "error": "Ingresá tu WhatsApp."
+        }), 400
+
+    if modalidad not in ("delivery", "retiro"):
+        return jsonify({
+            "ok": False,
+            "error": "Elegí Delivery o Retiro."
+        }), 400
+
+    if modalidad == "delivery" and not direccion:
+        return jsonify({
+            "ok": False,
+            "error": "Ingresá la dirección de entrega."
+        }), 400
+
+    if forma_pago not in ("efectivo", "transferencia"):
+        return jsonify({
+            "ok": False,
+            "error": "Elegí una forma de pago."
+        }), 400
+
+    if not isinstance(detalle_cliente, list) or not detalle_cliente:
+        return jsonify({
+            "ok": False,
+            "error": "El pedido está vacío."
+        }), 400
+
+    # ----------------------------------------------------------
+    # Verificar comercio/configuración
+    # ----------------------------------------------------------
+
+    comercio_res = (
+        supabase_admin
+        .table("comercios")
+        .select("id,nombre_negocio,whatsapp")
+        .eq("id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+
+    comercios = comercio_res.data or []
+
+    if not comercios:
+        return jsonify({
+            "ok": False,
+            "error": "Comercio no encontrado."
+        }), 404
+
+    config_res = (
+        supabase_admin
+        .table("gastronomia_configuracion")
+        .select(
+            "comercio_id,activo,acepta_delivery,"
+            "acepta_retiro,costo_envio"
+        )
+        .eq("comercio_id", comercio_id)
+        .eq("activo", True)
+        .limit(1)
+        .execute()
+    )
+
+    configuraciones = config_res.data or []
+
+    if not configuraciones:
+        return jsonify({
+            "ok": False,
+            "error": "El comercio no está recibiendo pedidos."
+        }), 400
+
+    configuracion = configuraciones[0]
+
+    if (
+        modalidad == "delivery"
+        and not configuracion.get("acepta_delivery")
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "El comercio no tiene Delivery habilitado."
+        }), 400
+
+    if (
+        modalidad == "retiro"
+        and not configuracion.get("acepta_retiro")
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "El comercio no tiene Retiro habilitado."
+        }), 400
+
+    # ----------------------------------------------------------
+    # Productos solicitados
+    # El servidor vuelve a calcular precios desde Supabase.
+    # No confía en el total enviado por el navegador.
+    # ----------------------------------------------------------
+
+    producto_ids = []
+
+    for item in detalle_cliente:
+        if not isinstance(item, dict):
+            continue
+
+        producto_id = str(
+            item.get("id") or ""
+        ).strip()
+
+        if producto_id and producto_id not in producto_ids:
+            producto_ids.append(producto_id)
+
+    if not producto_ids:
+        return jsonify({
+            "ok": False,
+            "error": "El pedido no contiene productos válidos."
+        }), 400
+
+    productos_res = (
+        supabase_admin
+        .table("gastronomia_productos")
+        .select(
+            "id,nombre,precio,precio_promocional,"
+            "activo,disponible"
+        )
+        .eq("comercio_id", comercio_id)
+        .in_("id", producto_ids)
+        .execute()
+    )
+
+    productos_db = productos_res.data or []
+
+    productos_por_id = {
+        str(producto.get("id")): producto
+        for producto in productos_db
+        if producto.get("id")
+    }
+
+    # ----------------------------------------------------------
+    # Opciones/extras solicitados
+    # ----------------------------------------------------------
+
+    opcion_ids = []
+
+    for item in detalle_cliente:
+        if not isinstance(item, dict):
+            continue
+
+        for opcion in item.get("opciones") or []:
+            if not isinstance(opcion, dict):
+                continue
+
+            opcion_id = str(
+                opcion.get("id") or ""
+            ).strip()
+
+            if opcion_id and opcion_id not in opcion_ids:
+                opcion_ids.append(opcion_id)
+
+    opciones_por_id = {}
+    producto_por_grupo = {}
+
+    if opcion_ids:
+
+        opciones_res = (
+            supabase_admin
+            .table("gastronomia_opciones")
+            .select(
+                "id,grupo_id,nombre,precio_extra,"
+                "activo,disponible"
+            )
+            .in_("id", opcion_ids)
+            .execute()
+        )
+
+        opciones_db = opciones_res.data or []
+
+        grupo_ids = list({
+            str(opcion.get("grupo_id"))
+            for opcion in opciones_db
+            if opcion.get("grupo_id")
+        })
+
+        if grupo_ids:
+            grupos_res = (
+                supabase_admin
+                .table("gastronomia_grupos_opciones")
+                .select("id,producto_id,activo")
+                .in_("id", grupo_ids)
+                .execute()
+            )
+
+            grupos_db = grupos_res.data or []
+
+            producto_por_grupo = {
+                str(grupo.get("id")):
+                    str(grupo.get("producto_id"))
+                for grupo in grupos_db
+                if (
+                    grupo.get("id")
+                    and grupo.get("producto_id")
+                    and grupo.get("activo") is not False
+                )
+            }
+
+        opciones_por_id = {
+            str(opcion.get("id")): opcion
+            for opcion in opciones_db
+            if (
+                opcion.get("id")
+                and opcion.get("activo") is not False
+                and opcion.get("disponible") is not False
+            )
+        }
+
+    # ----------------------------------------------------------
+    # Construir detalle canónico y subtotal
+    # ----------------------------------------------------------
+
+    detalle_final = []
+    subtotal = 0.0
+
+    for item in detalle_cliente:
+
+        if not isinstance(item, dict):
+            continue
+
+        producto_id = str(
+            item.get("id") or ""
+        ).strip()
+
+        producto = productos_por_id.get(producto_id)
+
+        if not producto:
+            return jsonify({
+                "ok": False,
+                "error": "Uno de los productos ya no está disponible."
+            }), 400
+
+        if (
+            producto.get("activo") is False
+            or producto.get("disponible") is False
+        ):
+            return jsonify({
+                "ok": False,
+                "error": (
+                    f'{producto.get("nombre") or "Un producto"} '
+                    "ya no está disponible."
+                )
+            }), 400
+
+        try:
+            cantidad = int(item.get("cantidad") or 0)
+        except (TypeError, ValueError):
+            cantidad = 0
+
+        if cantidad <= 0 or cantidad > 99:
+            return jsonify({
+                "ok": False,
+                "error": "Cantidad de producto inválida."
+            }), 400
+
+        precio_promocional = producto.get(
+            "precio_promocional"
+        )
+
+        precio_base = (
+            precio_promocional
+            if precio_promocional is not None
+            else producto.get("precio")
+        )
+
+        try:
+            precio_unitario = float(precio_base or 0)
+        except (TypeError, ValueError):
+            precio_unitario = 0.0
+
+        opciones_finales = []
+
+        for opcion_cliente in item.get("opciones") or []:
+
+            if not isinstance(opcion_cliente, dict):
+                continue
+
+            opcion_id = str(
+                opcion_cliente.get("id") or ""
+            ).strip()
+
+            opcion = opciones_por_id.get(opcion_id)
+
+            if not opcion:
+                return jsonify({
+                    "ok": False,
+                    "error": "Una opción del producto ya no está disponible."
+                }), 400
+
+            grupo_id = str(
+                opcion.get("grupo_id") or ""
+            )
+
+            if producto_por_grupo.get(grupo_id) != producto_id:
+                return jsonify({
+                    "ok": False,
+                    "error": "Una opción no corresponde al producto."
+                }), 400
+
+            try:
+                precio_extra = float(
+                    opcion.get("precio_extra") or 0
+                )
+            except (TypeError, ValueError):
+                precio_extra = 0.0
+
+            precio_unitario += precio_extra
+
+            opciones_finales.append({
+                "id": opcion_id,
+                "nombre": str(
+                    opcion.get("nombre") or ""
+                ),
+                "precio": precio_extra,
+            })
+
+        nota = str(
+            item.get("nota") or ""
+        ).strip()[:180]
+
+        subtotal_item = precio_unitario * cantidad
+        subtotal += subtotal_item
+
+        detalle_final.append({
+            "id": producto_id,
+            "nombre": str(
+                producto.get("nombre") or ""
+            ),
+            "cantidad": cantidad,
+            "precio_unitario": precio_unitario,
+            "subtotal": subtotal_item,
+            "opciones": opciones_finales,
+            "nota": nota,
+        })
+
+    subtotal = round(subtotal, 2)
+
+    # Por ahora mantenemos el comportamiento visual actual:
+    # el envío no se suma automáticamente al carrito.
+    costo_envio = 0.0
+    descuento = 0.0
+    total = subtotal
+
+    # ----------------------------------------------------------
+    # Efectivo
+    # ----------------------------------------------------------
+
+    paga_con = None
+
+    if forma_pago == "efectivo":
+
+        try:
+            paga_con = float(
+                payload.get("paga_con") or 0
+            )
+        except (TypeError, ValueError):
+            paga_con = 0
+
+        if paga_con < total:
+            return jsonify({
+                "ok": False,
+                "error": (
+                    "El importe con el que pagás "
+                    "es menor al total."
+                )
+            }), 400
+
+    # ----------------------------------------------------------
+    # Texto base del pedido
+    # ----------------------------------------------------------
+
+    lineas = [
+        f'Pedido para {comercios[0].get("nombre_negocio") or ""}',
+        "",
+        f"Cliente: {nombre} {apellido}",
+        f"WhatsApp: {telefono}",
+        "",
+    ]
+
+    def pesos(valor):
+        return "$" + f"{round(float(valor)):,.0f}".replace(",", ".")
+
+    for item in detalle_final:
+
+        lineas.append(
+            f'{item["cantidad"]}x '
+            f'{item["nombre"]} - '
+            f'{pesos(item["subtotal"])}'
+        )
+
+        for opcion in item["opciones"]:
+            linea_opcion = "  + " + opcion["nombre"]
+
+            if opcion["precio"] > 0:
+                linea_opcion += (
+                    " (" +
+                    pesos(opcion["precio"]) +
+                    ")"
+                )
+
+            lineas.append(linea_opcion)
+
+        if item["nota"]:
+            lineas.append(
+                "  Aclaración: " + item["nota"]
+            )
+
+        lineas.append("")
+
+    lineas.append(
+        "Total: " + pesos(total)
+    )
+
+    lineas.append("")
+    lineas.append(
+        "Modalidad: " +
+        (
+            "Delivery"
+            if modalidad == "delivery"
+            else "Retiro"
+        )
+    )
+
+    if modalidad == "delivery":
+        lineas.append(
+            "Dirección: " + direccion
+        )
+
+    lineas.append(
+        "Forma de pago: " +
+        (
+            "Efectivo"
+            if forma_pago == "efectivo"
+            else "Transferencia"
+        )
+    )
+
+    if forma_pago == "efectivo":
+        lineas.append(
+            "Paga con: " + pesos(paga_con)
+        )
+
+        lineas.append(
+            "Cambio aproximado: " +
+            pesos(paga_con - total)
+        )
+
+    if observaciones:
+        lineas.append("")
+        lineas.append(
+            "Aclaración general: " +
+            observaciones
+        )
+
+    texto_pedido = "\n".join(lineas)
+
+    # ----------------------------------------------------------
+    # Guardar pedido
+    # ----------------------------------------------------------
+
+    datos_pedido = {
+        "numero_pedido": 0,
+        "comercio_id": comercio_id,
+        "nombre_cliente": nombre,
+        "apellido_cliente": apellido,
+        "telefono_cliente": telefono,
+        "telefono_normalizado": telefono_normalizado,
+        "tipo_entrega": modalidad,
+        "direccion_entrega": (
+            direccion
+            if modalidad == "delivery"
+            else None
+        ),
+        "forma_pago": forma_pago,
+        "paga_con": paga_con,
+        "subtotal": subtotal,
+        "costo_envio": costo_envio,
+        "descuento": descuento,
+        "total": total,
+        "observaciones": observaciones or None,
+        "detalle": detalle_final,
+        "texto_pedido": texto_pedido,
+        "estado": "recibido",
+    }
+
+    try:
+        pedido_res = (
+            supabase_admin
+            .table("gastronomia_pedidos")
+            .insert(datos_pedido)
+            .execute()
+        )
+    except Exception as error:
+        print(
+            "ERROR REGISTRANDO PEDIDO GASTRONOMICO:",
+            type(error),
+            error,
+            flush=True
+        )
+
+        return jsonify({
+            "ok": False,
+            "error": "No se pudo registrar el pedido."
+        }), 500
+
+    pedidos = pedido_res.data or []
+
+    if not pedidos:
+        return jsonify({
+            "ok": False,
+            "error": "No se pudo confirmar el pedido."
+        }), 500
+
+    pedido = pedidos[0]
+
+    return jsonify({
+        "ok": True,
+        "pedido_id": pedido.get("id"),
+        "numero_pedido": pedido.get("numero_pedido"),
+        "created_at": pedido.get("created_at"),
+        "texto_pedido": texto_pedido,
+        "whatsapp_comercio": (
+            comercios[0].get("whatsapp") or ""
+        ),
+    })
+

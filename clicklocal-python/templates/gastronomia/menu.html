@@ -1072,6 +1072,134 @@ input{
   line-height:1.35;
 }
 
+
+/* ==========================================================
+   SELECTOR COMPACTO REUTILIZABLE
+   Puede reutilizarse en Gastronomía, Vinotecas, etc.
+   ========================================================== */
+
+.compact-choice-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:15px;
+  padding-top:15px;
+  border-top:1px solid var(--line);
+}
+
+.compact-choice{
+  position:relative;
+  min-width:0;
+}
+
+.compact-choice-trigger{
+  width:100%;
+  min-height:42px;
+  padding:0 12px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  border:1px solid var(--line);
+  border-radius:12px;
+
+  background:#fff;
+  color:var(--ink);
+
+  font:inherit;
+  font-size:12px;
+  font-weight:900;
+
+  cursor:pointer;
+}
+
+.compact-choice-trigger:hover{
+  border-color:rgba(104,24,35,.30);
+}
+
+.compact-choice-value{
+  min-height:25px;
+  margin-top:6px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+
+  text-align:center;
+}
+
+.compact-choice-value.selected{
+  color:var(--wine);
+  font-weight:900;
+}
+
+.compact-choice-menu{
+  display:none;
+
+  position:absolute;
+  left:0;
+  right:0;
+  top:48px;
+
+  z-index:30;
+
+  padding:6px;
+
+  border:1px solid var(--line);
+  border-radius:14px;
+
+  background:#fff;
+  box-shadow:0 12px 30px rgba(50,35,24,.14);
+}
+
+.compact-choice.open .compact-choice-menu{
+  display:grid;
+  gap:5px;
+}
+
+.compact-choice-menu label{
+  position:relative;
+  display:block;
+}
+
+.compact-choice-menu input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+
+.compact-choice-option{
+  min-height:40px;
+  padding:0 10px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  border-radius:10px;
+
+  color:var(--ink);
+
+  font-size:12px;
+  font-weight:800;
+
+  cursor:pointer;
+}
+
+.compact-choice-option:hover{
+  background:rgba(104,24,35,.05);
+}
+
+.compact-choice-menu input:checked + .compact-choice-option{
+  background:rgba(104,24,35,.08);
+  color:var(--wine);
+}
+
 .cart-delivery-step{
   margin-top:16px;
   padding-top:15px;
@@ -1127,6 +1255,14 @@ input{
 
 .cart-delivery-option span:hover{
   border-color:rgba(104,24,35,.28);
+}
+
+
+.cart-delivery-title,
+.cart-delivery-options,
+.cart-payment-step > .cart-payment-title,
+.cart-payment-step > .cart-payment-options{
+  display:none;
 }
 
 .cart-delivery-address{
@@ -1912,6 +2048,59 @@ input{
     padding:20px 18px;
   }
 }
+
+/* ==========================================================
+   FIX FINAL - SELECTORES COMPACTOS
+   ========================================================== */
+
+.cart-delivery-step > .cart-delivery-title,
+.cart-delivery-step > .cart-delivery-options,
+.cart-delivery-step > .cart-payment-step > .cart-payment-title,
+.cart-delivery-step > .cart-payment-step > .cart-payment-options{
+  display:none !important;
+}
+
+.compact-choice-row{
+  display:grid !important;
+}
+
+
+
+
+/* ==========================================================
+   AJUSTE VISUAL - PEDIDO COMPACTO
+   Quita separadores heredados sin alterar funcionalidad
+   ========================================================== */
+
+/*
+  cart-delivery-step conserva su borde superior.
+  Es la única separación entre "Tus datos" y las opciones.
+*/
+.cart-delivery-step > .compact-choice-row{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  border-top:0 !important;
+}
+
+/*
+  El antiguo bloque de forma de pago sigue existiendo porque
+  contiene la lógica/campo de efectivo, pero no debe dejar
+  otro separador visual cuando sus botones están ocultos.
+*/
+.cart-delivery-step > .cart-payment-step{
+  margin-top:0 !important;
+  padding-top:0 !important;
+  border-top:0 !important;
+}
+
+/*
+  Si se elige Efectivo, dejamos aire únicamente para el
+  campo "¿Con cuánto pagás?".
+*/
+.cart-payment-step > .cart-cash-wrap.visible{
+  margin-top:10px;
+}
+
 </style>
 </head>
 
@@ -2973,6 +3162,8 @@ function cerrarCarritoMobileBackdrop(event){
 
 function actualizarDireccionEntrega(input){
 
+  actualizarCompactChoice(input);
+
   const bloque =
     input.closest(".cart-delivery-step");
 
@@ -3015,6 +3206,187 @@ function actualizarDireccionEntrega(input){
 }
 
 
+
+function inicializarSelectoresCompactos(){
+
+  document
+    .querySelectorAll(".cart-delivery-step")
+    .forEach(function(bloque){
+
+      if(
+        bloque.querySelector(
+          ".compact-choice-row"
+        )
+      ){
+        return;
+      }
+
+      const deliveryInputs =
+        Array.from(
+          bloque.querySelectorAll(
+            'input[name^="modalidad-pedido"]'
+          )
+        );
+
+      const paymentInputs =
+        Array.from(
+          bloque.querySelectorAll(
+            'input[name^="forma-pago-"]'
+          )
+        );
+
+      if(
+        deliveryInputs.length === 0 ||
+        paymentInputs.length === 0
+      ){
+        return;
+      }
+
+      const fila =
+        document.createElement("div");
+
+      fila.className =
+        "compact-choice-row";
+
+
+      function crearSelector(
+        titulo,
+        inputs
+      ){
+
+        const selector =
+          document.createElement("div");
+
+        selector.className =
+          "compact-choice";
+
+        selector.dataset.choiceType =
+          titulo === "Forma de envío"
+            ? "delivery"
+            : "payment";
+
+        const boton =
+          document.createElement("button");
+
+        boton.type = "button";
+        boton.className =
+          "compact-choice-trigger";
+
+        boton.textContent = titulo;
+
+        boton.addEventListener(
+          "click",
+          function(event){
+
+            event.stopPropagation();
+
+            toggleCompactChoice(
+              boton
+            );
+          }
+        );
+
+
+        const valor =
+          document.createElement("div");
+
+        valor.className =
+          "compact-choice-value";
+
+        valor.textContent =
+          "Sin seleccionar";
+
+
+        const menu =
+          document.createElement("div");
+
+        menu.className =
+          "compact-choice-menu";
+
+
+        inputs.forEach(function(input){
+
+          const label =
+            document.createElement("label");
+
+          const opcion =
+            document.createElement("span");
+
+          opcion.className =
+            "compact-choice-option";
+
+          opcion.textContent =
+            input.value;
+
+          label.appendChild(
+            opcion
+          );
+
+          label.addEventListener(
+            "click",
+            function(event){
+
+              event.preventDefault();
+              event.stopPropagation();
+
+              input.checked = true;
+
+              input.dispatchEvent(
+                new Event(
+                  "change",
+                  { bubbles:true }
+                )
+              );
+
+            }
+          );
+
+          menu.appendChild(label);
+
+        });
+
+
+        selector.appendChild(boton);
+        selector.appendChild(valor);
+        selector.appendChild(menu);
+
+        return selector;
+      }
+
+
+      fila.appendChild(
+        crearSelector(
+          "Forma de envío",
+          deliveryInputs
+        )
+      );
+
+      fila.appendChild(
+        crearSelector(
+          "Forma de pago",
+          paymentInputs
+        )
+      );
+
+
+      const referencia =
+        bloque.querySelector(
+          ".cart-delivery-title"
+        );
+
+      if(referencia){
+        bloque.insertBefore(
+          fila,
+          referencia
+        );
+      }else{
+        bloque.prepend(fila);
+      }
+
+    });
+}
+
+
 function obtenerTotalPedido(){
 
   return Object.values(carrito)
@@ -3036,6 +3408,8 @@ function limpiarImporte(valor){
 
 
 function actualizarPagoEfectivo(input){
+
+  actualizarCompactChoice(input);
 
   const bloque =
     input.closest(".cart-payment-step");
@@ -3144,6 +3518,125 @@ function actualizarCambioPedido(input){
 }
 
 
+
+function cerrarSelectoresCompactos(excepto){
+
+  document
+    .querySelectorAll(".compact-choice.open")
+    .forEach(function(selector){
+
+      if(selector !== excepto){
+        selector.classList.remove("open");
+      }
+
+    });
+}
+
+
+function toggleCompactChoice(boton){
+
+  const selector =
+    boton.closest(".compact-choice");
+
+  if(!selector){
+    return;
+  }
+
+  const abrir =
+    !selector.classList.contains("open");
+
+  cerrarSelectoresCompactos(selector);
+
+  selector.classList.toggle(
+    "open",
+    abrir
+  );
+}
+
+
+function actualizarCompactChoice(input){
+
+  const bloque =
+    input.closest(".cart-delivery-step");
+
+  if(!bloque){
+    return;
+  }
+
+  let tipo = "";
+
+  const nombre =
+    input.name || "";
+
+  if(
+    nombre.indexOf(
+      "modalidad-pedido"
+    ) === 0
+  ){
+    tipo = "delivery";
+  }
+
+  if(
+    nombre.indexOf(
+      "forma-pago-"
+    ) === 0
+  ){
+    tipo = "payment";
+  }
+
+  if(!tipo){
+    return;
+  }
+
+  const selector =
+    bloque.querySelector(
+      '.compact-choice[data-choice-type="' +
+      tipo +
+      '"]'
+    );
+
+  if(!selector){
+    return;
+  }
+
+  const valor =
+    selector.querySelector(
+      ".compact-choice-value"
+    );
+
+  if(valor){
+
+    valor.textContent =
+      input.value + " ✓";
+
+    valor.classList.add(
+      "selected"
+    );
+
+  }
+
+  selector.classList.remove(
+    "open"
+  );
+}
+
+
+document.addEventListener(
+  "click",
+  function(event){
+
+    if(
+      !event.target.closest(
+        ".compact-choice"
+      )
+    ){
+      cerrarSelectoresCompactos();
+    }
+
+  }
+);
+
+
 function obtenerRadioSeleccionado(bloque, selector){
 
   const seleccionado =
@@ -3172,7 +3665,12 @@ function construirTextoPedido(bloque){
 
   const campoNombre =
     contenedorPedido.querySelector(
-      ".cart-customer-name"
+      ".cart-customer-first-name"
+    );
+
+  const campoApellido =
+    contenedorPedido.querySelector(
+      ".cart-customer-last-name"
     );
 
   const campoWhatsapp =
@@ -3180,13 +3678,22 @@ function construirTextoPedido(bloque){
       ".cart-customer-phone"
     );
 
-  if(
-    campoNombre &&
-    campoNombre.value.trim()
-  ){
+  const nombre =
+    campoNombre
+      ? campoNombre.value.trim()
+      : "";
+
+  const apellido =
+    campoApellido
+      ? campoApellido.value.trim()
+      : "";
+
+  if(nombre || apellido){
     lineas.push(
       "Cliente: " +
-      campoNombre.value.trim()
+      [nombre, apellido]
+        .filter(Boolean)
+        .join(" ")
     );
   }
 
@@ -3351,7 +3858,115 @@ function construirTextoPedido(bloque){
 }
 
 
-function prepararPedido(boton){
+function validarDatosClientePedido(bloque){
+
+  const contenedorPedido =
+    bloque.parentElement || bloque;
+
+  const nombre =
+    contenedorPedido.querySelector(
+      ".cart-customer-first-name"
+    );
+
+  const apellido =
+    contenedorPedido.querySelector(
+      ".cart-customer-last-name"
+    );
+
+  const whatsapp =
+    contenedorPedido.querySelector(
+      ".cart-customer-phone"
+    );
+
+  if(!nombre || !nombre.value.trim()){
+    alert("Ingresá tu nombre.");
+
+    if(nombre){
+      nombre.focus();
+    }
+
+    return false;
+  }
+
+  if(!apellido || !apellido.value.trim()){
+    alert("Ingresá tu apellido.");
+
+    if(apellido){
+      apellido.focus();
+    }
+
+    return false;
+  }
+
+  if(!whatsapp || !whatsapp.value.trim()){
+    alert("Ingresá tu WhatsApp.");
+
+    if(whatsapp){
+      whatsapp.focus();
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
+
+function formatearFechaPedido(fechaIso){
+
+  if(!fechaIso){
+    return "";
+  }
+
+  const fecha = new Date(fechaIso);
+
+  if(Number.isNaN(fecha.getTime())){
+    return "";
+  }
+
+  const fechaTexto =
+    new Intl.DateTimeFormat(
+      "es-AR",
+      {
+        day:"2-digit",
+        month:"2-digit",
+        year:"numeric"
+      }
+    ).format(fecha);
+
+  const horaTexto =
+    new Intl.DateTimeFormat(
+      "es-AR",
+      {
+        hour:"2-digit",
+        minute:"2-digit",
+        hour12:false
+      }
+    ).format(fecha);
+
+  return fechaTexto + " · " + horaTexto;
+}
+
+
+function construirDetallePedidoParaRegistro(){
+
+  return Object.values(carrito).map(function(item){
+
+    return {
+      id:item.id,
+      cantidad:item.cantidad,
+      nota:item.nota || "",
+      opciones:(item.opciones || []).map(function(opcion){
+        return {
+          id:opcion.id
+        };
+      })
+    };
+  });
+}
+
+
+async function prepararPedido(boton){
 
   const bloque =
     boton.closest(".cart-delivery-step");
@@ -3365,6 +3980,28 @@ function prepararPedido(boton){
     return;
   }
 
+  if(!validarDatosClientePedido(bloque)){
+    return;
+  }
+
+  const contenedorPedido =
+    bloque.parentElement || bloque;
+
+  const campoNombre =
+    contenedorPedido.querySelector(
+      ".cart-customer-first-name"
+    );
+
+  const campoApellido =
+    contenedorPedido.querySelector(
+      ".cart-customer-last-name"
+    );
+
+  const campoWhatsapp =
+    contenedorPedido.querySelector(
+      ".cart-customer-phone"
+    );
+
   const modalidad =
     obtenerRadioSeleccionado(
       bloque,
@@ -3372,33 +4009,29 @@ function prepararPedido(boton){
     );
 
   if(!modalidad){
-    alert(
-      "Elegí Delivery o Retiro."
-    );
+    alert("Elegí Delivery o Retiro.");
     return;
   }
 
-  if(modalidad === "Delivery"){
+  const direccion =
+    bloque.querySelector(
+      ".cart-delivery-address-input"
+    );
 
-    const direccion =
-      bloque.querySelector(
-        ".cart-delivery-address-input"
-      );
-
-    if(
+  if(
+    modalidad === "Delivery" &&
+    (
       !direccion ||
       !direccion.value.trim()
-    ){
-      alert(
-        "Ingresá la dirección de entrega."
-      );
+    )
+  ){
+    alert("Ingresá la dirección de entrega.");
 
-      if(direccion){
-        direccion.focus();
-      }
-
-      return;
+    if(direccion){
+      direccion.focus();
     }
+
+    return;
   }
 
   const formaPago =
@@ -3408,20 +4041,20 @@ function prepararPedido(boton){
     );
 
   if(!formaPago){
-    alert(
-      "Elegí una forma de pago."
-    );
+    alert("Elegí una forma de pago.");
     return;
   }
 
+  const efectivo =
+    bloque.querySelector(
+      ".cart-cash-input"
+    );
+
+  let pagaCon = null;
+
   if(formaPago === "Efectivo"){
 
-    const efectivo =
-      bloque.querySelector(
-        ".cart-cash-input"
-      );
-
-    const pagaCon =
+    pagaCon =
       limpiarImporte(
         efectivo
           ? efectivo.value
@@ -3429,9 +4062,7 @@ function prepararPedido(boton){
       );
 
     if(!pagaCon){
-      alert(
-        "Indicá con cuánto vas a pagar."
-      );
+      alert("Indicá con cuánto vas a pagar.");
 
       if(efectivo){
         efectivo.focus();
@@ -3440,10 +4071,7 @@ function prepararPedido(boton){
       return;
     }
 
-    if(
-      pagaCon <
-      obtenerTotalPedido()
-    ){
+    if(pagaCon < obtenerTotalPedido()){
       alert(
         "El importe con el que pagás es menor al total."
       );
@@ -3456,6 +4084,11 @@ function prepararPedido(boton){
     }
   }
 
+  const notaGeneral =
+    bloque.querySelector(
+      ".cart-general-note-input"
+    );
+
   const preview =
     bloque.querySelector(
       ".cart-order-preview"
@@ -3466,19 +4099,204 @@ function prepararPedido(boton){
       ".cart-order-preview-text"
     );
 
-  if(
-    !preview ||
-    !previewText
-  ){
+  if(!preview || !previewText){
     return;
   }
 
-  previewText.textContent =
-    construirTextoPedido(bloque);
+  boton.disabled = true;
 
-  preview.classList.add(
-    "visible"
-  );
+  const textoOriginal =
+    boton.textContent;
+
+  boton.textContent =
+    "Registrando pedido...";
+
+  try{
+
+    const respuesta = await fetch(
+      '{{ url_for("gastronomia.registrar_pedido", comercio_id=comercio.id) }}',
+      {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          nombre:
+            campoNombre
+              ? campoNombre.value.trim()
+              : "",
+
+          apellido:
+            campoApellido
+              ? campoApellido.value.trim()
+              : "",
+
+          whatsapp:
+            campoWhatsapp
+              ? campoWhatsapp.value.trim()
+              : "",
+
+          modalidad:modalidad,
+
+          direccion:
+            (
+              modalidad === "Delivery" &&
+              direccion
+            )
+              ? direccion.value.trim()
+              : "",
+
+          forma_pago:formaPago,
+
+          paga_con:pagaCon,
+
+          observaciones:
+            notaGeneral
+              ? notaGeneral.value.trim()
+              : "",
+
+          detalle:
+            construirDetallePedidoParaRegistro()
+        })
+      }
+    );
+
+    const resultado =
+      await respuesta.json();
+
+    if(
+      !respuesta.ok ||
+      !resultado.ok
+    ){
+      throw new Error(
+        resultado.error ||
+        "No se pudo registrar el pedido."
+      );
+    }
+
+    const fechaTexto =
+      formatearFechaPedido(
+        resultado.created_at
+      );
+
+    const encabezado =
+      "Pedido #" +
+      resultado.numero_pedido +
+      (
+        fechaTexto
+          ? "\n" + fechaTexto
+          : ""
+      );
+
+    const textoFinal =
+      encabezado +
+      "\n\n" +
+      resultado.texto_pedido;
+
+    previewText.textContent =
+      textoFinal;
+
+    preview.classList.add(
+      "visible"
+    );
+
+    let botonWhatsapp =
+      preview.querySelector(
+        ".cart-send-whatsapp"
+      );
+
+    if(!botonWhatsapp){
+
+      botonWhatsapp =
+        document.createElement("a");
+
+      botonWhatsapp.className =
+        "cart-prepare-order cart-send-whatsapp";
+
+      botonWhatsapp.textContent =
+        "Enviar pedido por WhatsApp";
+
+      botonWhatsapp.target =
+        "_blank";
+
+      botonWhatsapp.rel =
+        "noopener noreferrer";
+
+      botonWhatsapp.style.display =
+        "flex";
+
+      botonWhatsapp.style.alignItems =
+        "center";
+
+      botonWhatsapp.style.justifyContent =
+        "center";
+
+      botonWhatsapp.style.textDecoration =
+        "none";
+
+      botonWhatsapp.style.marginTop =
+        "14px";
+
+      preview.appendChild(
+        botonWhatsapp
+      );
+    }
+
+    const whatsappComercio =
+      String(
+        resultado.whatsapp_comercio || ""
+      ).replace(/\D/g, "");
+
+    if(whatsappComercio){
+
+      botonWhatsapp.href =
+        "https://wa.me/" +
+        whatsappComercio +
+        "?text=" +
+        encodeURIComponent(
+          textoFinal
+        );
+
+      botonWhatsapp.style.display =
+        "flex";
+
+    }else{
+
+      botonWhatsapp.removeAttribute(
+        "href"
+      );
+
+      botonWhatsapp.style.display =
+        "none";
+    }
+
+    boton.textContent =
+      "Pedido #" +
+      resultado.numero_pedido +
+      " preparado";
+
+    boton.dataset.pedidoRegistrado =
+      "1";
+
+  }catch(error){
+
+    console.error(
+      "Error registrando pedido:",
+      error
+    );
+
+    alert(
+      error.message ||
+      "No se pudo registrar el pedido."
+    );
+
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+
+    return;
+  }
+
+  boton.disabled = true;
 }
 
 
@@ -3619,15 +4437,28 @@ function renderizarCarritoMobile(){
 
       '<div class="cart-customer-field">' +
         '<label>' +
-          'Nombre y apellido *' +
+          'Nombre *' +
         '</label>' +
 
         '<input ' +
           'type="text" ' +
-          'class="cart-customer-input cart-customer-name" ' +
-          'maxlength="100" ' +
-          'autocomplete="name" ' +
-          'placeholder="Ej: Juan Pérez">' +
+          'class="cart-customer-input cart-customer-first-name" ' +
+          'maxlength="60" ' +
+          'autocomplete="given-name" ' +
+          'placeholder="Ej: Juan">' +
+      '</div>' +
+
+      '<div class="cart-customer-field">' +
+        '<label>' +
+          'Apellido *' +
+        '</label>' +
+
+        '<input ' +
+          'type="text" ' +
+          'class="cart-customer-input cart-customer-last-name" ' +
+          'maxlength="60" ' +
+          'autocomplete="family-name" ' +
+          'placeholder="Ej: Pérez">' +
       '</div>' +
 
       '<div class="cart-customer-field">' +
@@ -3684,7 +4515,7 @@ function renderizarCarritoMobile(){
 
       '<div class="cart-delivery-address">' +
         '<label>' +
-          'Dirección de entrega' +
+          'Dirección de entrega *' +
         '</label>' +
 
         '<input ' +
@@ -3792,6 +4623,8 @@ function renderizarCarritoMobile(){
     '</button>';
 
   contenedor.innerHTML = html;
+
+  inicializarSelectoresCompactos();
 }
 
 
@@ -4013,15 +4846,28 @@ function actualizarCarrito(){
 
       '<div class="cart-customer-field">' +
         '<label>' +
-          'Nombre y apellido *' +
+          'Nombre *' +
         '</label>' +
 
         '<input ' +
           'type="text" ' +
-          'class="cart-customer-input cart-customer-name" ' +
-          'maxlength="100" ' +
-          'autocomplete="name" ' +
-          'placeholder="Ej: Juan Pérez">' +
+          'class="cart-customer-input cart-customer-first-name" ' +
+          'maxlength="60" ' +
+          'autocomplete="given-name" ' +
+          'placeholder="Ej: Juan">' +
+      '</div>' +
+
+      '<div class="cart-customer-field">' +
+        '<label>' +
+          'Apellido *' +
+        '</label>' +
+
+        '<input ' +
+          'type="text" ' +
+          'class="cart-customer-input cart-customer-last-name" ' +
+          'maxlength="60" ' +
+          'autocomplete="family-name" ' +
+          'placeholder="Ej: Pérez">' +
       '</div>' +
 
       '<div class="cart-customer-field">' +
@@ -4078,7 +4924,7 @@ function actualizarCarrito(){
 
       '<div class="cart-delivery-address">' +
         '<label>' +
-          'Dirección de entrega' +
+          'Dirección de entrega *' +
         '</label>' +
 
         '<input ' +
@@ -4186,6 +5032,8 @@ function actualizarCarrito(){
     '</button>';
 
   carritoVacio.innerHTML = html;
+
+  inicializarSelectoresCompactos();
 }
 
 
@@ -4406,6 +5254,27 @@ document.addEventListener(
     document.body.style.overflow = "";
 
   }
+);
+
+
+const compactChoiceObserver =
+  new MutationObserver(function(){
+
+    inicializarSelectoresCompactos();
+
+  });
+
+compactChoiceObserver.observe(
+  document.body,
+  {
+    childList:true,
+    subtree:true
+  }
+);
+
+document.addEventListener(
+  "DOMContentLoaded",
+  inicializarSelectoresCompactos
 );
 
 </script>
