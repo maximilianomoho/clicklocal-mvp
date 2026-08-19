@@ -1767,14 +1767,68 @@ def eliminar_opcion_extra(
 
 def _normalizar_telefono_pedido(valor):
     """
-    Normalización V1 para métricas internas.
-    Conserva únicamente dígitos.
+    Normaliza celulares argentinos.
+
+    Ejemplos admitidos:
+    3436123456
+    03436123456
+    343 15 6123456
+    0343 15 6123456
+    +54 9 343 6123456
+    5493436123456
+
+    Devuelve 10 dígitos nacionales.
     """
-    return "".join(
+
+    digitos = "".join(
         caracter
         for caracter in str(valor or "")
         if caracter.isdigit()
     )
+
+    if not digitos:
+        return ""
+
+    if digitos.startswith("0054"):
+        digitos = digitos[2:]
+
+    if digitos.startswith("54"):
+        digitos = digitos[2:]
+
+        if digitos.startswith("9"):
+            digitos = digitos[1:]
+
+    if digitos.startswith("0"):
+        digitos = digitos[1:]
+
+    # característica + 15 + número
+    if len(digitos) == 12:
+        for largo_caracteristica in (2, 3, 4):
+            posicion = largo_caracteristica
+
+            if digitos[posicion:posicion + 2] != "15":
+                continue
+
+            candidato = (
+                digitos[:posicion]
+                + digitos[posicion + 2:]
+            )
+
+            if len(candidato) == 10:
+                digitos = candidato
+                break
+
+    if len(digitos) != 10:
+        return ""
+
+    # 15xxxxxxxx sin característica es ambiguo.
+    if digitos.startswith("15"):
+        return ""
+
+    if digitos.startswith("0"):
+        return ""
+
+    return digitos
 
 
 @gastronomia_bp.route(
@@ -1835,10 +1889,19 @@ def registrar_pedido(comercio_id):
             "error": "Ingresá tu apellido."
         }), 400
 
-    if not telefono_normalizado:
+    if not telefono:
         return jsonify({
             "ok": False,
             "error": "Ingresá tu WhatsApp."
+        }), 400
+
+    if not telefono_normalizado:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "Ingresá un WhatsApp válido con característica. "
+                "Ejemplo: 343 6123456."
+            )
         }), 400
 
     if modalidad not in ("delivery", "retiro"):

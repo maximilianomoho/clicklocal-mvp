@@ -2050,6 +2050,120 @@ input{
 }
 
 /* ==========================================================
+   MOBILE - MODAL PRODUCTO COMPACTO
+   CTA SIEMPRE VISIBLE
+   ========================================================== */
+
+@media(max-width:480px){
+
+  .modal-backdrop{
+    padding:10px;
+  }
+
+  .product-modal{
+    max-height:94dvh;
+    overflow:hidden;
+
+    display:flex;
+    flex-direction:column;
+
+    border-radius:20px;
+  }
+
+  .modal-hero{
+    height:170px;
+    min-height:170px;
+    flex:0 0 170px;
+  }
+
+  .close{
+    top:10px;
+    right:10px;
+
+    width:40px;
+    height:40px;
+  }
+
+  .modal-body{
+    flex:1 1 auto;
+    min-height:0;
+
+    overflow-y:auto;
+    overscroll-behavior:contain;
+
+    padding:15px 16px 10px;
+  }
+
+  .modal-body h2{
+    margin-bottom:5px;
+    font-size:24px;
+  }
+
+  .modal-desc{
+    margin:9px 0 0;
+    line-height:1.4;
+  }
+
+  .option-group{
+    margin-top:14px;
+    padding-top:13px;
+  }
+
+  .option{
+    padding:8px 0;
+  }
+
+  .product-note-wrap{
+    margin-top:14px;
+  }
+
+  .product-note{
+    height:44px;
+    min-height:44px;
+    max-height:110px;
+
+    resize:none;
+    overflow-y:hidden;
+  }
+
+  .product-note-help{
+    margin-top:4px;
+  }
+
+  .modal-footer{
+    flex:0 0 auto;
+
+    grid-template-columns:
+      96px minmax(0,1fr);
+
+    gap:8px;
+
+    padding:
+      10px
+      14px
+      calc(10px + env(safe-area-inset-bottom));
+
+    background:rgba(255,255,255,.98);
+
+    border-top:1px solid var(--line);
+
+    box-shadow:
+      0 -8px 24px rgba(20,12,10,.08);
+  }
+
+  .qty button{
+    height:46px;
+  }
+
+  .primary{
+    min-height:46px;
+    font-size:13px;
+  }
+
+}
+
+
+/* ==========================================================
    FIX FINAL - SELECTORES COMPACTOS
    ========================================================== */
 
@@ -2883,7 +2997,8 @@ input{
               id="nota-{{ producto.id }}"
               class="product-note"
               maxlength="180"
-              rows="3"
+              rows="1"
+              oninput="autoAjustarAclaracionProducto(this)"
               placeholder="Ej: sin cebolla, salsa aparte..."
             ></textarea>
 
@@ -2963,6 +3078,32 @@ input{
 <script>
 
 const carrito = {};
+
+
+function autoAjustarAclaracionProducto(campo){
+
+  if(!campo){
+    return;
+  }
+
+  campo.style.height = "44px";
+
+  const altoMaximo = 110;
+
+  const nuevoAlto =
+    Math.min(
+      campo.scrollHeight,
+      altoMaximo
+    );
+
+  campo.style.height =
+    nuevoAlto + "px";
+
+  campo.style.overflowY =
+    campo.scrollHeight > altoMaximo
+      ? "auto"
+      : "hidden";
+}
 
 
 function formatearPesos(valor){
@@ -4093,6 +4234,70 @@ function construirTextoPedido(bloque){
 }
 
 
+function normalizarWhatsappArgentino(valor){
+
+  let digitos =
+    String(valor || "").replace(/\D/g, "");
+
+  if(!digitos){
+    return "";
+  }
+
+  if(digitos.startsWith("0054")){
+    digitos = digitos.slice(2);
+  }
+
+  if(digitos.startsWith("54")){
+    digitos = digitos.slice(2);
+
+    if(digitos.startsWith("9")){
+      digitos = digitos.slice(1);
+    }
+  }
+
+  if(digitos.startsWith("0")){
+    digitos = digitos.slice(1);
+  }
+
+  if(digitos.length === 12){
+
+    for(const largo of [2, 3, 4]){
+
+      if(
+        digitos.slice(
+          largo,
+          largo + 2
+        ) !== "15"
+      ){
+        continue;
+      }
+
+      const candidato =
+        digitos.slice(0, largo) +
+        digitos.slice(largo + 2);
+
+      if(candidato.length === 10){
+        digitos = candidato;
+        break;
+      }
+    }
+  }
+
+  if(digitos.length !== 10){
+    return "";
+  }
+
+  if(
+    digitos.startsWith("15") ||
+    digitos.startsWith("0")
+  ){
+    return "";
+  }
+
+  return digitos;
+}
+
+
 function validarDatosClientePedido(bloque){
 
   const contenedorPedido =
@@ -4142,6 +4347,26 @@ function validarDatosClientePedido(bloque){
 
     return false;
   }
+
+  const whatsappNormalizado =
+    normalizarWhatsappArgentino(
+      whatsapp.value
+    );
+
+  if(!whatsappNormalizado){
+
+    alert(
+      "Ingresá un WhatsApp válido con característica. " +
+      "Ejemplo: 343 6123456."
+    );
+
+    whatsapp.focus();
+
+    return false;
+  }
+
+  whatsapp.value =
+    whatsappNormalizado;
 
   return true;
 }
@@ -4723,7 +4948,7 @@ function renderizarCarritoMobile(){
           'class="cart-customer-input cart-customer-phone" ' +
           'maxlength="30" ' +
           'autocomplete="tel" ' +
-          'placeholder="Ej: 343 555 1234">' +
+          'placeholder="Ej: 343 6123456">' +
 
         '<div class="cart-customer-help">' +
           'Lo usa el comercio para identificar y coordinar tu pedido.' +
@@ -5155,7 +5380,7 @@ function actualizarCarrito(){
           'class="cart-customer-input cart-customer-phone" ' +
           'maxlength="30" ' +
           'autocomplete="tel" ' +
-          'placeholder="Ej: 343 555 1234">' +
+          'placeholder="Ej: 343 6123456">' +
 
         '<div class="cart-customer-help">' +
           'Lo usa el comercio para identificar y coordinar tu pedido.' +
