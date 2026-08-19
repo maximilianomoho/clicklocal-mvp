@@ -330,6 +330,18 @@
       <h2>
         Mis productos
       </h2>
+
+      {% if request.args.get("destacado_error") == "maximo" %}
+        <div class="panel-aviso-destacados">
+          <strong>
+            Ya tenés 3 productos destacados.
+          </strong>
+
+          <span>
+            Quitá uno de los actuales para destacar otro.
+          </span>
+        </div>
+      {% endif %}
     </div>
 
     <span class="badge">
@@ -411,6 +423,35 @@
               >
                 Destacado
               </span>
+
+              {% if producto.destacado_hasta %}
+                <div
+                  style="
+                    margin-top:6px;
+                    color:#777;
+                    font-size:12px;
+                  "
+                >
+                  En galería hasta:
+                  {{ producto.destacado_hasta[8:10] }}/{{ producto.destacado_hasta[5:7] }}/{{ producto.destacado_hasta[0:4] }}
+                </div>
+              {% endif %}
+            {% endif %}
+
+            {% if producto.precio_promocional_mostrar %}
+              <div
+                style="
+                  margin-top:6px;
+                  color:#681823;
+                  font-size:12px;
+                  font-weight:700;
+                "
+              >
+                Promoción activa
+                {% if producto.promocion_hasta %}
+                  · hasta {{ producto.promocion_hasta[8:10] }}/{{ producto.promocion_hasta[5:7] }}/{{ producto.promocion_hasta[0:4] }}
+                {% endif %}
+              </div>
             {% endif %}
 
           </div>
@@ -439,21 +480,10 @@
                 'gastronomia.extras_producto',
                 producto_id=producto.id
               ) }}"
-              style="
-                display:inline-flex;
-                align-items:center;
-                justify-content:center;
-                padding:8px 12px;
-                border:1px solid #ddd;
-                border-radius:10px;
-                background:#fff;
-                color:#681823;
-                font-weight:700;
-                text-decoration:none;
-              "
             >
               Extras
             </a>
+
 
             <form
               method="POST"
@@ -461,7 +491,6 @@
                 'gastronomia.toggle_producto_activo',
                 producto_id=producto.id
               ) }}"
-              style="display:inline;"
             >
               <button type="submit">
                 {% if producto.activo %}
@@ -479,7 +508,6 @@
                 'gastronomia.eliminar_producto',
                 producto_id=producto.id
               ) }}"
-              style="display:inline;"
               onsubmit="return confirm(
                 '¿Seguro que querés eliminar este producto? Esta acción no se puede deshacer.'
               );"
@@ -488,6 +516,185 @@
                 Eliminar
               </button>
             </form>
+
+          </div>
+
+
+          <div class="acciones-visibilidad">
+
+            {% if producto.activo %}
+
+              {% if producto.destacado %}
+
+                <form
+                  method="POST"
+                  action="{{ url_for(
+                    'gastronomia.destacar_producto',
+                    producto_id=producto.id
+                  ) }}"
+                >
+                  <button type="submit">
+                    Renovar destacado
+                  </button>
+                </form>
+
+                <form
+                  method="POST"
+                  action="{{ url_for(
+                    'gastronomia.quitar_destacado_producto',
+                    producto_id=producto.id
+                  ) }}"
+                >
+                  <button type="submit">
+                    Quitar destacado
+                  </button>
+                </form>
+
+              {% else %}
+
+                <form
+                  method="POST"
+                  action="{{ url_for(
+                    'gastronomia.destacar_producto',
+                    producto_id=producto.id
+                  ) }}"
+                >
+                  <button type="submit">
+                    Destacar 30 días
+                  </button>
+                </form>
+
+                <div
+                  class="accion-placeholder"
+                  aria-hidden="true"
+                ></div>
+
+              {% endif %}
+
+            {% endif %}
+
+
+            <details class="accion-promocion">
+
+              <summary>
+                {% if producto.precio_promocional_mostrar %}
+                  Editar promoción
+                {% else %}
+                  Crear promoción
+                {% endif %}
+              </summary>
+
+
+              <form
+                method="POST"
+                action="{{ url_for(
+                  'gastronomia.guardar_promocion_producto',
+                  producto_id=producto.id
+                ) }}"
+                class="form-promocion-producto"
+              >
+
+                <label>
+                  Precio promocional
+                </label>
+
+                <input
+                  type="text"
+                  name="precio_promocional"
+                  inputmode="decimal"
+                  value="{{ producto.precio_promocional or '' }}"
+                  placeholder="Ej: 12000"
+                  required
+                >
+
+
+                <div class="form-promocion-fechas">
+
+                  <div>
+
+                    <label>
+                      Desde
+                    </label>
+
+                    <input
+                      type="text"
+                      class="fecha-promo-visible"
+                      data-target="promocion_desde"
+                      inputmode="numeric"
+                      maxlength="10"
+                      placeholder="dd/mm/aaaa"
+                      value="{% if producto.promocion_desde %}{{ producto.promocion_desde[8:10] }}/{{ producto.promocion_desde[5:7] }}/{{ producto.promocion_desde[0:4] }}{% endif %}"
+                    >
+
+                    <input
+                      type="hidden"
+                      name="promocion_desde"
+                      value="{{ producto.promocion_desde or '' }}"
+                    >
+
+                  </div>
+
+
+                  <div>
+
+                    <label>
+                      Hasta
+                    </label>
+
+                    <input
+                      type="text"
+                      class="fecha-promo-visible"
+                      data-target="promocion_hasta"
+                      inputmode="numeric"
+                      maxlength="10"
+                      placeholder="dd/mm/aaaa"
+                      value="{% if producto.promocion_hasta %}{{ producto.promocion_hasta[8:10] }}/{{ producto.promocion_hasta[5:7] }}/{{ producto.promocion_hasta[0:4] }}{% endif %}"
+                    >
+
+                    <input
+                      type="hidden"
+                      name="promocion_hasta"
+                      value="{{ producto.promocion_hasta or '' }}"
+                    >
+
+                  </div>
+
+                </div>
+
+
+                <button type="submit">
+                  Guardar promoción
+                </button>
+
+              </form>
+
+            </details>
+
+
+            {% if producto.precio_promocional_mostrar %}
+
+              <form
+                method="POST"
+                action="{{ url_for(
+                  'gastronomia.quitar_promocion_producto',
+                  producto_id=producto.id
+                ) }}"
+              >
+                <button type="submit">
+                  Quitar promoción
+                </button>
+              </form>
+
+            {% else %}
+
+              <div
+                class="accion-placeholder"
+                aria-hidden="true"
+              ></div>
+
+            {% endif %}
+
+          </div>
 
           </div>
 
@@ -781,6 +988,103 @@
     }
   );
 })();
+
+  // =========================================================
+  // FECHAS PROMOCION - VISIBLE DD/MM/AAAA, BACKEND AAAA-MM-DD
+  // =========================================================
+
+  function fechaPromoAISO(valor) {
+    const limpio = String(valor || "").trim();
+
+    if (!limpio) {
+      return "";
+    }
+
+    const match = limpio.match(
+      /^(\d{2})\/(\d{2})\/(\d{4})$/
+    );
+
+    if (!match) {
+      return null;
+    }
+
+    const dia = Number(match[1]);
+    const mes = Number(match[2]);
+    const anio = Number(match[3]);
+
+    const fecha = new Date(
+      anio,
+      mes - 1,
+      dia
+    );
+
+    if (
+      fecha.getFullYear() !== anio ||
+      fecha.getMonth() !== mes - 1 ||
+      fecha.getDate() !== dia
+    ) {
+      return null;
+    }
+
+    return (
+      String(anio).padStart(4, "0") +
+      "-" +
+      String(mes).padStart(2, "0") +
+      "-" +
+      String(dia).padStart(2, "0")
+    );
+  }
+
+
+  document.querySelectorAll(
+    ".form-promocion-producto"
+  ).forEach(function(formulario) {
+
+    formulario.addEventListener(
+      "submit",
+      function(event) {
+
+        const visibles = formulario.querySelectorAll(
+          ".fecha-promo-visible"
+        );
+
+        for (const visible of visibles) {
+
+          const nombreDestino =
+            visible.dataset.target;
+
+          const oculto =
+            formulario.querySelector(
+              'input[type="hidden"][name="' +
+              nombreDestino +
+              '"]'
+            );
+
+          const convertido =
+            fechaPromoAISO(visible.value);
+
+          if (convertido === null) {
+
+            event.preventDefault();
+
+            alert(
+              "Ingresá la fecha en formato dd/mm/aaaa."
+            );
+
+            visible.focus();
+
+            return;
+          }
+
+          if (oculto) {
+            oculto.value = convertido;
+          }
+        }
+      }
+    );
+  });
+
+
 </script>
 
 {% endblock %}

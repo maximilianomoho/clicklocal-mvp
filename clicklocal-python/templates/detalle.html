@@ -356,15 +356,38 @@
   min-width: 0;
   min-height: 0;
   aspect-ratio: 4 / 3;
-  padding: 10px;
+  padding: 6px;
   overflow: hidden;
   border: 1px solid rgba(122, 31, 43, 0.08);
   border-radius: 26px;
-  background: #FFFDFC;
+  background: #F3ECE4;
   box-shadow: 0 18px 42px rgba(70, 46, 36, 0.10);
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  isolation: isolate;
+}
+
+.pagina-detalle-b1 .detalle-foto::before {
+  content: "";
+  position: absolute;
+  inset: -24px;
+  background-image: var(--detalle-fondo-imagen);
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px);
+  transform: scale(1.08);
+  opacity: 0.38;
+  z-index: 0;
+}
+
+.pagina-detalle-b1 .detalle-foto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 253, 252, 0.16);
+  z-index: 0;
 }
 
 .pagina-detalle-b1 .detalle-foto img,
@@ -375,8 +398,20 @@
   max-height: none;
   display: block;
   border-radius: 18px;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
+  position: relative;
+  z-index: 1;
+  transform: scale(1);
+  transform-origin: center center;
+  transition: transform 180ms ease;
+}
+
+@media (min-width: 701px) {
+  .pagina-detalle-b1 .detalle-foto.detalle-foto--vertical img,
+  .pagina-detalle-b1 .detalle-foto.detalle-foto--vertical #detalle-imagen-principal {
+    transform: scale(1.11);
+  }
 }
 
 /* INFORMACIÓN */
@@ -776,7 +811,7 @@
   .pagina-detalle-b1 .detalle-foto img,
   .pagina-detalle-b1 #detalle-imagen-principal {
     border-radius: 14px !important;
-    object-fit: cover !important;
+    object-fit: contain !important;
     object-position: center !important;
   }
 
@@ -956,7 +991,11 @@
 
 
         <!-- FOTO GRANDE -->
-        <section class="detalle-foto">
+        <section
+          class="detalle-foto"
+          id="detalle-foto-contenedor"
+          style="--detalle-fondo-imagen: url('{{ ns.imagenes_detalle[0] }}');"
+        >
           <img
             id="detalle-imagen-principal"
             src="{{ ns.imagenes_detalle[0] }}"
@@ -1044,10 +1083,33 @@
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       const imagenPrincipal = document.getElementById("detalle-imagen-principal");
+      const fotoContenedor = document.getElementById("detalle-foto-contenedor");
       const miniaturas = document.querySelectorAll(".detalle-miniaturas .miniatura");
 
-      if (!imagenPrincipal || miniaturas.length === 0) {
+      if (!imagenPrincipal) {
         return;
+      }
+
+      function actualizarEncuadreImagen() {
+        if (!fotoContenedor) {
+          return;
+        }
+
+        const ancho = imagenPrincipal.naturalWidth || 0;
+        const alto = imagenPrincipal.naturalHeight || 0;
+
+        if (!ancho || !alto) {
+          return;
+        }
+
+        const esVertical = alto > (ancho * 1.05);
+        fotoContenedor.classList.toggle("detalle-foto--vertical", esVertical);
+      }
+
+      if (imagenPrincipal.complete) {
+        actualizarEncuadreImagen();
+      } else {
+        imagenPrincipal.addEventListener("load", actualizarEncuadreImagen, { once: true });
       }
 
       miniaturas.forEach(function (boton) {
@@ -1058,7 +1120,19 @@
             return;
           }
 
+          imagenPrincipal.addEventListener("load", actualizarEncuadreImagen, { once: true });
           imagenPrincipal.src = nuevaImagen;
+
+          if (fotoContenedor) {
+            fotoContenedor.style.setProperty(
+              "--detalle-fondo-imagen",
+              'url("' + nuevaImagen.replace(/"/g, '\"') + '")'
+            );
+          }
+
+          if (imagenPrincipal.complete) {
+            actualizarEncuadreImagen();
+          }
 
           miniaturas.forEach(function (otraMiniatura) {
             otraMiniatura.classList.remove("activa");
@@ -1070,6 +1144,38 @@
     });
   </script>
 
+
+
+<!-- CLICKLOCAL: igualar altura foto / panel info en escritorio -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const foto = document.querySelector(".pagina-detalle-b1 .detalle-foto");
+    const info = document.querySelector(".pagina-detalle-b1 .detalle-info");
+
+    if (!foto || !info) {
+      return;
+    }
+
+    function igualarAlturaDetalle() {
+      if (window.innerWidth > 1050) {
+        foto.style.height = info.offsetHeight + "px";
+        foto.style.aspectRatio = "auto";
+      } else {
+        foto.style.removeProperty("height");
+        foto.style.removeProperty("aspect-ratio");
+      }
+    }
+
+    igualarAlturaDetalle();
+
+    window.addEventListener("resize", igualarAlturaDetalle);
+
+    if ("ResizeObserver" in window) {
+      const observer = new ResizeObserver(igualarAlturaDetalle);
+      observer.observe(info);
+    }
+  });
+</script>
 
 <!-- CLICKLOCAL: loading WhatsApp anti doble click -->
 <style>

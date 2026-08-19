@@ -2101,6 +2101,28 @@ input{
   margin-top:10px;
 }
 
+
+.cart-payment-step.is-disabled{
+  opacity:.58;
+  cursor:not-allowed;
+}
+
+.cart-payment-step.is-disabled .cart-payment-options{
+  pointer-events:none;
+}
+
+.cart-payment-lock-message{
+  margin-top:7px;
+  margin-bottom:8px;
+  font-size:13px;
+  color:#7a6f6f;
+}
+
+.cart-payment-step:not(.is-disabled)
+.cart-payment-lock-message{
+  display:none;
+}
+
 </style>
 </head>
 
@@ -3107,7 +3129,18 @@ function cambiarCantidad(modalId, cambio){
   }
 
   let cantidad = obtenerCantidadModal(modal);
-  cantidad = Math.max(1, Math.min(99, cantidad + cambio));
+
+  if(cambio < 0 && cantidad <= 1){
+    modal.dataset.cantidad = "1";
+    actualizarImporteModal(modal);
+    cerrarModal(modalId);
+    return;
+  }
+
+  cantidad = Math.max(
+    1,
+    Math.min(99, cantidad + cambio)
+  );
 
   modal.dataset.cantidad = String(cantidad);
 
@@ -3202,6 +3235,20 @@ function actualizarDireccionEntrega(input){
     window.setTimeout(function(){
       campo.focus();
     }, 50);
+  }
+
+  actualizarResumenCostoEnvio(bloque);
+  actualizarEstadoFormaPago(bloque);
+
+  const efectivo =
+    bloque.querySelector(
+      ".cart-cash-input"
+    );
+
+  if(efectivo && efectivo.value){
+    efectivo.dispatchEvent(
+      new Event("input", {bubbles:true})
+    );
   }
 }
 
@@ -3397,12 +3444,175 @@ function obtenerTotalPedido(){
 }
 
 
+function obtenerCostoEnvioPedido(bloque){
+
+  if(!bloque){
+    return 0;
+  }
+
+  const modalidad =
+    obtenerRadioSeleccionado(
+      bloque,
+      'input[name^="modalidad-pedido"]'
+    );
+
+  if(modalidad !== "Delivery"){
+    return 0;
+  }
+
+  const costo =
+    Number("{{ configuracion.costo_envio or 0 }}");
+
+  if(!Number.isFinite(costo) || costo < 0){
+    return 0;
+  }
+
+  return costo;
+}
+
+
+function obtenerTotalFinalPedido(bloque){
+
+  return (
+    obtenerTotalPedido() +
+    obtenerCostoEnvioPedido(bloque)
+  );
+}
+
+
+function actualizarResumenCostoEnvio(bloque){
+
+  if(!bloque){
+    return;
+  }
+
+  const contenedor =
+    bloque.parentElement || bloque;
+
+  const resumen =
+    contenedor.querySelector(
+      ".cart-delivery-cost-summary"
+    );
+
+  if(!resumen){
+    return;
+  }
+
+  const modalidad =
+    obtenerRadioSeleccionado(
+      bloque,
+      'input[name^="modalidad-pedido"]'
+    );
+
+  const esDelivery =
+    modalidad === "Delivery";
+
+  resumen.hidden = !esDelivery;
+
+  if(!esDelivery){
+    return;
+  }
+
+  const costo =
+    obtenerCostoEnvioPedido(bloque);
+
+  const total =
+    obtenerTotalFinalPedido(bloque);
+
+  const costoTexto =
+    resumen.querySelector(
+      ".cart-delivery-cost-value"
+    );
+
+  const totalTexto =
+    resumen.querySelector(
+      ".cart-final-total-value"
+    );
+
+  if(costoTexto){
+    costoTexto.textContent =
+      costo > 0
+        ? formatearPesos(costo)
+        : "Gratis";
+  }
+
+  if(totalTexto){
+    totalTexto.textContent =
+      formatearPesos(total);
+  }
+}
+
+
 function limpiarImporte(valor){
 
   return Number(
     String(valor || "")
       .replace(/[^0-9]/g, "")
       || 0
+  );
+}
+
+
+function actualizarEstadoFormaPago(bloque){
+
+  if(!bloque){
+    return;
+  }
+
+  const modalidad =
+    obtenerRadioSeleccionado(
+      bloque,
+      'input[name^="modalidad-pedido"]'
+    );
+
+  const paymentStep =
+    bloque.querySelector(
+      ".cart-payment-step"
+    );
+
+  if(!paymentStep){
+    return;
+  }
+
+  const habilitado =
+    Boolean(modalidad);
+
+  paymentStep.classList.toggle(
+    "is-disabled",
+    !habilitado
+  );
+
+  paymentStep
+    .querySelectorAll('input[type="radio"]')
+    .forEach(function(inputPago){
+      inputPago.disabled = !habilitado;
+    });
+
+  const aviso =
+    paymentStep.querySelector(
+      ".cart-payment-lock-message"
+    );
+
+  if(aviso){
+    aviso.hidden = habilitado;
+  }
+}
+
+
+function avisarFormaEntregaAntesDePago(event){
+
+  const paymentStep =
+    event.currentTarget;
+
+  if(
+    !paymentStep ||
+    !paymentStep.classList.contains("is-disabled")
+  ){
+    return;
+  }
+
+  alert(
+    "Primero elegí Delivery o Retiro para calcular correctamente el total del pedido."
   );
 }
 
@@ -3482,7 +3692,9 @@ function actualizarCambioPedido(input){
     limpiarImporte(input.value);
 
   const total =
-    obtenerTotalPedido();
+    obtenerTotalFinalPedido(
+      input.closest(".cart-delivery-step")
+    );
 
   if(!pagaCon){
 
@@ -3751,18 +3963,41 @@ function construirTextoPedido(bloque){
     lineas.push("");
   });
 
-  lineas.push(
-    "Total: " +
-    formatearPesos(
-      obtenerTotalPedido()
-    )
-  );
+  const subtotalPedido =
+    obtenerTotalPedido();
 
   const modalidad =
     obtenerRadioSeleccionado(
       bloque,
       'input[name^="modalidad-pedido"]'
     );
+
+  lineas.push(
+    "Productos: " +
+    formatearPesos(subtotalPedido)
+  );
+
+  if(modalidad === "Delivery"){
+
+    const costoEnvio =
+      obtenerCostoEnvioPedido(bloque);
+
+    lineas.push(
+      "Envío: " +
+      (
+        costoEnvio > 0
+          ? formatearPesos(costoEnvio)
+          : "Gratis"
+      )
+    );
+  }
+
+  lineas.push(
+    "Total: " +
+    formatearPesos(
+      obtenerTotalFinalPedido(bloque)
+    )
+  );
 
   if(modalidad){
 
@@ -3824,7 +4059,7 @@ function construirTextoPedido(bloque){
 
           const cambio =
             pagaCon -
-            obtenerTotalPedido();
+            obtenerTotalFinalPedido(bloque);
 
           if(cambio >= 0){
             lineas.push(
@@ -4071,7 +4306,7 @@ async function prepararPedido(boton){
       return;
     }
 
-    if(pagaCon < obtenerTotalPedido()){
+    if(pagaCon < obtenerTotalFinalPedido(bloque)){
       alert(
         "El importe con el que pagás es menor al total."
       );
@@ -4388,7 +4623,7 @@ function renderizarCarritoMobile(){
 
               '<button type="button" ' +
                 'onclick="cambiarCantidadCarrito(\'' +
-                  item.id +
+                  item.key +
                 '\', -1)">' +
                 '−' +
               '</button>' +
@@ -4399,7 +4634,7 @@ function renderizarCarritoMobile(){
 
               '<button type="button" ' +
                 'onclick="cambiarCantidadCarrito(\'' +
-                  item.id +
+                  item.key +
                 '\', 1)">' +
                 '+' +
               '</button>' +
@@ -4426,6 +4661,22 @@ function renderizarCarritoMobile(){
       '<strong>' +
         formatearPesos(importeTotal) +
       '</strong>' +
+    '</div>' +
+
+    '<div class="cart-delivery-cost-summary" hidden>' +
+
+      '<div style="display:flex;justify-content:space-between;gap:12px;">' +
+        '<span>Envío</span>' +
+        '<strong class="cart-delivery-cost-value">$0</strong>' +
+      '</div>' +
+
+      '<div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;">' +
+        '<strong>Total</strong>' +
+        '<strong class="cart-final-total-value">' +
+          formatearPesos(importeTotal) +
+        '</strong>' +
+      '</div>' +
+
     '</div>';
 
   html +=
@@ -4529,16 +4780,22 @@ function renderizarCarritoMobile(){
         '</div>' +
       '</div>' +
 
-      '<div class="cart-payment-step">' +
+      '<div class="cart-payment-step is-disabled" ' +
+        'onclick="avisarFormaEntregaAntesDePago(event)">' +
         '<span class="cart-payment-title">' +
           'Forma de pago' +
         '</span>' +
+
+        '<div class="cart-payment-lock-message">' +
+          'Elegí primero Delivery o Retiro.' +
+        '</div>' +
 
         '<div class="cart-payment-options">' +
 
           '<label class="cart-payment-option">' +
             '<input ' +
               'type="radio" ' +
+              'disabled ' +
               'name="forma-pago-mobile" ' +
               'value="Efectivo" ' +
               'onchange="actualizarPagoEfectivo(this)">' +
@@ -4548,6 +4805,7 @@ function renderizarCarritoMobile(){
           '<label class="cart-payment-option">' +
             '<input ' +
               'type="radio" ' +
+              'disabled ' +
               'name="forma-pago-mobile" ' +
               'value="Transferencia" ' +
               'onchange="actualizarPagoEfectivo(this)">' +
@@ -4628,8 +4886,8 @@ function renderizarCarritoMobile(){
 }
 
 
-function cambiarCantidadCarrito(productoId, cambio){
-  const item = carrito[productoId];
+function cambiarCantidadCarrito(itemKey, cambio){
+  const item = carrito[itemKey];
 
   if(!item){
     return;
@@ -4638,7 +4896,7 @@ function cambiarCantidadCarrito(productoId, cambio){
   item.cantidad += cambio;
 
   if(item.cantidad <= 0){
-    delete carrito[productoId];
+    delete carrito[itemKey];
   }
 
   actualizarCarrito();
@@ -4798,7 +5056,7 @@ function actualizarCarrito(){
               '<button type="button" ' +
                 'aria-label="Restar" ' +
                 'onclick="cambiarCantidadCarrito(\'' +
-                  item.id +
+                  item.key +
                 '\', -1)">' +
                 '−' +
               '</button>' +
@@ -4810,7 +5068,7 @@ function actualizarCarrito(){
               '<button type="button" ' +
                 'aria-label="Sumar" ' +
                 'onclick="cambiarCantidadCarrito(\'' +
-                  item.id +
+                  item.key +
                 '\', 1)">' +
                 '+' +
               '</button>' +
@@ -4835,6 +5093,22 @@ function actualizarCarrito(){
       '<strong>' +
         formatearPesos(importeTotal) +
       '</strong>' +
+    '</div>' +
+
+    '<div class="cart-delivery-cost-summary" hidden>' +
+
+      '<div style="display:flex;justify-content:space-between;gap:12px;">' +
+        '<span>Envío</span>' +
+        '<strong class="cart-delivery-cost-value">$0</strong>' +
+      '</div>' +
+
+      '<div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;">' +
+        '<strong>Total</strong>' +
+        '<strong class="cart-final-total-value">' +
+          formatearPesos(importeTotal) +
+        '</strong>' +
+      '</div>' +
+
     '</div>';
 
   html +=
@@ -4938,16 +5212,22 @@ function actualizarCarrito(){
         '</div>' +
       '</div>' +
 
-      '<div class="cart-payment-step">' +
+      '<div class="cart-payment-step is-disabled" ' +
+        'onclick="avisarFormaEntregaAntesDePago(event)">' +
         '<span class="cart-payment-title">' +
           'Forma de pago' +
         '</span>' +
+
+        '<div class="cart-payment-lock-message">' +
+          'Elegí primero Delivery o Retiro.' +
+        '</div>' +
 
         '<div class="cart-payment-options">' +
 
           '<label class="cart-payment-option">' +
             '<input ' +
               'type="radio" ' +
+              'disabled ' +
               'name="forma-pago-desktop" ' +
               'value="Efectivo" ' +
               'onchange="actualizarPagoEfectivo(this)">' +
@@ -4957,6 +5237,7 @@ function actualizarCarrito(){
           '<label class="cart-payment-option">' +
             '<input ' +
               'type="radio" ' +
+              'disabled ' +
               'name="forma-pago-desktop" ' +
               'value="Transferencia" ' +
               'onchange="actualizarPagoEfectivo(this)">' +

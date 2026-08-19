@@ -1168,7 +1168,7 @@
 
 
       .promo {
-        flex: 0 0 min(72vw, 260px);
+        flex: 0 0 min(66vw, 240px);
 
         scroll-snap-align: start;
       }
@@ -1337,6 +1337,15 @@
         >
           Gastronomía
         </a>
+
+        {% if destacados_gastronomicos %}
+          <a
+            href="#destacados"
+            class="header-pill"
+          >
+            Destacados
+          </a>
+        {% endif %}
 
         {% if promos_gastronomicas %}
           <a
@@ -1669,6 +1678,92 @@
       {% endif %}
 
     </section>
+
+
+    <!-- =====================================================
+         PRODUCTOS DESTACADOS
+         ===================================================== -->
+
+    {% if destacados_gastronomicos %}
+
+      <section
+        class="seccion"
+        id="destacados"
+      >
+
+        <div class="seccion-header">
+
+          <div>
+
+            <p class="seccion-eyebrow">
+              ELEGIDOS POR CADA NEGOCIO
+            </p>
+
+            <h2 class="seccion-titulo">
+              Productos destacados
+            </h2>
+
+            <p class="seccion-bajada">
+              Algunas propuestas para descubrir qué ofrece cada lugar.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="promos-scroll">
+
+          {% for producto in destacados_gastronomicos %}
+
+            <a
+              class="promo"
+              href="{{ url_for(
+                'gastronomia.comercio_gastronomico',
+                comercio_id=producto.comercio_id
+              ) }}"
+            >
+
+              <div class="promo-foto">
+
+                <img
+                  src="{{ producto.imagen_url }}"
+                  alt="{{ producto.nombre }}"
+                  loading="lazy"
+                >
+
+                <span class="promo-badge">
+                  DESTACADO
+                </span>
+
+              </div>
+
+
+              <div class="promo-cuerpo">
+
+                <p class="promo-negocio">
+                  {{ producto.comercio_nombre }}
+                </p>
+
+                <h3 class="promo-nombre">
+                  {{ producto.nombre }}
+                </h3>
+
+                <div class="promo-precio">
+                  {{ producto.precio_mostrar }}
+                </div>
+
+              </div>
+
+            </a>
+
+          {% endfor %}
+
+        </div>
+
+      </section>
+
+    {% endif %}
 
 
     <!-- =====================================================

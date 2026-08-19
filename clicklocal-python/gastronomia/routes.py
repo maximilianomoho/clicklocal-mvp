@@ -1,8 +1,35 @@
+from datetime import date, timedelta
+
 from flask import abort, jsonify, redirect, render_template, request, session, url_for
 
 from config.supabase_config import supabase_admin
 
 from . import gastronomia_bp
+
+
+def _fecha_desde_iso(valor):
+    if not valor:
+        return None
+
+    try:
+        return date.fromisoformat(str(valor))
+    except (TypeError, ValueError):
+        return None
+
+
+def _esta_vigente(desde=None, hasta=None):
+    hoy = date.today()
+
+    fecha_desde = _fecha_desde_iso(desde)
+    fecha_hasta = _fecha_desde_iso(hasta)
+
+    if fecha_desde and hoy < fecha_desde:
+        return False
+
+    if fecha_hasta and hoy > fecha_hasta:
+        return False
+
+    return True
 
 
 def _formatear_precio(valor):
@@ -69,7 +96,9 @@ def inicio():
             .select(
                 "id,comercio_id,nombre,imagen_url,"
                 "precio,precio_promocional,"
-                "activo,disponible,orden"
+                "activo,disponible,destacado,"
+                "destacado_hasta,promocion_desde,"
+                "promocion_hasta,orden"
             )
             .in_("comercio_id", comercio_ids)
             .eq("activo", True)
@@ -124,41 +153,111 @@ def inicio():
         for comercio in comercios_gastronomicos
     }
 
+    destacados_gastronomicos = []
     promos_gastronomicas = []
 
+    destacados_por_comercio = {}
+
     for producto in productos if comercio_ids else []:
-        precio_promocional = producto.get("precio_promocional")
+        comercio_id = str(producto.get("comercio_id"))
 
         if (
-            precio_promocional is None
-            or not producto.get("imagen_url")
+            not producto.get("imagen_url")
+            or not producto.get("disponible")
         ):
             continue
 
-        comercio_id = str(producto.get("comercio_id"))
+        # ------------------------------------------------------
+        # PRODUCTOS DESTACADOS
+        # Máximo 3 vigentes por comercio.
+        # ------------------------------------------------------
 
-        promos_gastronomicas.append({
-            "id": producto.get("id"),
-            "comercio_id": comercio_id,
-            "comercio_nombre": nombre_comercio_por_id.get(
-                comercio_id,
-                ""
-            ),
-            "nombre": producto.get("nombre"),
-            "imagen_url": producto.get("imagen_url"),
-            "precio_mostrar": _formatear_precio(
-                precio_promocional
-            ),
-            "precio_anterior_mostrar": _formatear_precio(
-                producto.get("precio")
-            ),
-        })
+        if (
+            producto.get("destacado")
+            and _esta_vigente(
+                hasta=producto.get("destacado_hasta")
+            )
+        ):
+            cantidad_comercio = (
+                destacados_por_comercio.get(comercio_id, 0)
+            )
 
-    promos_gastronomicas = promos_gastronomicas[:8]
+            if cantidad_comercio < 3:
+                destacados_gastronomicos.append({
+                    "id": producto.get("id"),
+                    "comercio_id": comercio_id,
+                    "comercio_nombre": (
+                        nombre_comercio_por_id.get(
+                            comercio_id,
+                            ""
+                        )
+                    ),
+                    "nombre": producto.get("nombre"),
+                    "imagen_url": producto.get("imagen_url"),
+                    "precio_mostrar": _formatear_precio(
+                        producto.get("precio")
+                    ),
+                    "destacado_hasta": (
+                        producto.get("destacado_hasta")
+                    ),
+                })
+
+                destacados_por_comercio[comercio_id] = (
+                    cantidad_comercio + 1
+                )
+
+        # ------------------------------------------------------
+        # PROMOCIONES VIGENTES
+        # ------------------------------------------------------
+
+        precio_promocional = producto.get(
+            "precio_promocional"
+        )
+
+        if (
+            precio_promocional is not None
+            and _esta_vigente(
+                desde=producto.get("promocion_desde"),
+                hasta=producto.get("promocion_hasta"),
+            )
+        ):
+            promos_gastronomicas.append({
+                "id": producto.get("id"),
+                "comercio_id": comercio_id,
+                "comercio_nombre": (
+                    nombre_comercio_por_id.get(
+                        comercio_id,
+                        ""
+                    )
+                ),
+                "nombre": producto.get("nombre"),
+                "imagen_url": producto.get("imagen_url"),
+                "precio_mostrar": _formatear_precio(
+                    precio_promocional
+                ),
+                "precio_anterior_mostrar": (
+                    _formatear_precio(
+                        producto.get("precio")
+                    )
+                ),
+                "promocion_desde": (
+                    producto.get("promocion_desde")
+                ),
+                "promocion_hasta": (
+                    producto.get("promocion_hasta")
+                ),
+            })
+
+    destacados_gastronomicos = (
+        destacados_gastronomicos[:12]
+    )
+
+    promos_gastronomicas = promos_gastronomicas[:12]
 
     return render_template(
         "gastronomia/inicio.html",
         comercios_gastronomicos=comercios_gastronomicos,
+        destacados_gastronomicos=destacados_gastronomicos,
         promos_gastronomicas=promos_gastronomicas,
     )
 
@@ -211,7 +310,8 @@ def comercio_gastronomico(comercio_id):
         .select(
             "id,nombre,descripcion,precio,"
             "precio_promocional,imagen_url,disponible,"
-            "activo,destacado,orden"
+            "activo,destacado,destacado_hasta,"
+            "promocion_desde,promocion_hasta,orden"
         )
         .eq("comercio_id", comercio_id)
         .eq("activo", True)
@@ -467,6 +567,153 @@ def toggle_producto_activo(producto_id):
 
 
 @gastronomia_bp.route(
+    "/panel/producto/<producto_id>/destacar",
+    methods=["POST"]
+)
+def destacar_producto(producto_id):
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+
+    producto_res = (
+        supabase_admin
+        .table("gastronomia_productos")
+        .select(
+            "id,activo,destacado,destacado_hasta"
+        )
+        .eq("id", producto_id)
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+
+    productos = producto_res.data or []
+
+    if not productos:
+        abort(404)
+
+    producto = productos[0]
+
+    if not producto.get("activo"):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                destacado_error="inactivo"
+            )
+            + "#mis-productos"
+        )
+
+    # Si ya está destacado, esta acción renueva 30 días.
+    if producto.get("destacado"):
+        nueva_fecha = date.today() + timedelta(days=30)
+
+        (
+            supabase_admin
+            .table("gastronomia_productos")
+            .update({
+                "destacado": True,
+                "destacado_hasta": nueva_fecha.isoformat(),
+            })
+            .eq("id", producto_id)
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                destacado_renovado="1"
+            )
+            + "#mis-productos"
+        )
+
+    destacados_res = (
+        supabase_admin
+        .table("gastronomia_productos")
+        .select("id,destacado_hasta")
+        .eq("comercio_id", comercio_id)
+        .eq("activo", True)
+        .eq("destacado", True)
+        .execute()
+    )
+
+    destacados_vigentes = [
+        item
+        for item in (destacados_res.data or [])
+        if _esta_vigente(
+            hasta=item.get("destacado_hasta")
+        )
+    ]
+
+    if len(destacados_vigentes) >= 3:
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                destacado_error="maximo"
+            )
+            + "#mis-productos"
+        )
+
+    nueva_fecha = date.today() + timedelta(days=30)
+
+    (
+        supabase_admin
+        .table("gastronomia_productos")
+        .update({
+            "destacado": True,
+            "destacado_hasta": nueva_fecha.isoformat(),
+        })
+        .eq("id", producto_id)
+        .eq("comercio_id", comercio_id)
+        .execute()
+    )
+
+    return redirect(
+        url_for(
+            "gastronomia.panel_gastronomia",
+            destacado_ok="1"
+        )
+        + "#mis-productos"
+    )
+
+
+@gastronomia_bp.route(
+    "/panel/producto/<producto_id>/quitar-destacado",
+    methods=["POST"]
+)
+def quitar_destacado_producto(producto_id):
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+
+    (
+        supabase_admin
+        .table("gastronomia_productos")
+        .update({
+            "destacado": False,
+            "destacado_hasta": None,
+        })
+        .eq("id", producto_id)
+        .eq("comercio_id", comercio_id)
+        .execute()
+    )
+
+    return redirect(
+        url_for(
+            "gastronomia.panel_gastronomia",
+            destacado_quitado="1"
+        )
+        + "#mis-productos"
+    )
+
+
+@gastronomia_bp.route(
     "/panel/producto/<producto_id>/editar",
     methods=["POST"]
 )
@@ -572,6 +819,172 @@ def editar_producto(producto_id):
         url_for(
             "gastronomia.panel_gastronomia",
             producto_editado="1"
+        )
+        + "#mis-productos"
+    )
+
+
+@gastronomia_bp.route(
+    "/panel/producto/<producto_id>/promocion",
+    methods=["POST"]
+)
+def guardar_promocion_producto(producto_id):
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+
+    producto_res = (
+        supabase_admin
+        .table("gastronomia_productos")
+        .select("id,precio,activo")
+        .eq("id", producto_id)
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+
+    productos = producto_res.data or []
+
+    if not productos:
+        abort(404)
+
+    producto = productos[0]
+
+    if not producto.get("activo"):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                promo_error="inactivo"
+            )
+            + "#mis-productos"
+        )
+
+    precio_raw = str(
+        request.form.get("precio_promocional") or ""
+    ).strip()
+
+    try:
+        precio_promocional = float(
+            precio_raw
+            .replace("$", "")
+            .replace(" ", "")
+            .replace(".", "")
+            .replace(",", ".")
+        )
+    except (TypeError, ValueError):
+        precio_promocional = 0
+
+    try:
+        precio_normal = float(
+            producto.get("precio") or 0
+        )
+    except (TypeError, ValueError):
+        precio_normal = 0
+
+    if (
+        precio_promocional <= 0
+        or precio_promocional >= precio_normal
+    ):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                promo_error="precio"
+            )
+            + "#mis-productos"
+        )
+
+    desde_raw = str(
+        request.form.get("promocion_desde") or ""
+    ).strip()
+
+    hasta_raw = str(
+        request.form.get("promocion_hasta") or ""
+    ).strip()
+
+    try:
+        promocion_desde = (
+            date.fromisoformat(desde_raw)
+            if desde_raw
+            else date.today()
+        )
+
+        promocion_hasta = (
+            date.fromisoformat(hasta_raw)
+            if hasta_raw
+            else promocion_desde + timedelta(days=30)
+        )
+    except ValueError:
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                promo_error="fecha"
+            )
+            + "#mis-productos"
+        )
+
+    if promocion_hasta < promocion_desde:
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                promo_error="fecha"
+            )
+            + "#mis-productos"
+        )
+
+    (
+        supabase_admin
+        .table("gastronomia_productos")
+        .update({
+            "precio_promocional": precio_promocional,
+            "promocion_desde": promocion_desde.isoformat(),
+            "promocion_hasta": promocion_hasta.isoformat(),
+        })
+        .eq("id", producto_id)
+        .eq("comercio_id", comercio_id)
+        .execute()
+    )
+
+    return redirect(
+        url_for(
+            "gastronomia.panel_gastronomia",
+            promo_ok="1"
+        )
+        + "#mis-productos"
+    )
+
+
+@gastronomia_bp.route(
+    "/panel/producto/<producto_id>/quitar-promocion",
+    methods=["POST"]
+)
+def quitar_promocion_producto(producto_id):
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+
+    (
+        supabase_admin
+        .table("gastronomia_productos")
+        .update({
+            "precio_promocional": None,
+            "promocion_desde": None,
+            "promocion_hasta": None,
+        })
+        .eq("id", producto_id)
+        .eq("comercio_id", comercio_id)
+        .execute()
+    )
+
+    return redirect(
+        url_for(
+            "gastronomia.panel_gastronomia",
+            promo_quitada="1"
         )
         + "#mis-productos"
     )
@@ -702,7 +1115,8 @@ def panel_gastronomia():
         .select(
             "id,nombre,descripcion,precio,"
             "precio_promocional,imagen_url,disponible,"
-            "activo,destacado,orden"
+            "activo,destacado,destacado_hasta,"
+            "promocion_desde,promocion_hasta,orden"
         )
         .eq("comercio_id", comercio_id)
         .order("orden", desc=True)
@@ -1764,11 +2178,33 @@ def registrar_pedido(comercio_id):
 
     subtotal = round(subtotal, 2)
 
-    # Por ahora mantenemos el comportamiento visual actual:
-    # el envío no se suma automáticamente al carrito.
+    # ----------------------------------------------------------
+    # Costo de envío
+    # Se calcula en servidor desde la configuración del comercio.
+    # No forma parte de la venta de productos: se guarda separado.
+    # ----------------------------------------------------------
+
     costo_envio = 0.0
+
+    if modalidad == "delivery":
+        try:
+            costo_envio = float(
+                configuracion.get("costo_envio") or 0
+            )
+        except (TypeError, ValueError):
+            costo_envio = 0.0
+
+        costo_envio = max(
+            round(costo_envio, 2),
+            0.0
+        )
+
     descuento = 0.0
-    total = subtotal
+
+    total = round(
+        subtotal + costo_envio - descuento,
+        2
+    )
 
     # ----------------------------------------------------------
     # Efectivo
@@ -1835,6 +2271,20 @@ def registrar_pedido(comercio_id):
             )
 
         lineas.append("")
+
+    lineas.append(
+        "Productos: " + pesos(subtotal)
+    )
+
+    if modalidad == "delivery":
+        lineas.append(
+            "Envío: " +
+            (
+                pesos(costo_envio)
+                if costo_envio > 0
+                else "Gratis"
+            )
+        )
 
     lineas.append(
         "Total: " + pesos(total)
