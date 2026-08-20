@@ -3955,14 +3955,24 @@ html {
                 </div>
 
                 <p class="local-compacto-texto">
-                  Puede tener opciones relacionadas con <strong>{{ busqueda }}</strong>.
+                  {% if item.es_gastronomia %}
+                    Encontramos <strong>{{ item.producto_categoria }}</strong> en su menú.
+                  {% else %}
+                    Puede tener opciones relacionadas con <strong>{{ busqueda }}</strong>.
+                  {% endif %}
                 </p>
 
                 <p class="local-compacto-ubicacion">📍 {{ item.ubicacion_mostrar }}</p>
 
                 <div class="local-compacto-acciones">
-                  <a href="/comercio/{{ item.comercio_id }}" class="local-compacto-link">
-                    Ver local
+                  <a href="{{ item.destino_url or ('/comercio/' ~ item.comercio_id) }}" class="local-compacto-link">
+                    {% if item.destino_tipo == 'galeria' %}
+                      Ver opciones
+                    {% elif item.es_gastronomia %}
+                      Ver menú
+                    {% else %}
+                      Ver local
+                    {% endif %}
                   </a>
 
                   {% if item.whatsapp_url %}

@@ -63,6 +63,10 @@ def _formatear_precio(valor):
 @gastronomia_bp.route("")
 @gastronomia_bp.route("/")
 def inicio():
+    busqueda = str(
+        request.args.get("q") or ""
+    ).strip()
+
     config_res = (
         supabase_admin
         .table("gastronomia_configuracion")
@@ -104,7 +108,7 @@ def inicio():
             supabase_admin
             .table("gastronomia_productos")
             .select(
-                "id,comercio_id,nombre,imagen_url,"
+                "id,comercio_id,nombre,descripcion,imagen_url,"
                 "precio,precio_promocional,"
                 "activo,disponible,destacado,"
                 "destacado_hasta,promocion_desde,"
@@ -117,6 +121,35 @@ def inicio():
         )
 
         productos = productos_res.data or []
+
+        # ====================================================
+        # CLICKLOCAL GASTRONOMIA - TEXTO BUSCABLE POR COMERCIO
+        # Permite encontrar un comercio por cualquiera de sus
+        # productos activos y disponibles.
+        # ====================================================
+
+        productos_busqueda_por_comercio = {}
+
+        for producto in productos:
+            if not producto.get("disponible"):
+                continue
+
+            comercio_id_producto = str(
+                producto.get("comercio_id") or ""
+            )
+
+            nombre_producto = str(
+                producto.get("nombre") or ""
+            ).strip()
+
+            if (
+                comercio_id_producto
+                and nombre_producto
+            ):
+                productos_busqueda_por_comercio.setdefault(
+                    comercio_id_producto,
+                    []
+                ).append(nombre_producto)
 
         imagen_por_comercio = {}
 
@@ -149,6 +182,18 @@ def inicio():
                 imagen_por_comercio.get(comercio_id)
                 or comercio.get("logo_url")
             )
+
+            comercio["busqueda_texto"] = " ".join([
+                str(comercio.get("nombre_negocio") or ""),
+                str(comercio.get("categoria") or ""),
+                str(comercio.get("descripcion") or ""),
+                " ".join(
+                    productos_busqueda_por_comercio.get(
+                        comercio_id,
+                        []
+                    )
+                ),
+            ]).strip().lower()
 
             comercios_gastronomicos.append(comercio)
 
@@ -279,6 +324,7 @@ def inicio():
         comercios_gastronomicos=comercios_gastronomicos,
         destacados_gastronomicos=destacados_gastronomicos,
         promos_gastronomicas=promos_gastronomicas,
+        busqueda=busqueda,
     )
 
 

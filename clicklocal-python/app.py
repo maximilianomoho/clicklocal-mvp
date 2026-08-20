@@ -2120,6 +2120,45 @@ def inicio():
         print("PORTADA preparación inicial: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
         _clicklocal_etapa_inicio = _clicklocal_time.perf_counter()
 
+        # ====================================================
+        # CLICKLOCAL - BUSCADOR UNIVERSAL GASTRONOMIA V1
+        #
+        # Un comercio con Gastronomía activa conserva sus datos
+        # tradicionales en la base, pero en una búsqueda pública
+        # su representación oficial pasa a ser Gastronomía.
+        # ====================================================
+
+        gastronomia_ids = set()
+
+        if busqueda_normalizada:
+            try:
+                gastronomia_config_res = (
+                    supabase_admin
+                    .table("gastronomia_configuracion")
+                    .select("comercio_id")
+                    .eq("activo", True)
+                    .execute()
+                )
+
+                gastronomia_ids = {
+                    str(item.get("comercio_id"))
+                    for item in (
+                        gastronomia_config_res.data or []
+                    )
+                    if item.get("comercio_id")
+                }
+
+            except Exception as error:
+                print(
+                    "AVISO BUSCADOR UNIVERSAL - "
+                    "gastronomia_configuracion:",
+                    type(error),
+                    error,
+                    flush=True
+                )
+                gastronomia_ids = set()
+
+        # ====================================================
         # 1) PRIMER NIVEL: PUBLICACIONES ACTIVAS
         # ====================================================
         limite = 200 if busqueda else 80
@@ -2156,6 +2195,15 @@ def inicio():
             comercio_pub = comercios_por_id.get(comercio_id, {})
 
             if not comercio_pub or comercio_pub.get("activo") is False:
+                continue
+
+            # En búsquedas públicas, un comercio gastronómico
+            # activo no se muestra mediante publicaciones viejas.
+            # Se incorporará más abajo desde gastronomia_productos.
+            if (
+                busqueda_normalizada
+                and str(comercio_id) in gastronomia_ids
+            ):
                 continue
 
             if (
@@ -2352,6 +2400,10 @@ def inicio():
 
                 comercios_vistos.add(comercio_id)
 
+                es_gastronomia = (
+                    str(comercio_id) in gastronomia_ids
+                )
+
                 comercios_relacionados.append({
                     "comercio_id": comercio_id,
                     "lista_buscable_id": lista.get("id"),
@@ -2362,9 +2414,357 @@ def inicio():
                     "whatsapp_url": whatsapp_url(comercio_lista, busqueda),
                     "imagen_url": imagen_por_comercio.get(comercio_id, ""),
                     "plan": str(comercio_lista.get("plan") or "gratis").lower(),
+                    "es_gastronomia": es_gastronomia,
+                    "destino_url": (
+                        f"/gastronomia/comercio/{comercio_id}"
+                        if es_gastronomia
+                        else f"/comercio/{comercio_id}"
+                    ),
                     "_score_busqueda": lista.get("_score_busqueda", 0),
                     "_coincidencias": lista.get("_coincidencias") or [],
                 })
+
+            # ====================================================
+            # 3) PRODUCTOS GASTRONOMICOS
+            # ====================================================
+
+            if gastronomia_ids:
+
+                try:
+                    productos_gastro_res = (
+                        supabase_admin
+                        .table("gastronomia_productos")
+                        .select(
+                            "id,comercio_id,nombre,descripcion,"
+                            "imagen_url,precio,precio_promocional,"
+                            "activo,disponible"
+                        )
+                        .in_(
+                            "comercio_id",
+                            list(gastronomia_ids)
+                        )
+                        .eq("activo", True)
+                        .eq("disponible", True)
+                        .execute()
+                    )
+
+                    productos_gastro = (
+                        productos_gastro_res.data or []
+                    )
+
+                    comercio_ids_gastro = {
+                        producto.get("comercio_id")
+                        for producto in productos_gastro
+                        if producto.get("comercio_id")
+                    }
+
+                    comercios_gastro_por_id = (
+                        cargar_comercios_por_id(
+                            comercio_ids_gastro
+                        )
+                    )
+
+                    mejores_gastro_por_comercio = {}
+
+                    for producto in productos_gastro:
+
+                        comercio_id = producto.get(
+                            "comercio_id"
+                        )
+
+                        if not comercio_id:
+                            continue
+
+                        comercio_gastro = (
+                            comercios_gastro_por_id.get(
+                                comercio_id,
+                                {}
+                            )
+                        )
+
+                        if (
+                            not comercio_gastro
+                            or comercio_gastro.get(
+                                "activo"
+                            ) is False
+                        ):
+                            continue
+
+                        score_nombre, coincidencias_nombre = (
+                            calcular_score_busqueda(
+                                producto.get("nombre"),
+                                peso=5
+                            )
+                        )
+
+                        score_descripcion, coincidencias_descripcion = (
+                            calcular_score_busqueda(
+                                producto.get(
+                                    "descripcion"
+                                ),
+                                peso=2
+                            )
+                        )
+
+                        score_comercio, coincidencias_comercio = (
+                            calcular_score_busqueda(
+                                " ".join([
+                                    str(
+                                        comercio_gastro.get(
+                                            "nombre_negocio"
+                                        ) or ""
+                                    ),
+                                    str(
+                                        comercio_gastro.get(
+                                            "categoria"
+                                        ) or ""
+                                    ),
+                                    str(
+                                        comercio_gastro.get(
+                                            "ciudad"
+                                        ) or ""
+                                    ),
+                                ]),
+                                peso=1
+                            )
+                        )
+
+                        score_total = (
+                            score_nombre
+                            + score_descripcion
+                            + score_comercio
+                        )
+
+                        nombre_normalizado_producto = (
+                            normalizar_texto(
+                                producto.get("nombre")
+                            )
+                        )
+
+                        if (
+                            busqueda_normalizada
+                            and busqueda_normalizada
+                            in nombre_normalizado_producto
+                        ):
+                            score_total += 10
+
+                        coincidencias = unir_coincidencias(
+                            coincidencias_nombre,
+                            coincidencias_descripcion,
+                            coincidencias_comercio
+                        )
+
+                        score_total += (
+                            bonus_cobertura_busqueda(
+                                coincidencias
+                            )
+                        )
+
+                        if not (
+                            cumple_minimo_coincidencias_busqueda(
+                                coincidencias
+                            )
+                        ):
+                            continue
+
+                        actual = (
+                            mejores_gastro_por_comercio.get(
+                                comercio_id
+                            )
+                        )
+
+                        if (
+                            actual
+                            and actual.get(
+                                "_score_busqueda",
+                                0
+                            ) >= score_total
+                        ):
+                            continue
+
+                        precio_producto = (
+                            producto.get(
+                                "precio_promocional"
+                            )
+                            if producto.get(
+                                "precio_promocional"
+                            ) is not None
+                            else producto.get("precio")
+                        )
+
+                        mejores_gastro_por_comercio[
+                            comercio_id
+                        ] = {
+                            "comercio_id": comercio_id,
+                            "lista_buscable_id": None,
+                            "gastronomia_producto_id": (
+                                producto.get("id")
+                            ),
+                            "nombre_negocio": (
+                                comercio_gastro.get(
+                                    "nombre_negocio"
+                                )
+                                or "Comercio local"
+                            ),
+                            "producto_categoria": (
+                                producto.get("nombre")
+                                or "Producto gastronómico"
+                            ),
+                            "atributos_texto": (
+                                producto.get(
+                                    "descripcion"
+                                )
+                                or ""
+                            ),
+                            "ubicacion_mostrar": (
+                                ubicacion_publica(
+                                    comercio_gastro
+                                )
+                            ),
+                            "whatsapp_url": "",
+                            "imagen_url": (
+                                producto.get("imagen_url")
+                                or imagen_por_comercio.get(
+                                    comercio_id,
+                                    ""
+                                )
+                            ),
+                            "precio": precio_producto,
+                            "plan": str(
+                                comercio_gastro.get(
+                                    "plan"
+                                )
+                                or "gratis"
+                            ).lower(),
+                            "es_gastronomia": True,
+                            "destino_url": (
+                                f"/gastronomia/comercio/"
+                                f"{comercio_id}"
+                            ),
+                            "_score_busqueda": score_total,
+                            "_coincidencias": coincidencias,
+                        }
+
+                    # =================================================
+                    # CLICKLOCAL - DESTINO DIRECTO GASTRONOMIA V1
+                    #
+                    # Si la consulta coincide con productos de Gastronomía,
+                    # no mostramos una tarjeta intermedia en el home.
+                    # Abrimos directamente la galería gastronómica filtrada.
+                    # =================================================
+
+                    comercio_exacto_id = None
+
+                    for (
+                        comercio_id_gastro,
+                        comercio_data_gastro
+                    ) in comercios_gastro_por_id.items():
+
+                        nombre_gastro_normalizado = normalizar_texto(
+                            comercio_data_gastro.get(
+                                "nombre_negocio"
+                            )
+                        )
+
+                        if (
+                            nombre_gastro_normalizado
+                            == busqueda_normalizada
+                        ):
+                            comercio_exacto_id = (
+                                comercio_id_gastro
+                            )
+                            break
+
+                    if comercio_exacto_id:
+                        return redirect(
+                            url_for(
+                                "gastronomia.comercio_gastronomico",
+                                comercio_id=comercio_exacto_id
+                            )
+                        )
+
+                    if mejores_gastro_por_comercio:
+                        return redirect(
+                            url_for(
+                                "gastronomia.inicio",
+                                q=busqueda
+                            )
+                        )
+
+                    comercios_relacionados.extend(
+                        mejores_gastro_por_comercio.values()
+                    )
+
+                except Exception as error:
+                    print(
+                        "ERROR BUSCANDO PRODUCTOS "
+                        "GASTRONOMICOS:",
+                        type(error),
+                        error,
+                        flush=True
+                    )
+
+
+            # ====================================================
+            # CONSOLIDAR RESULTADOS POR COMERCIO
+            #
+            # Un negocio puede coincidir por lista tradicional y
+            # por producto gastronómico. Mostramos una sola vez.
+            # Gastronomía tiene prioridad como experiencia pública.
+            # ====================================================
+
+            mejores_por_comercio = {}
+
+            for item in comercios_relacionados:
+
+                comercio_id = item.get("comercio_id")
+
+                if not comercio_id:
+                    continue
+
+                actual = mejores_por_comercio.get(
+                    comercio_id
+                )
+
+                if not actual:
+                    mejores_por_comercio[
+                        comercio_id
+                    ] = item
+                    continue
+
+                item_gastro = bool(
+                    item.get("es_gastronomia")
+                )
+
+                actual_gastro = bool(
+                    actual.get("es_gastronomia")
+                )
+
+                if item_gastro and not actual_gastro:
+                    mejores_por_comercio[
+                        comercio_id
+                    ] = item
+                    continue
+
+                if (
+                    item_gastro == actual_gastro
+                    and item.get(
+                        "_score_busqueda",
+                        0
+                    )
+                    > actual.get(
+                        "_score_busqueda",
+                        0
+                    )
+                ):
+                    mejores_por_comercio[
+                        comercio_id
+                    ] = item
+
+            comercios_relacionados = list(
+                mejores_por_comercio.values()
+            )
+
 
             # Regla ClickLocal:
             # la búsqueda manda. Premium solo desempata dentro de resultados relevantes.
@@ -2376,6 +2776,49 @@ def inicio():
                 ),
                 reverse=True
             )
+
+            for item in comercios_relacionados:
+                comercio_id = item.get("comercio_id")
+
+                if str(comercio_id) in gastronomia_ids:
+
+                    item["es_gastronomia"] = True
+
+                    nombre_comercio_normalizado = (
+                        normalizar_texto(
+                            item.get("nombre_negocio")
+                        )
+                    )
+
+                    # Si el usuario escribió exactamente el nombre
+                    # del comercio, entra directamente a su menú.
+                    if (
+                        busqueda_normalizada
+                        == nombre_comercio_normalizado
+                    ):
+                        item["destino_url"] = (
+                            f"/gastronomia/comercio/"
+                            f"{comercio_id}"
+                        )
+                        item["destino_tipo"] = "menu"
+
+                    # Si buscó un producto/comida, abrimos la
+                    # galería gastronómica con TODAS las opciones.
+                    else:
+                        item["destino_url"] = url_for(
+                            "gastronomia.inicio",
+                            q=busqueda
+                        )
+                        item["destino_tipo"] = "galeria"
+
+                    # Primero debe elegir comercio/producto.
+                    item["whatsapp_url"] = ""
+
+                elif not item.get("destino_url"):
+
+                    item["destino_url"] = (
+                        f"/comercio/{comercio_id}"
+                    )
 
         if busqueda_normalizada:
             busqueda_id = analytics_crear_busqueda(

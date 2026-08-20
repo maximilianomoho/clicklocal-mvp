@@ -2238,6 +2238,58 @@ input{
 }
 
 </style>
+
+<style>
+/* CLICKLOCAL GASTRONOMIA - MICROFONO MENU V1 */
+
+.search-box{
+  position:relative;
+}
+
+.search-box #menuSearch{
+  padding-right:58px;
+}
+
+.menu-voice-button{
+  position:absolute;
+  top:50%;
+  right:7px;
+  transform:translateY(-50%);
+  width:40px;
+  height:40px;
+  padding:0;
+  border:1px solid rgba(104,24,35,.14);
+  border-radius:50%;
+  background:#f7efe7;
+  color:#681823;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+
+.menu-voice-button[hidden]{
+  display:none !important;
+}
+
+.menu-voice-button.escuchando{
+  background:#681823;
+  color:#fff;
+  border-color:#681823;
+  box-shadow:0 0 0 5px rgba(104,24,35,.13);
+  animation:menuMicroPulso 1.1s infinite;
+}
+
+@keyframes menuMicroPulso{
+  0%,100%{
+    transform:translateY(-50%) scale(1);
+  }
+  50%{
+    transform:translateY(-50%) scale(1.07);
+  }
+}
+</style>
+
 </head>
 
 <body>
@@ -2494,7 +2546,35 @@ input{
             type="search"
             placeholder="Buscar en el menú..."
             autocomplete="off"
+            enterkeyhint="search"
           >
+
+          <button
+            id="menuVoiceButton"
+            class="menu-voice-button"
+            type="button"
+            aria-label="Buscar por voz"
+            aria-pressed="false"
+            title="Buscar por voz"
+            hidden
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+              <path d="M5 10a7 7 0 0 0 14 0"></path>
+              <path d="M12 17v5"></path>
+              <path d="M8 22h8"></path>
+            </svg>
+          </button>
 
         </div>
 
@@ -5783,6 +5863,133 @@ document.addEventListener(
   inicializarSelectoresCompactos
 );
 
+</script>
+
+
+<script>
+/* CLICKLOCAL GASTRONOMIA - MICROFONO MENU V1 JS */
+document.addEventListener("DOMContentLoaded", function(){
+
+  const entrada =
+    document.getElementById("menuSearch");
+
+  const boton =
+    document.getElementById("menuVoiceButton");
+
+  if(!entrada || !boton){
+    return;
+  }
+
+  const ReconocimientoVoz =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  if(
+    !ReconocimientoVoz ||
+    !window.isSecureContext
+  ){
+    return;
+  }
+
+  const reconocimiento =
+    new ReconocimientoVoz();
+
+  reconocimiento.lang = "es-AR";
+  reconocimiento.continuous = false;
+  reconocimiento.interimResults = false;
+  reconocimiento.maxAlternatives = 1;
+
+  let escuchando = false;
+
+  boton.hidden = false;
+
+  function actualizarBoton(activo){
+
+    escuchando = activo;
+
+    boton.classList.toggle(
+      "escuchando",
+      activo
+    );
+
+    boton.setAttribute(
+      "aria-pressed",
+      activo ? "true" : "false"
+    );
+
+    const descripcion =
+      activo
+        ? "Detener búsqueda por voz"
+        : "Buscar por voz";
+
+    boton.setAttribute(
+      "aria-label",
+      descripcion
+    );
+
+    boton.title = descripcion;
+  }
+
+  boton.addEventListener(
+    "click",
+    function(){
+
+      if(escuchando){
+        reconocimiento.stop();
+        return;
+      }
+
+      try{
+        reconocimiento.start();
+      }catch(error){
+        actualizarBoton(false);
+      }
+    }
+  );
+
+  reconocimiento.onstart = function(){
+    actualizarBoton(true);
+  };
+
+  reconocimiento.onresult = function(evento){
+
+    const texto =
+      Array.from(evento.results)
+        .map(function(resultado){
+          return resultado[0]
+            ? resultado[0].transcript
+            : "";
+        })
+        .join(" ")
+        .trim();
+
+    if(!texto){
+      return;
+    }
+
+    entrada.value = texto;
+
+    entrada.dispatchEvent(
+      new Event(
+        "input",
+        {
+          bubbles:true
+        }
+      )
+    );
+
+    entrada.focus();
+  };
+
+  reconocimiento.onerror = function(){
+    actualizarBoton(false);
+  };
+
+  reconocimiento.onend = function(){
+    actualizarBoton(false);
+  };
+
+});
 </script>
 
 </body>
