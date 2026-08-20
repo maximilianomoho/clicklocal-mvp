@@ -40,6 +40,13 @@
 </a>
 
 <a
+  href="#configuracion-negocio"
+  class="panel-menu-link"
+>
+  Entrega y pedidos
+</a>
+
+<a
   href="#listas"
   class="panel-menu-link"
 >
@@ -54,8 +61,9 @@
 </a>
 
 <a
-  href="#plan"
-  class="panel-menu-link"
+  href="#"
+  class="panel-menu-link abrir-premium-modal"
+  data-premium-origen="plan"
 >
   Mi plan
 </a>
@@ -76,6 +84,388 @@
 
 
 {% block panel_contenido_principal %}
+
+
+
+
+<article
+  id="configuracion-negocio"
+  class="panel-card"
+>
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">
+        PEDIDOS
+      </p>
+
+      <h2>
+        Entrega y tiempos
+      </h2>
+
+      <p class="panel-descripcion">
+        Configurá cómo recibís los pedidos y
+        los datos que verá el cliente.
+      </p>
+    </div>
+  </div>
+
+
+  {% if request.args.get("configuracion_ok") == "1" %}
+    <div
+      style="
+        margin-bottom:16px;
+        padding:14px;
+        border-radius:12px;
+        background:#e8f7ee;
+        color:#166534;
+        font-weight:700;
+      "
+    >
+      Configuración actualizada correctamente.
+    </div>
+  {% endif %}
+
+
+  {% set error_config = request.args.get(
+    "configuracion_error"
+  ) %}
+
+  {% if error_config %}
+    <div
+      style="
+        margin-bottom:16px;
+        padding:14px;
+        border-radius:12px;
+        background:#fff1f1;
+        color:#991b1b;
+        font-weight:700;
+      "
+    >
+      {% if error_config == "modalidad" %}
+        Elegí al menos una modalidad:
+        Delivery o Retiro en el local.
+      {% elif error_config == "pedido_minimo" %}
+        El pedido mínimo ingresado no es válido.
+      {% elif error_config == "costo_envio" %}
+        El costo de envío ingresado no es válido.
+      {% elif error_config == "tiempo" %}
+        Ingresá un tiempo estimado válido en minutos.
+      {% else %}
+        No se pudo guardar la configuración.
+        Intentá nuevamente.
+      {% endif %}
+    </div>
+  {% endif %}
+
+
+  <form
+    method="post"
+    action="{{ url_for(
+      'gastronomia.guardar_configuracion_negocio'
+    ) }}"
+  >
+
+    <div
+      style="
+        display:grid;
+        grid-template-columns:
+          repeat(auto-fit, minmax(210px, 1fr));
+        gap:12px;
+        margin-bottom:20px;
+      "
+    >
+
+      <label
+        style="
+          display:flex;
+          align-items:center;
+          gap:10px;
+          padding:14px;
+          border:1px solid #ddd;
+          border-radius:12px;
+          cursor:pointer;
+        "
+      >
+        <input
+          type="checkbox"
+          name="acepta_delivery"
+          {% if configuracion.acepta_delivery %}
+            checked
+          {% endif %}
+        >
+
+        <strong>Delivery</strong>
+      </label>
+
+
+      <label
+        style="
+          display:flex;
+          align-items:center;
+          gap:10px;
+          padding:14px;
+          border:1px solid #ddd;
+          border-radius:12px;
+          cursor:pointer;
+        "
+      >
+        <input
+          type="checkbox"
+          name="acepta_retiro"
+          {% if configuracion.acepta_retiro %}
+            checked
+          {% endif %}
+        >
+
+        <strong>Retiro en el local</strong>
+      </label>
+
+    </div>
+
+
+    <div
+      style="
+        display:grid;
+        grid-template-columns:
+          repeat(auto-fit, minmax(210px, 1fr));
+        gap:16px;
+      "
+    >
+
+      <label>
+        <strong>
+          Pedido mínimo
+        </strong>
+
+        <input
+          type="text"
+          name="pedido_minimo"
+          inputmode="decimal"
+          placeholder="Sin mínimo"
+          value="{% if configuracion.pedido_minimo is not none %}{{ configuracion.pedido_minimo }}{% endif %}"
+          style="
+            width:100%;
+            margin-top:7px;
+            padding:11px 12px;
+            border:1px solid #ccc;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <small
+          style="
+            display:block;
+            margin-top:6px;
+            color:#666;
+          "
+        >
+          Opcional.
+        </small>
+      </label>
+
+
+      <label>
+        <strong>
+          Costo de envío
+        </strong>
+
+        <input
+          type="text"
+          name="costo_envio"
+          inputmode="decimal"
+          placeholder="Ej.: 1500"
+          value="{% if configuracion.costo_envio is not none %}{{ configuracion.costo_envio }}{% endif %}"
+          style="
+            width:100%;
+            margin-top:7px;
+            padding:11px 12px;
+            border:1px solid #ccc;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <small
+          style="
+            display:block;
+            margin-top:6px;
+            color:#666;
+          "
+        >
+          Poné 0 si el Delivery es gratis.
+        </small>
+      </label>
+
+
+      <label>
+        <strong>
+          Tiempo estimado
+        </strong>
+
+        <input
+          type="number"
+          name="tiempo_estimado_min"
+          min="1"
+          step="1"
+          required
+          value="{{ configuracion.tiempo_estimado_min or '' }}"
+          style="
+            width:100%;
+            margin-top:7px;
+            padding:11px 12px;
+            border:1px solid #ccc;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <small
+          style="
+            display:block;
+            margin-top:6px;
+            color:#666;
+          "
+        >
+          En minutos.
+        </small>
+      </label>
+
+    </div>
+
+
+    <div style="margin-top:20px;">
+      <button
+        type="submit"
+        class="btn-principal"
+      >
+        Guardar configuración
+      </button>
+    </div>
+
+  </form>
+
+</article>
+
+
+<article
+  id="metricas-gastronomia"
+  class="panel-card gastronomia-metricas-card"
+>
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">
+        RENDIMIENTO
+      </p>
+
+      <h2>
+        Resumen del negocio
+      </h2>
+
+      <p class="panel-descripcion">
+        Pedidos y ventas registrados por ClickLocal.
+      </p>
+    </div>
+
+    {% if es_premium %}
+      <span class="badge">Premium</span>
+    {% else %}
+      <span class="badge">🔒 Premium</span>
+    {% endif %}
+  </div>
+
+
+  <div class="gastronomia-periodos">
+
+    {% for valor, etiqueta in [
+      ("hoy", "Hoy"),
+      ("30", "30 días"),
+      ("60", "60 días"),
+      ("90", "90 días")
+    ] %}
+
+      <a
+        href="{{ url_for(
+          'gastronomia.panel_gastronomia',
+          periodo_metricas=valor
+        ) }}#metricas-gastronomia"
+        class="gastronomia-periodo {% if periodo_metricas == valor %}activo{% endif %}"
+      >
+        {{ etiqueta }}
+      </a>
+
+    {% endfor %}
+
+  </div>
+
+
+  <div class="gastronomia-metricas-grid">
+
+    <button
+      type="button"
+      class="gastronomia-metrica {% if not es_premium %}abrir-premium-modal metrica-bloqueada{% endif %}"
+      {% if not es_premium %}
+      data-premium-origen="metricas"
+      {% endif %}
+    >
+      <span class="gastronomia-metrica-label">
+        Pedidos
+      </span>
+
+      <strong>
+        {% if es_premium %}
+          {{ metricas_gastronomia.pedidos }}
+        {% else %}
+          🔒
+        {% endif %}
+      </strong>
+    </button>
+
+
+    <button
+      type="button"
+      class="gastronomia-metrica {% if not es_premium %}abrir-premium-modal metrica-bloqueada{% endif %}"
+      {% if not es_premium %}
+      data-premium-origen="metricas"
+      {% endif %}
+    >
+      <span class="gastronomia-metrica-label">
+        Ventas
+      </span>
+
+      <strong>
+        {% if es_premium %}
+          {{ metricas_gastronomia.ventas | precio_arg }}
+        {% else %}
+          🔒
+        {% endif %}
+      </strong>
+    </button>
+
+
+    <button
+      type="button"
+      class="gastronomia-metrica {% if not es_premium %}abrir-premium-modal metrica-bloqueada{% endif %}"
+      {% if not es_premium %}
+      data-premium-origen="metricas"
+      {% endif %}
+    >
+      <span class="gastronomia-metrica-label">
+        Ticket promedio
+      </span>
+
+      <strong>
+        {% if es_premium %}
+          {{ metricas_gastronomia.ticket_promedio | precio_arg }}
+        {% else %}
+          🔒
+        {% endif %}
+      </strong>
+    </button>
+
+  </div>
+</article>
+
 
 <article
   id="producto"
@@ -454,7 +844,71 @@
               </div>
             {% endif %}
 
+
+
+          {% if es_premium %}
+
+          {% set rendimiento = metricas_por_producto.get(
+            producto.id|string,
+            {}
+          ) %}
+
+          <div class="rendimiento-producto-gastronomia">
+
+            <div class="rendimiento-producto-cabecera">
+              <strong>Rendimiento</strong>
+
+              <span>
+                {% if periodo_metricas == "hoy" %}
+                  Hoy
+                {% else %}
+                  {{ periodo_metricas }} días
+                {% endif %}
+              </span>
+            </div>
+
+            <div class="rendimiento-producto-datos">
+              <span>
+                🍽
+                {{ rendimiento.get("unidades", 0) }}
+                unidades
+              </span>
+
+              <span>
+                🧾
+                {{ rendimiento.get("pedidos", 0) }}
+                pedidos
+              </span>
+
+              <span>
+                💰
+                {{ rendimiento.get("ventas", 0) | precio_arg }}
+              </span>
+            </div>
+
           </div>
+
+          {% else %}
+
+          <button
+            type="button"
+            class="rendimiento-producto-gastronomia rendimiento-producto-bloqueado abrir-premium-modal"
+            data-premium-origen="metricas"
+          >
+            <strong>
+              Rendimiento 🔒
+            </strong>
+
+            <span>
+              Disponible en Gastronomía Premium
+            </span>
+          </button>
+
+          {% endif %}
+
+
+          </div>
+
 
 
           <div class="acciones-publicacion">
@@ -475,6 +929,8 @@
             </button>
 
 
+            {% if es_premium %}
+
             <a
               href="{{ url_for(
                 'gastronomia.extras_producto',
@@ -483,6 +939,18 @@
             >
               Extras
             </a>
+
+            {% else %}
+
+            <button
+              type="button"
+              class="abrir-premium-modal premium-bloqueado-btn"
+              data-premium-origen="extras"
+            >
+              Extras 🔒
+            </button>
+
+            {% endif %}
 
 
             <form
@@ -521,6 +989,9 @@
 
 
           <div class="acciones-visibilidad">
+
+            {% if es_premium %}
+
 
             {% if producto.activo %}
 
@@ -694,7 +1165,28 @@
 
             {% endif %}
 
-          </div>
+          
+            {% else %}
+
+            <button
+              type="button"
+              class="abrir-premium-modal premium-bloqueado-btn"
+              data-premium-origen="destacados"
+            >
+              Destacar 🔒
+            </button>
+
+            <button
+              type="button"
+              class="abrir-premium-modal premium-bloqueado-btn"
+              data-premium-origen="promociones"
+            >
+              Promociones 🔒
+            </button>
+
+            {% endif %}
+
+</div>
 
           </div>
 
@@ -1085,6 +1577,456 @@
   });
 
 
+</script>
+
+
+<style>
+.gastronomia-metricas-card{
+  margin-bottom:20px;
+}
+
+.gastronomia-periodos{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:16px;
+  margin-bottom:14px;
+}
+
+.gastronomia-periodo{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 13px;
+  border:1px solid #d9dde5;
+  border-radius:999px;
+  background:#fff;
+  color:#394150;
+  text-decoration:none;
+  font-size:13px;
+  font-weight:700;
+}
+
+.gastronomia-periodo.activo{
+  background:#681823;
+  border-color:#681823;
+  color:#fff;
+}
+
+.gastronomia-metricas-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-top:18px;
+}
+
+.gastronomia-metrica{
+  appearance:none;
+  width:100%;
+  border:1px solid #e6e6e6;
+  border-radius:14px;
+  background:#fff;
+  padding:16px;
+  text-align:left;
+  color:inherit;
+  font:inherit;
+}
+
+.gastronomia-metrica-label{
+  display:block;
+  font-size:13px;
+  color:#666;
+  margin-bottom:7px;
+}
+
+.gastronomia-metrica strong{
+  display:block;
+  font-size:22px;
+  line-height:1.15;
+}
+
+.metrica-bloqueada,
+.premium-bloqueado-btn{
+  cursor:pointer;
+}
+
+.metrica-bloqueada{
+  background:#fafafa;
+}
+
+.rendimiento-producto-gastronomia{
+  width:100%;
+  box-sizing:border-box;
+  margin:12px 0;
+  padding:11px 14px;
+  border:1px solid #dfe4ea;
+  border-radius:12px;
+  background:#f8fafc;
+  color:#394150;
+  text-align:left;
+}
+
+.rendimiento-producto-cabecera{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:7px;
+  font-size:12px;
+}
+
+.rendimiento-producto-cabecera span{
+  color:#6b7280;
+}
+
+.rendimiento-producto-datos{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  font-size:13px;
+  font-weight:700;
+}
+
+.rendimiento-producto-bloqueado{
+  cursor:pointer;
+  font:inherit;
+}
+
+.rendimiento-producto-bloqueado strong,
+.rendimiento-producto-bloqueado span{
+  display:block;
+}
+
+.rendimiento-producto-bloqueado span{
+  margin-top:4px;
+  color:#6b7280;
+  font-size:12px;
+}
+
+.premium-modal-fondo{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(0,0,0,.48);
+}
+
+.premium-modal-fondo.visible{
+  display:flex;
+}
+
+.premium-modal{
+  width:min(560px,100%);
+  max-height:90vh;
+  overflow:auto;
+  background:#fff;
+  border-radius:20px;
+  padding:24px;
+  box-shadow:0 24px 80px rgba(0,0,0,.22);
+}
+
+.premium-modal-cabecera{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.premium-modal-cerrar{
+  border:0;
+  background:#f3f3f3;
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  cursor:pointer;
+  font-size:20px;
+}
+
+.premium-modal-estado{
+  margin:16px 0;
+  padding:12px 14px;
+  border-radius:12px;
+  background:#f7f7f7;
+  font-weight:700;
+}
+
+.premium-comparacion{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin:18px 0;
+}
+
+.premium-plan-box{
+  border:1px solid #e5e5e5;
+  border-radius:14px;
+  padding:16px;
+}
+
+.premium-plan-box h3{
+  margin:0 0 10px;
+}
+
+.premium-plan-box ul{
+  margin:0;
+  padding-left:19px;
+}
+
+.premium-plan-box li{
+  margin:7px 0;
+}
+
+.premium-plan-destacado{
+  border-color:#681823;
+}
+
+.premium-modal-cta{
+  width:100%;
+  border:0;
+  border-radius:999px;
+  padding:13px 18px;
+  background:#681823;
+  color:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+
+@media (max-width:700px){
+  .gastronomia-metricas-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .premium-comparacion{
+    grid-template-columns:1fr;
+  }
+}
+</style>
+
+
+<div
+  id="premium-gastronomia-modal"
+  class="premium-modal-fondo"
+  aria-hidden="true"
+>
+  <div
+    class="premium-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="premium-modal-titulo"
+  >
+    <div class="premium-modal-cabecera">
+      <div>
+        <p class="titulo-chico">
+          GASTRONOMÍA
+        </p>
+
+        <h2 id="premium-modal-titulo">
+          Gastronomía Premium
+        </h2>
+      </div>
+
+      <button
+        type="button"
+        class="premium-modal-cerrar"
+        aria-label="Cerrar"
+      >
+        ×
+      </button>
+    </div>
+
+    <p
+      id="premium-modal-mensaje"
+      class="panel-descripcion"
+    >
+      Compará las funciones disponibles en cada plan.
+    </p>
+
+    {% if not es_premium %}
+    <div class="premium-modal-estado">
+      Tu plan actual: Gratis ·
+      {{ cantidad_productos_activos }}
+      de
+      {{ limite_productos_gratis }}
+      productos activos
+    </div>
+    {% else %}
+    <div class="premium-modal-estado">
+      Tu plan actual: Premium
+    </div>
+    {% endif %}
+
+
+    <div class="premium-comparacion">
+
+      <div class="premium-plan-box">
+        <h3>Gratis</h3>
+
+        <ul>
+          <li>Hasta 10 productos activos</li>
+          <li>1 foto por producto</li>
+          <li>Crear y editar productos</li>
+          <li>Pausar y reactivar</li>
+          <li>Eliminar productos</li>
+        </ul>
+      </div>
+
+
+      <div class="premium-plan-box premium-plan-destacado">
+        <h3>Premium</h3>
+
+        <ul>
+          <li>Más capacidad de productos</li>
+          <li>Extras y modificadores</li>
+          <li>Promociones</li>
+          <li>Productos destacados</li>
+          <li>Métricas de pedidos y ventas</li>
+          <li>Rendimiento detallado por producto</li>
+        </ul>
+      </div>
+
+    </div>
+
+
+    {% if not es_premium %}
+    <form
+      method="POST"
+      action="{{ url_for('solicitar_premium') }}"
+    >
+      <button
+        type="submit"
+        class="premium-modal-cta"
+      >
+        Pasar a Gastronomía Premium
+      </button>
+    </form>
+    {% endif %}
+
+  </div>
+</div>
+
+
+<script>
+(function(){
+
+  const fondo =
+    document.getElementById(
+      "premium-gastronomia-modal"
+    );
+
+  if(!fondo){
+    return;
+  }
+
+  const mensaje =
+    document.getElementById(
+      "premium-modal-mensaje"
+    );
+
+  const textos = {
+    plan:
+      "Compará las funciones disponibles en cada plan.",
+
+    extras:
+      "Los extras y modificadores están disponibles en Gastronomía Premium.",
+
+    promociones:
+      "Las promociones están disponibles en Gastronomía Premium.",
+
+    destacados:
+      "Destacar productos está disponible en Gastronomía Premium.",
+
+    metricas:
+      "Las métricas de pedidos, ventas y rendimiento por producto están disponibles en Gastronomía Premium."
+  };
+
+
+  function abrir(origen){
+    if(mensaje){
+      mensaje.textContent =
+        textos[origen] || textos.plan;
+    }
+
+    fondo.classList.add("visible");
+    fondo.setAttribute(
+      "aria-hidden",
+      "false"
+    );
+  }
+
+
+  function cerrar(){
+    fondo.classList.remove("visible");
+    fondo.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+  }
+
+
+  document
+    .querySelectorAll(
+      ".abrir-premium-modal"
+    )
+    .forEach(function(elemento){
+
+      elemento.addEventListener(
+        "click",
+        function(evento){
+          evento.preventDefault();
+
+          abrir(
+            elemento.dataset.premiumOrigen
+            || "plan"
+          );
+        }
+      );
+    });
+
+
+  const cerrarBoton =
+    fondo.querySelector(
+      ".premium-modal-cerrar"
+    );
+
+  if(cerrarBoton){
+    cerrarBoton.addEventListener(
+      "click",
+      cerrar
+    );
+  }
+
+
+  fondo.addEventListener(
+    "click",
+    function(evento){
+      if(evento.target === fondo){
+        cerrar();
+      }
+    }
+  );
+
+
+  document.addEventListener(
+    "keydown",
+    function(evento){
+      if(evento.key === "Escape"){
+        cerrar();
+      }
+    }
+  );
+
+
+  const origenBackend =
+    {{ (request.args.get("premium_bloqueado") or "") | tojson }};
+
+  if(origenBackend){
+    abrir(origenBackend);
+  }
+
+})();
 </script>
 
 {% endblock %}

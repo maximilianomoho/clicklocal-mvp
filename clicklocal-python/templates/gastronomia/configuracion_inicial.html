@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+  <title>Configurar Gastronomía | ClickLocal</title>
+
+  <style>
+    *{
+      box-sizing:border-box;
+    }
+
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      background:#f7f7f5;
+      color:#242424;
+    }
+
+    .pagina{
+      width:min(680px, calc(100% - 28px));
+      margin:0 auto;
+      padding:28px 0 50px;
+    }
+
+    .marca{
+      font-weight:800;
+      font-size:22px;
+      margin-bottom:22px;
+    }
+
+    .tarjeta{
+      background:#fff;
+      border:1px solid #e6e3dd;
+      border-radius:20px;
+      padding:24px;
+      box-shadow:0 8px 28px rgba(0,0,0,.05);
+    }
+
+    h1{
+      margin:0 0 8px;
+      font-size:28px;
+      line-height:1.15;
+    }
+
+    .subtitulo{
+      margin:0 0 24px;
+      color:#686868;
+      line-height:1.5;
+    }
+
+    .error{
+      padding:12px 14px;
+      margin-bottom:18px;
+      border:1px solid #e2b8b8;
+      background:#fff2f2;
+      border-radius:12px;
+      color:#8b2525;
+    }
+
+    .grupo{
+      margin-bottom:22px;
+    }
+
+    .grupo-titulo{
+      font-weight:700;
+      margin-bottom:10px;
+    }
+
+    .opcion{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:13px 14px;
+      border:1px solid #dedbd5;
+      border-radius:12px;
+      margin-bottom:9px;
+      cursor:pointer;
+    }
+
+    .opcion input{
+      width:19px;
+      height:19px;
+      margin:0;
+    }
+
+    label.campo{
+      display:block;
+      margin-bottom:18px;
+    }
+
+    label.campo span{
+      display:block;
+      font-weight:700;
+      margin-bottom:7px;
+    }
+
+    label.campo small{
+      display:block;
+      color:#777;
+      margin-top:6px;
+      line-height:1.35;
+    }
+
+    input[type="text"],
+    input[type="number"]{
+      width:100%;
+      min-height:46px;
+      border:1px solid #d6d2cc;
+      border-radius:11px;
+      padding:10px 12px;
+      font-size:16px;
+      background:#fff;
+    }
+
+    input:focus{
+      outline:2px solid #333;
+      outline-offset:1px;
+    }
+
+    .boton{
+      width:100%;
+      border:0;
+      border-radius:13px;
+      min-height:50px;
+      padding:12px 18px;
+      background:#232323;
+      color:white;
+      font-size:16px;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    @media (max-width:600px){
+      .pagina{
+        width:min(100% - 20px, 680px);
+        padding-top:18px;
+      }
+
+      .tarjeta{
+        padding:20px 16px;
+        border-radius:16px;
+      }
+
+      h1{
+        font-size:24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="pagina">
+
+    <div class="marca">ClickLocal</div>
+
+    <section class="tarjeta">
+
+      <h1>Configurá tu negocio gastronómico</h1>
+
+      <p class="subtitulo">
+        {{ comercio.get("nombre_negocio") }}
+        ya está creado. Completá estos datos para
+        empezar a usar Gastronomía.
+      </p>
+
+      {% if error %}
+        <div class="error">{{ error }}</div>
+      {% endif %}
+
+      <form method="post">
+
+        <div class="grupo">
+          <div class="grupo-titulo">
+            ¿Cómo entregás los pedidos?
+          </div>
+
+          <label class="opcion">
+            <input
+              type="checkbox"
+              name="acepta_delivery"
+              {% if request.form.get("acepta_delivery") == "on" %}
+                checked
+              {% endif %}
+            >
+            <span>Delivery</span>
+          </label>
+
+          <label class="opcion">
+            <input
+              type="checkbox"
+              name="acepta_retiro"
+              {% if request.form.get("acepta_retiro") == "on" %}
+                checked
+              {% endif %}
+            >
+            <span>Retiro en el local</span>
+          </label>
+        </div>
+
+        <label class="campo">
+          <span>Pedido mínimo</span>
+
+          <input
+            type="text"
+            name="pedido_minimo"
+            inputmode="decimal"
+            placeholder="Ej.: 10000"
+            value="{{ request.form.get('pedido_minimo', '') }}"
+          >
+
+          <small>
+            Opcional. Dejalo vacío si no tenés mínimo.
+          </small>
+        </label>
+
+        <label class="campo">
+          <span>Costo de envío</span>
+
+          <input
+            type="text"
+            name="costo_envio"
+            inputmode="decimal"
+            placeholder="Ej.: 1500"
+            value="{{ request.form.get('costo_envio', '') }}"
+          >
+
+          <small>
+            Solo se usa si ofrecés Delivery.
+            Podés poner 0 si el envío es gratis.
+          </small>
+        </label>
+
+        <label class="campo">
+          <span>Tiempo estimado</span>
+
+          <input
+            type="number"
+            name="tiempo_estimado_min"
+            min="1"
+            step="1"
+            placeholder="Ej.: 30"
+            value="{{ request.form.get('tiempo_estimado_min', '') }}"
+            required
+          >
+
+          <small>
+            Ingresalo en minutos.
+          </small>
+        </label>
+
+        <button class="boton" type="submit">
+          Guardar y entrar al panel
+        </button>
+
+      </form>
+
+    </section>
+  </main>
+</body>
+</html>

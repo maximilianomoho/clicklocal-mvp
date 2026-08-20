@@ -3981,6 +3981,20 @@ def registro():
             session["comercio"] = comercio_guardado
             session["publicaciones"] = []
 
+            categoria_registro = str(
+                comercio_guardado.get("categoria") or ""
+            ).strip().lower()
+
+            if categoria_registro in {
+                "gastronomía",
+                "gastronomia",
+            }:
+                return redirect(
+                    url_for(
+                        "gastronomia.configuracion_inicial"
+                    )
+                )
+
             return redirect(url_for("panel"))
 
         except Exception as e:
@@ -4121,7 +4135,7 @@ def login():
             }:
                 return redirect(
                     url_for(
-                        "gastronomia.panel_gastronomia"
+                        "gastronomia.configuracion_inicial"
                     )
                 )
 

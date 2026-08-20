@@ -1,6 +1,7 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
-from flask import abort, jsonify, redirect, render_template, request, session, url_for
+from flask import abort, g, jsonify, redirect, render_template, request, session, url_for
 
 from config.supabase_config import supabase_admin
 
@@ -30,6 +31,15 @@ def _esta_vigente(desde=None, hasta=None):
         return False
 
     return True
+
+
+def _es_premium_gastronomia(comercio):
+    return (
+        str((comercio or {}).get("plan") or "gratis")
+        .strip()
+        .lower()
+        == "premium"
+    )
 
 
 def _formatear_precio(valor):
@@ -82,7 +92,7 @@ def inicio():
             .table("comercios")
             .select(
                 "id,nombre_negocio,categoria,descripcion,"
-                "logo_url,direccion,whatsapp"
+                "logo_url,direccion,whatsapp,plan"
             )
             .in_("id", comercio_ids)
             .execute()
@@ -153,6 +163,14 @@ def inicio():
         for comercio in comercios_gastronomicos
     }
 
+    comercios_premium_ids = {
+        str(comercio.get("id"))
+        for comercio in comercios_gastronomicos
+        if str(
+            comercio.get("plan") or "gratis"
+        ).strip().lower() == "premium"
+    }
+
     destacados_gastronomicos = []
     promos_gastronomicas = []
 
@@ -173,7 +191,8 @@ def inicio():
         # ------------------------------------------------------
 
         if (
-            producto.get("destacado")
+            comercio_id in comercios_premium_ids
+            and producto.get("destacado")
             and _esta_vigente(
                 hasta=producto.get("destacado_hasta")
             )
@@ -215,7 +234,8 @@ def inicio():
         )
 
         if (
-            precio_promocional is not None
+            comercio_id in comercios_premium_ids
+            and precio_promocional is not None
             and _esta_vigente(
                 desde=producto.get("promocion_desde"),
                 hasta=producto.get("promocion_hasta"),
@@ -300,7 +320,11 @@ def comercio_gastronomico(comercio_id):
     configuraciones = config_res.data or []
 
     if not configuraciones:
-        abort(404)
+        return redirect(
+            url_for(
+                "gastronomia.configuracion_inicial"
+            )
+        )
 
     configuracion = configuraciones[0]
 
@@ -478,7 +502,9 @@ def _comercio_panel_gastronomia():
             .select(
                 "id,user_id,nombre_negocio,whatsapp,"
                 "direccion,categoria,descripcion,"
-                "logo_url,activo,"
+                "logo_url,activo,plan,estado_plan,"
+                "fecha_inicio_plan,fecha_vencimiento_plan,"
+                "solicitud_premium,"
                 "terminos_version,terminos_aceptados_at"
             )
             .eq("id", comercio_id)
@@ -498,7 +524,9 @@ def _comercio_panel_gastronomia():
             .select(
                 "id,user_id,nombre_negocio,whatsapp,"
                 "direccion,categoria,descripcion,"
-                "logo_url,activo,"
+                "logo_url,activo,plan,estado_plan,"
+                "fecha_inicio_plan,fecha_vencimiento_plan,"
+                "solicitud_premium,"
                 "terminos_version,terminos_aceptados_at"
             )
             .eq("id", comercio_id)
@@ -550,6 +578,33 @@ def toggle_producto_activo(producto_id):
     producto = productos[0]
     nuevo_estado = not bool(producto.get("activo"))
 
+    # Si se intenta ACTIVAR un producto, respetar el límite Gratis.
+    if nuevo_estado:
+        plan_actual = str(
+            comercio.get("plan") or "gratis"
+        ).strip().lower()
+
+        if plan_actual != "premium":
+            activos_res = (
+                supabase_admin
+                .table("gastronomia_productos")
+                .select("id")
+                .eq("comercio_id", comercio_id)
+                .eq("activo", True)
+                .execute()
+            )
+
+            cantidad_activos = len(activos_res.data or [])
+
+            if cantidad_activos >= 10:
+                return redirect(
+                    url_for(
+                        "gastronomia.panel_gastronomia",
+                        limite_productos="1"
+                    )
+                    + "#mis-productos"
+                )
+
     (
         supabase_admin
         .table("gastronomia_productos")
@@ -575,6 +630,15 @@ def destacar_producto(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
+
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="destacados"
+            )
+            + "#mis-productos"
+        )
 
     comercio_id = comercio.get("id")
 
@@ -689,6 +753,15 @@ def quitar_destacado_producto(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
+
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="destacados"
+            )
+            + "#mis-productos"
+        )
 
     comercio_id = comercio.get("id")
 
@@ -834,6 +907,15 @@ def guardar_promocion_producto(producto_id):
     if not comercio:
         return redirect(url_for("login"))
 
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="promociones"
+            )
+            + "#mis-productos"
+        )
+
     comercio_id = comercio.get("id")
 
     producto_res = (
@@ -966,6 +1048,15 @@ def quitar_promocion_producto(producto_id):
     if not comercio:
         return redirect(url_for("login"))
 
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="promociones"
+            )
+            + "#mis-productos"
+        )
+
     comercio_id = comercio.get("id")
 
     (
@@ -1066,6 +1157,340 @@ def eliminar_producto(producto_id):
     )
 
 
+
+@gastronomia_bp.route(
+    "/configuracion-inicial",
+    methods=["GET", "POST"],
+)
+def configuracion_inicial():
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    categoria = str(
+        comercio.get("categoria") or ""
+    ).strip().lower()
+
+    if categoria not in {
+        "gastronomía",
+        "gastronomia",
+    }:
+        return redirect(url_for("panel"))
+
+    comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login"))
+
+    configuracion_res = (
+        supabase_admin
+        .table("gastronomia_configuracion")
+        .select(
+            "comercio_id,activo,acepta_delivery,"
+            "acepta_retiro,pedido_minimo,costo_envio,"
+            "tiempo_estimado_min"
+        )
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+
+    configuraciones = configuracion_res.data or []
+
+    # Si ya está configurado, no vuelve a mostrar el alta.
+    if configuraciones:
+        return redirect(
+            url_for("gastronomia.panel_gastronomia")
+        )
+
+    error = ""
+
+    if request.method == "POST":
+        acepta_delivery = (
+            request.form.get("acepta_delivery") == "on"
+        )
+
+        acepta_retiro = (
+            request.form.get("acepta_retiro") == "on"
+        )
+
+        pedido_minimo_raw = str(
+            request.form.get("pedido_minimo") or ""
+        ).strip()
+
+        costo_envio_raw = str(
+            request.form.get("costo_envio") or ""
+        ).strip()
+
+        tiempo_estimado_raw = str(
+            request.form.get("tiempo_estimado_min") or ""
+        ).strip()
+
+        if not acepta_delivery and not acepta_retiro:
+            error = (
+                "Elegí al menos una modalidad: "
+                "Delivery o Retiro en el local."
+            )
+
+        pedido_minimo = None
+        costo_envio = None
+        tiempo_estimado_min = None
+
+        if not error and pedido_minimo_raw:
+            try:
+                pedido_minimo = float(
+                    pedido_minimo_raw
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(".", "")
+                    .replace(",", ".")
+                )
+
+                if pedido_minimo < 0:
+                    raise ValueError
+
+            except (TypeError, ValueError):
+                error = "El pedido mínimo no es válido."
+
+        if (
+            not error
+            and acepta_delivery
+            and costo_envio_raw
+        ):
+            try:
+                costo_envio = float(
+                    costo_envio_raw
+                    .replace("$", "")
+                    .replace(" ", "")
+                    .replace(".", "")
+                    .replace(",", ".")
+                )
+
+                if costo_envio < 0:
+                    raise ValueError
+
+            except (TypeError, ValueError):
+                error = "El costo de envío no es válido."
+
+        if not error:
+            try:
+                tiempo_estimado_min = int(
+                    tiempo_estimado_raw
+                )
+
+                if tiempo_estimado_min <= 0:
+                    raise ValueError
+
+            except (TypeError, ValueError):
+                error = (
+                    "Ingresá un tiempo estimado válido "
+                    "en minutos."
+                )
+
+        if not error:
+            datos_configuracion = {
+                "comercio_id": comercio_id,
+                "activo": True,
+                "acepta_delivery": acepta_delivery,
+                "acepta_retiro": acepta_retiro,
+                "pedido_minimo": pedido_minimo,
+                "costo_envio": (
+                    costo_envio
+                    if acepta_delivery
+                    else None
+                ),
+                "tiempo_estimado_min": tiempo_estimado_min,
+            }
+
+            try:
+                (
+                    supabase_admin
+                    .table("gastronomia_configuracion")
+                    .insert(datos_configuracion)
+                    .execute()
+                )
+
+                return redirect(
+                    url_for(
+                        "gastronomia.panel_gastronomia"
+                    )
+                )
+
+            except Exception as exc:
+                print(
+                    "ERROR CONFIGURACION INICIAL GASTRONOMIA:",
+                    type(exc),
+                    exc,
+                    flush=True,
+                )
+
+                error = (
+                    "No se pudo guardar la configuración. "
+                    "Intentá nuevamente."
+                )
+
+    return render_template(
+        "gastronomia/configuracion_inicial.html",
+        comercio=comercio,
+        error=error,
+    )
+
+
+
+@gastronomia_bp.route(
+    "/panel/configuracion",
+    methods=["POST"],
+)
+def guardar_configuracion_negocio():
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login"))
+
+    acepta_delivery = (
+        request.form.get("acepta_delivery") == "on"
+    )
+
+    acepta_retiro = (
+        request.form.get("acepta_retiro") == "on"
+    )
+
+    if not acepta_delivery and not acepta_retiro:
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="modalidad",
+            )
+            + "#configuracion-negocio"
+        )
+
+    pedido_minimo_raw = str(
+        request.form.get("pedido_minimo") or ""
+    ).strip()
+
+    costo_envio_raw = str(
+        request.form.get("costo_envio") or ""
+    ).strip()
+
+    tiempo_raw = str(
+        request.form.get("tiempo_estimado_min") or ""
+    ).strip()
+
+    pedido_minimo = None
+
+    if pedido_minimo_raw:
+        try:
+            pedido_minimo = float(
+                pedido_minimo_raw
+                .replace("$", "")
+                .replace(" ", "")
+                .replace(".", "")
+                .replace(",", ".")
+            )
+
+            if pedido_minimo < 0:
+                raise ValueError
+
+        except (TypeError, ValueError):
+            return redirect(
+                url_for(
+                    "gastronomia.panel_gastronomia",
+                    configuracion_error="pedido_minimo",
+                )
+                + "#configuracion-negocio"
+            )
+
+    costo_envio = None
+
+    if acepta_delivery and costo_envio_raw:
+        try:
+            costo_envio = float(
+                costo_envio_raw
+                .replace("$", "")
+                .replace(" ", "")
+                .replace(".", "")
+                .replace(",", ".")
+            )
+
+            if costo_envio < 0:
+                raise ValueError
+
+        except (TypeError, ValueError):
+            return redirect(
+                url_for(
+                    "gastronomia.panel_gastronomia",
+                    configuracion_error="costo_envio",
+                )
+                + "#configuracion-negocio"
+            )
+
+    try:
+        tiempo_estimado_min = int(tiempo_raw)
+
+        if tiempo_estimado_min <= 0:
+            raise ValueError
+
+    except (TypeError, ValueError):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="tiempo",
+            )
+            + "#configuracion-negocio"
+        )
+
+    datos = {
+        "acepta_delivery": acepta_delivery,
+        "acepta_retiro": acepta_retiro,
+        "pedido_minimo": pedido_minimo,
+        "costo_envio": (
+            costo_envio
+            if acepta_delivery
+            else None
+        ),
+        "tiempo_estimado_min": tiempo_estimado_min,
+    }
+
+    try:
+        (
+            supabase_admin
+            .table("gastronomia_configuracion")
+            .update(datos)
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+
+    except Exception as error:
+        print(
+            "ERROR ACTUALIZANDO CONFIGURACION GASTRONOMIA:",
+            type(error),
+            error,
+            flush=True,
+        )
+
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="guardar",
+            )
+            + "#configuracion-negocio"
+        )
+
+    return redirect(
+        url_for(
+            "gastronomia.panel_gastronomia",
+            configuracion_ok="1",
+        )
+        + "#configuracion-negocio"
+    )
+
+
 @gastronomia_bp.route("/panel", methods=["GET", "POST"])
 def panel_gastronomia():
     comercio = _comercio_panel_gastronomia()
@@ -1091,7 +1516,11 @@ def panel_gastronomia():
     configuraciones = configuracion_res.data or []
 
     if not configuraciones:
-        abort(404)
+        return redirect(
+            url_for(
+                "gastronomia.configuracion_inicial"
+            )
+        )
 
     configuracion = configuraciones[0]
 
@@ -1125,6 +1554,71 @@ def panel_gastronomia():
 
     productos = productos_res.data or []
 
+    # --------------------------------------------------------
+    # PLAN GASTRONOMIA
+    # Gratis: máximo 10 productos activos.
+    # Premium: sin este límite reducido.
+    # --------------------------------------------------------
+    plan_actual = str(
+        comercio.get("plan") or "gratis"
+    ).strip().lower()
+
+    if plan_actual != "premium":
+        plan_actual = "gratis"
+
+    comercio["plan_actual"] = plan_actual
+    comercio["plan_nombre"] = (
+        "Premium"
+        if plan_actual == "premium"
+        else "Gratis"
+    )
+
+    comercio["fecha_vencimiento_plan_mostrar"] = None
+    comercio["dias_restantes_plan"] = None
+
+    if (
+        plan_actual == "premium"
+        and comercio.get("fecha_vencimiento_plan")
+    ):
+        try:
+            vencimiento_plan = date.fromisoformat(
+                str(
+                    comercio.get(
+                        "fecha_vencimiento_plan"
+                    )
+                )[:10]
+            )
+
+            hoy_plan = date.today()
+
+            comercio[
+                "fecha_vencimiento_plan_mostrar"
+            ] = vencimiento_plan.strftime(
+                "%d/%m/%Y"
+            )
+
+            comercio["dias_restantes_plan"] = max(
+                (vencimiento_plan - hoy_plan).days,
+                0,
+            )
+
+        except (TypeError, ValueError):
+            comercio[
+                "fecha_vencimiento_plan_mostrar"
+            ] = comercio.get(
+                "fecha_vencimiento_plan"
+            )
+
+    es_premium = plan_actual == "premium"
+
+    limite_productos_gratis = 10
+
+    cantidad_productos_activos = sum(
+        1
+        for producto in productos
+        if bool(producto.get("activo"))
+    )
+
     for producto in productos:
         producto["precio_mostrar"] = _formatear_precio(
             producto.get("precio")
@@ -1141,6 +1635,12 @@ def panel_gastronomia():
         )
 
     error_producto = ""
+
+    if request.args.get("limite_productos") == "1":
+        error_producto = (
+            "El plan Gratis permite hasta 10 productos activos. "
+            "Pausá otro producto o pasá a Gastronomía Premium."
+        )
 
     if request.method == "POST":
         nombre = str(
@@ -1185,6 +1685,16 @@ def panel_gastronomia():
                 error_producto = (
                     "El precio ingresado no es válido."
                 )
+
+        if (
+            not error_producto
+            and not es_premium
+            and cantidad_productos_activos >= limite_productos_gratis
+        ):
+            error_producto = (
+                "El plan Gratis permite hasta 10 productos activos. "
+                "Pausá otro producto o pasá a Gastronomía Premium."
+            )
 
         if not error_producto:
             try:
@@ -1240,6 +1750,222 @@ def panel_gastronomia():
                     "No se modificó el menú."
                 )
 
+    periodo_metricas = str(
+        request.args.get("periodo_metricas") or "30"
+    ).strip().lower()
+
+    if periodo_metricas not in {
+        "hoy",
+        "30",
+        "60",
+        "90",
+    }:
+        periodo_metricas = "30"
+
+    metricas_gastronomia = {
+        "pedidos": 0,
+        "ventas": 0.0,
+        "ticket_promedio": 0.0,
+    }
+
+    metricas_por_producto = {}
+
+    if es_premium:
+        try:
+            ahora_utc = datetime.now(timezone.utc)
+
+            zona_local = ZoneInfo(
+                "America/Argentina/Cordoba"
+            )
+
+            hoy_local = datetime.now(
+                zona_local
+            ).date()
+
+            if periodo_metricas == "hoy":
+                desde_local = datetime.combine(
+                    hoy_local,
+                    datetime.min.time(),
+                    tzinfo=zona_local,
+                )
+
+                desde_consulta = (
+                    desde_local
+                    .astimezone(timezone.utc)
+                    .isoformat()
+                )
+
+            else:
+                dias = int(periodo_metricas)
+
+                desde_consulta = (
+                    ahora_utc
+                    - timedelta(days=dias)
+                ).isoformat()
+
+            pedidos_metricas_res = (
+                supabase_admin
+                .table("gastronomia_pedidos")
+                .select(
+                    "id,created_at,total,detalle,"
+                    "visitante_id,sesion_id,"
+                    "telefono_normalizado,"
+                    "nombre_cliente,apellido_cliente,"
+                    "direccion_entrega"
+                )
+                .eq("comercio_id", comercio_id)
+                .gte(
+                    "created_at",
+                    desde_consulta
+                )
+                .execute()
+            )
+
+            pedidos_metricas = (
+                pedidos_metricas_res.data or []
+            )
+
+            # Si el período es HOY, aseguramos día local argentino.
+            if periodo_metricas == "hoy":
+                pedidos_filtrados = []
+
+                for pedido in pedidos_metricas:
+                    created_at = str(
+                        pedido.get("created_at") or ""
+                    )
+
+                    try:
+                        fecha_pedido = (
+                            datetime.fromisoformat(
+                                created_at.replace(
+                                    "Z",
+                                    "+00:00"
+                                )
+                            )
+                        )
+
+                        if fecha_pedido.tzinfo is None:
+                            fecha_pedido = (
+                                fecha_pedido.replace(
+                                    tzinfo=timezone.utc
+                                )
+                            )
+
+                        if (
+                            fecha_pedido
+                            .astimezone(zona_local)
+                            .date()
+                            == hoy_local
+                        ):
+                            pedidos_filtrados.append(
+                                pedido
+                            )
+
+                    except (
+                        TypeError,
+                        ValueError,
+                    ):
+                        pass
+
+                pedidos_metricas = pedidos_filtrados
+
+            total_ventas = 0.0
+
+            for pedido in pedidos_metricas:
+                try:
+                    total_ventas += float(
+                        pedido.get("total") or 0
+                    )
+                except (TypeError, ValueError):
+                    pass
+
+                productos_vistos_en_pedido = set()
+
+                detalle = pedido.get("detalle") or []
+
+                if not isinstance(detalle, list):
+                    continue
+
+                for item in detalle:
+                    if not isinstance(item, dict):
+                        continue
+
+                    producto_id = str(
+                        item.get("id") or ""
+                    ).strip()
+
+                    if not producto_id:
+                        continue
+
+                    metrica = (
+                        metricas_por_producto
+                        .setdefault(
+                            producto_id,
+                            {
+                                "unidades": 0,
+                                "pedidos": 0,
+                                "ventas": 0.0,
+                            },
+                        )
+                    )
+
+                    try:
+                        cantidad = int(
+                            item.get("cantidad") or 0
+                        )
+                    except (TypeError, ValueError):
+                        cantidad = 0
+
+                    try:
+                        subtotal_item = float(
+                            item.get("subtotal") or 0
+                        )
+                    except (TypeError, ValueError):
+                        subtotal_item = 0.0
+
+                    metrica["unidades"] += cantidad
+                    metrica["ventas"] += subtotal_item
+
+                    if producto_id not in productos_vistos_en_pedido:
+                        metrica["pedidos"] += 1
+                        productos_vistos_en_pedido.add(
+                            producto_id
+                        )
+
+            cantidad_pedidos = len(
+                pedidos_metricas
+            )
+
+            metricas_gastronomia = {
+                "pedidos": cantidad_pedidos,
+                "ventas": round(
+                    total_ventas,
+                    2
+                ),
+                "ticket_promedio": round(
+                    (
+                        total_ventas / cantidad_pedidos
+                        if cantidad_pedidos
+                        else 0
+                    ),
+                    2
+                ),
+            }
+
+            for metrica in metricas_por_producto.values():
+                metrica["ventas"] = round(
+                    metrica["ventas"],
+                    2
+                )
+
+        except Exception as error:
+            print(
+                "ERROR METRICAS GASTRONOMIA:",
+                type(error),
+                error,
+                flush=True,
+            )
+
     listas_buscables = []
 
     try:
@@ -1270,12 +1996,13 @@ def panel_gastronomia():
         error_producto=error_producto,
         listas_buscables=listas_buscables,
         es_cine_teatro=False,
-        es_premium=(
-            str(comercio.get("plan_nombre") or "")
-            .strip()
-            .lower()
-            == "premium"
-        ),
+        es_premium=es_premium,
+        plan_nombre=("Premium" if es_premium else "Gratis"),
+        limite_productos_gratis=limite_productos_gratis,
+        cantidad_productos_activos=cantidad_productos_activos,
+        metricas_gastronomia=metricas_gastronomia,
+        metricas_por_producto=metricas_por_producto,
+        periodo_metricas=periodo_metricas,
     )
 
 
@@ -1336,6 +2063,15 @@ def extras_producto(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
+
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="extras"
+            )
+            + "#mis-productos"
+        )
 
     comercio_id = comercio.get("id")
 
@@ -1431,6 +2167,15 @@ def crear_grupo_extra(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
+
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="extras"
+            )
+            + "#mis-productos"
+        )
 
     comercio_id = comercio.get("id")
 
@@ -1537,6 +2282,15 @@ def crear_opcion_extra(
 
     if not comercio:
         return redirect(url_for("login"))
+
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="extras"
+            )
+            + "#mis-productos"
+        )
 
     comercio_id = comercio.get("id")
 
@@ -1651,6 +2405,15 @@ def eliminar_grupo_extra(
     if not comercio:
         return redirect(url_for("login"))
 
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="extras"
+            )
+            + "#mis-productos"
+        )
+
     comercio_id = comercio.get("id")
 
     producto = _producto_gastronomia_del_comercio(
@@ -1724,6 +2487,15 @@ def eliminar_opcion_extra(
 
     if not comercio:
         return redirect(url_for("login"))
+
+    if not _es_premium_gastronomia(comercio):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                premium_bloqueado="extras"
+            )
+            + "#mis-productos"
+        )
 
     comercio_id = comercio.get("id")
 
@@ -2403,6 +3175,20 @@ def registrar_pedido(comercio_id):
     datos_pedido = {
         "numero_pedido": 0,
         "comercio_id": comercio_id,
+
+        # Identidad anónima ClickLocal ya preparada por app.before_request.
+        # No contiene nombre, teléfono, correo, IP ni fingerprint.
+        "visitante_id": getattr(
+            g,
+            "analytics_visitante_id",
+            None,
+        ),
+        "sesion_id": getattr(
+            g,
+            "analytics_sesion_id",
+            None,
+        ),
+
         "nombre_cliente": nombre,
         "apellido_cliente": apellido,
         "telefono_cliente": telefono,
