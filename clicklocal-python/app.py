@@ -19,6 +19,7 @@ import time
 from threading import Lock
 from config.supabase_config import supabase_auth, supabase_admin
 from gastronomia import gastronomia_bp
+from turnos import turnos_bp
 
 
 def normalizar_precio(valor):
@@ -123,6 +124,7 @@ def formatear_precio(valor):
 app = Flask(__name__)
 app.jinja_env.filters["precio_arg"] = formatear_precio
 app.register_blueprint(gastronomia_bp)
+app.register_blueprint(turnos_bp)
 
 
 # Clave temporal para session en desarrollo local
@@ -6341,10 +6343,41 @@ def panel():
             historias = []
             historias_activas = 0
 
+    # ==========================================================
+    # CLICKLOCAL - MODULOS TRANSVERSALES DEL COMERCIO
+    # ==========================================================
+
+    modulo_turnos_activo = False
+
+    try:
+        modulo_turnos_res = (
+            supabase_admin
+            .table("comercio_modulos")
+            .select("id")
+            .eq("comercio_id", comercio_id)
+            .eq("modulo", "turnos")
+            .eq("activo", True)
+            .limit(1)
+            .execute()
+        )
+
+        modulo_turnos_activo = bool(
+            modulo_turnos_res.data
+        )
+
+    except Exception as error:
+        print(
+            "AVISO DETECTANDO MODULO TURNOS:",
+            type(error),
+            error,
+            flush=True
+        )
+
     return render_template(
         "panel.html",
         comercio=comercio,
         publicaciones=publicaciones,
+        modulo_turnos_activo=modulo_turnos_activo,
         listas_buscables=listas_buscables,
         es_cine_teatro=es_cine_teatro,
         es_premium=es_premium,

@@ -914,6 +914,216 @@
 }
 </style>
 <!-- FIN CLICKLOCAL: DETALLE MOVIL COMPACTO B2 V1 -->
+
+<!-- CLICKLOCAL: DETALLE COMPACTO DESKTOP V1 -->
+<style>
+/*
+   Ajuste global del detalle de publicaciones.
+   SOLO escritorio.
+   NO modifica la cabecera fija.
+*/
+@media (min-width: 1051px) {
+
+  /* ---------------------------------------------------------
+     APROVECHAR MEJOR LA ALTURA DE LA PANTALLA
+     --------------------------------------------------------- */
+
+  .pagina-detalle-b1 .detalle-main {
+    padding-top: 14px;
+    padding-bottom: 28px;
+  }
+
+  .pagina-detalle-b1 .volver-link {
+    margin-bottom: 8px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+
+  /* ---------------------------------------------------------
+     DISTRIBUCION GENERAL
+     --------------------------------------------------------- */
+
+  .pagina-detalle-b1 .detalle-layout,
+  .pagina-detalle-b1 .detalle-layout-simple {
+    grid-template-columns:
+      64px
+      minmax(360px, 500px)
+      minmax(400px, 440px);
+
+    column-gap: 30px;
+    justify-content: center;
+  }
+
+
+  /* ---------------------------------------------------------
+     MINIATURAS
+     --------------------------------------------------------- */
+
+  .pagina-detalle-b1 .detalle-miniaturas {
+    gap: 8px;
+    max-height: 500px;
+  }
+
+  .pagina-detalle-b1
+  .detalle-miniaturas
+  .miniatura {
+    width: 60px;
+    height: 64px;
+    border-radius: 11px;
+  }
+
+
+  /* ---------------------------------------------------------
+     FOTO PRINCIPAL
+
+     Caja más baja para que el detalle entre en pantalla.
+     Sin fondo borroso artificial.
+     --------------------------------------------------------- */
+
+  .pagina-detalle-b1 .detalle-foto {
+    width: 100%;
+    height: clamp(
+      420px,
+      calc(100vh - 158px),
+      500px
+    );
+
+    min-height: 0;
+    aspect-ratio: 3 / 4;
+    padding: 0;
+
+    justify-self: center;
+
+    border-radius: 22px;
+    background: #F0E9E1;
+  }
+
+  .pagina-detalle-b1 .detalle-foto::before,
+  .pagina-detalle-b1 .detalle-foto::after {
+    display: none;
+  }
+
+
+  /*
+     Imagen general:
+     ocupa la caja disponible.
+     Puede recortar levemente si la proporcion lo requiere.
+  */
+
+  .pagina-detalle-b1 .detalle-foto img,
+  .pagina-detalle-b1 #detalle-imagen-principal {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+
+    object-fit: cover;
+    object-position: center;
+
+    border-radius: 20px;
+    transform: none;
+  }
+
+
+  /*
+     Fotos verticales:
+     preservamos mejor la proporcion.
+     No hacemos el zoom anterior de 1.11.
+  */
+
+  .pagina-detalle-b1
+  .detalle-foto.detalle-foto--vertical
+  img,
+
+  .pagina-detalle-b1
+  .detalle-foto.detalle-foto--vertical
+  #detalle-imagen-principal {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+    object-position: center;
+
+    transform: none;
+  }
+
+
+  /* ---------------------------------------------------------
+     PANEL DE INFORMACION
+     Más compacto, sin sacar contenido.
+     --------------------------------------------------------- */
+
+  .pagina-detalle-b1 .detalle-info {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .pagina-detalle-b1 .detalle-ciudad {
+    margin-bottom: 8px;
+  }
+
+  .pagina-detalle-b1 .detalle-titulo {
+    margin-bottom: 9px;
+    font-size: clamp(
+      30px,
+      2.7vw,
+      40px
+    );
+    line-height: 1.02;
+  }
+
+  .pagina-detalle-b1 .detalle-precio {
+    margin-bottom: 14px;
+    font-size: 28px;
+  }
+
+  .pagina-detalle-b1 .detalle-descripcion {
+    margin-bottom: 15px;
+    line-height: 1.4;
+  }
+
+
+  /* ---------------------------------------------------------
+     COMERCIO
+     --------------------------------------------------------- */
+
+  .pagina-detalle-b1 .detalle-comercio {
+    margin-bottom: 14px;
+    padding: 13px 16px;
+    border-radius: 15px;
+  }
+
+  .pagina-detalle-b1 .detalle-comercio h2 {
+    font-size: 21px;
+  }
+
+
+  /* ---------------------------------------------------------
+     BOTONES
+     --------------------------------------------------------- */
+
+  .pagina-detalle-b1 .detalle-botones {
+    gap: 8px;
+  }
+
+  .pagina-detalle-b1 .boton-whatsapp,
+  .pagina-detalle-b1 .boton-ver-comercio,
+  .pagina-detalle-b1 .detalle-compartir {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .pagina-detalle-b1
+  .detalle-acciones-secundarias {
+    gap: 8px;
+  }
+}
+</style>
+<!-- FIN CLICKLOCAL: DETALLE COMPACTO DESKTOP V1 -->
+
+
 </head>
 
 <body class="pagina-detalle-b1">

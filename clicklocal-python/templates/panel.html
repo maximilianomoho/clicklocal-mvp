@@ -497,6 +497,12 @@
         {% endif %}
         <a href="#datos" class="panel-menu-link">Mis datos</a>
         <a href="#plan" class="panel-menu-link">Mi plan</a>
+
+        {% if modulo_turnos_activo %}
+        <a href="#gestion-turnos" class="panel-menu-link">
+          Gestión de turnos
+        </a>
+        {% endif %}
         <a
           href="{{ url_for(
               'contacto',
@@ -517,6 +523,39 @@
       <section class="panel-contenido">
 
         {% block panel_contenido_principal %}
+
+        {% if modulo_turnos_activo %}
+        <article id="gestion-turnos" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">MICRO-TOOL</p>
+              <h2>Gestión de turnos</h2>
+            </div>
+
+            <span class="badge">Activo</span>
+          </div>
+
+          <p class="panel-descripcion">
+            Administrá los servicios, horarios y turnos de tu negocio.
+          </p>
+
+          <div style="
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-top:18px;
+          ">
+            <a
+              href="/turnos/agenda"
+              class="boton-principal-form"
+              style="text-decoration:none;"
+            >
+              Abrir Gestión de turnos
+            </a>
+          </div>
+        </article>
+        {% endif %}
+
         <!-- CARGAR PUBLICACIÓN -->
         {% if not es_cine_teatro %}
 

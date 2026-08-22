@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Gestión de turnos | ClickLocal</title>
+
+  <style>
+    :root {
+      --azul: #1a73e8;
+      --azul-suave: #e8f0fe;
+      --azul-seleccion: #d2e3fc;
+      --texto: #202124;
+      --texto-suave: #5f6368;
+      --borde: #dadce0;
+      --linea: #eceff1;
+      --fondo-lateral: #f8fafd;
+
+      --alto-15: 22px;
+      --alto-hora: 88px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--texto);
+      background: #fff;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* =========================================================
+       CABECERA
+       ========================================================= */
+
+    .topbar {
+      position: relative;
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--borde);
+      background: #fff;
+    }
+
+    .marca {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 210px;
+    }
+
+    .marca-logo {
+      font-size: 21px;
+      font-weight: 700;
+    }
+
+    .marca-seccion {
+      font-size: 20px;
+      color: var(--texto-suave);
+    }
+
+    .nav-fecha {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .boton {
+      min-height: 38px;
+      padding: 8px 14px;
+      border: 1px solid var(--borde);
+      border-radius: 20px;
+      background: #fff;
+      color: var(--texto);
+    }
+
+    .boton:hover {
+      background: #f1f3f4;
+    }
+
+    .boton-icono {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+      border-color: transparent;
+      font-size: 21px;
+    }
+
+    .boton-hoy {
+      min-width: 72px;
+    }
+
+    .titulo-fecha {
+      min-width: 220px;
+      padding: 0 8px;
+      font-size: 20px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .centro-comercio {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 0 12px;
+    }
+
+    .nombre-comercio {
+      max-width: 280px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--texto);
+    }
+
+    .buscador-turnos {
+      width: 320px;
+      max-width: 320px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border: 1px solid var(--borde);
+      border-radius: 22px;
+      background: #fff;
+    }
+
+    .buscador-turnos-icono {
+      color: var(--texto-suave);
+      font-size: 14px;
+      flex: 0 0 auto;
+    }
+
+    .buscador-turnos input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--texto);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+
+    .buscador-turnos input::placeholder {
+      color: #80868b;
+    }
+
+    .acciones {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .selector-vista {
+      min-height: 40px;
+      padding: 8px 34px 8px 16px;
+      border: 1px solid #9aa0a6;
+      border-radius: 22px;
+      background: #fff;
+      color: var(--texto);
+      cursor: pointer;
+    }
+
+    .boton-nuevo {
+      border-color: var(--azul);
+      background: var(--azul);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 8px;
+    }
+
+    .boton-nuevo:hover {
+      background: #1765cc;
+    }
+
+    /* =========================================================
+       CUERPO
+       ========================================================= */
+
+    .cuerpo {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr) 170px;
+      min-height: 0;
+    }
+
+    /* =========================================================
+       LATERAL
+       ========================================================= */
+
+    .sidebar {
+      padding: 18px 16px 24px;
+      border-right: 1px solid var(--borde);
+      background: var(--fondo-lateral);
+    }
+
+    .mini-calendario {
+      margin-bottom: 24px;
+    }
+
+    .mini-cabecera {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .mini-mes {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .mini-nav {
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      font-size: 19px;
+    }
+
+    .mini-nav:hover {
+      background: #e9eef6;
+    }
+
+    .mini-semana-nombres,
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+    }
+
+    .mini-semana-nombres {
+      margin-bottom: 3px;
+      font-size: 11px;
+      color: var(--texto-suave);
+    }
+
+    .mini-grid {
+      gap: 1px 0;
+    }
+
+    .mini-dia {
+      position: relative;
+      height: 30px;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--texto);
+      font-size: 12px;
+    }
+
+    .mini-dia.otro-mes {
+      color: #9aa0a6;
+    }
+
+    .mini-dia.semana-seleccionada {
+      background: var(--azul-seleccion);
+    }
+
+    .mini-dia.inicio-semana {
+      border-radius: 15px 0 0 15px;
+    }
+
+    .mini-dia.fin-semana {
+      border-radius: 0 15px 15px 0;
+    }
+
+    .mini-dia.seleccionado {
+      background: var(--azul-seleccion);
+      border-radius: 50%;
+      font-weight: 700;
+    }
+
+    .mini-dia.hoy {
+      background: var(--azul);
+      color: #fff;
+      border-radius: 50%;
+      font-weight: 700;
+      z-index: 2;
+    }
+
+    .mini-dia.hoy.semana-seleccionada {
+      box-shadow: inset 0 0 0 2px var(--azul);
+      background: var(--azul);
+      color: #fff;
+    }
+
+    .mini-dia:hover {
+      outline: 1px solid #bdc1c6;
+      border-radius: 50%;
+    }
+
+    .grupo-filtros {
+      margin-top: 22px;
+    }
+
+    .grupo-filtros h3 {
+      margin: 0 0 11px;
+      font-size: 13px;
+      color: var(--texto-suave);
+      text-transform: uppercase;
+      letter-spacing: .45px;
+    }
+
+    .filtro {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+
+    .filtro input {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--azul);
+    }
+
+    .filtro-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: 0 0 10px;
+    }
+
+    .color-paola {
+      background: #1a73e8;
+    }
+
+    .color-laura {
+      background: #d93025;
+    }
+
+    .color-carla {
+      background: #188038;
+    }
+
+    .boton-config {
+      width: 100%;
+      margin-top: 25px;
+      border-radius: 8px;
+      text-align: left;
+    }
+
+    .sidebar-atajos {
+      padding: 18px 12px 24px;
+      border-left: 1px solid var(--borde);
+      background: #fff;
+    }
+
+    .atajos-stick {
+      position: sticky;
+      top: 18px;
+    }
+
+    .atajos-titulo {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--texto-suave);
+      text-transform: uppercase;
+      letter-spacing: .45px;
+      font-weight: 700;
+    }
+
+    .nav-atajos {
+      display: grid;
+      gap: 10px;
+    }
+
+    .nav-atajos a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 10px;
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--texto);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .nav-atajos a:hover {
+      background: #f1f3f4;
+    }
+
+    /* =========================================================
+       CONTENIDO PRINCIPAL
+       ========================================================= */
+
+    .principal {
+      min-width: 0;
+      background: #fff;
+    }
+
+    .vista {
+      min-width: 0;
+    }
+
+    /* =========================================================
+       DIA / SEMANA
+       ========================================================= */
+
+    .calendario-scroll {
+      overflow: auto;
+      height: calc(100vh - 69px);
+    }
+
+    .cabecera-dias {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      background: #fff;
+      border-bottom: 1px solid var(--borde);
+    }
+
+    .cabecera-hora {
+      border-right: 1px solid var(--borde);
+    }
+
+    .cabecera-dia {
+      min-height: 67px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--borde);
+    }
+
+    .cabecera-dia:last-child {
+      border-right: 0;
+    }
+
+    .cabecera-dia .nombre {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--texto-suave);
+      margin-bottom: 5px;
+    }
+
+    .cabecera-dia .numero {
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 21px;
+    }
+
+    .cabecera-dia.hoy .nombre {
+      color: var(--azul);
+      font-weight: 700;
+    }
+
+    .cabecera-dia.hoy .numero {
+      background: var(--azul);
+      color: #fff;
+    }
+
+    .grilla-tiempo {
+      position: relative;
+      display: grid;
+      min-width: 680px;
+    }
+
+    .columna-horas {
+      position: relative;
+      border-right: 1px solid var(--borde);
+      height: calc(13 * var(--alto-hora));
+    }
+
+    .etiqueta-hora {
+      position: absolute;
+      right: 9px;
+      transform: translateY(-7px);
+      font-size: 11px;
+      color: var(--texto-suave);
+    }
+
+    .columna-dia {
+      position: relative;
+      height: calc(13 * var(--alto-hora));
+      border-right: 1px solid var(--borde);
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent calc(var(--alto-15) - 1px),
+          #f1f3f4 calc(var(--alto-15) - 1px),
+          #f1f3f4 var(--alto-15)
+        );
+    }
+
+    .columna-dia::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent calc(var(--alto-hora) - 1px),
+          #dadce0 calc(var(--alto-hora) - 1px),
+          #dadce0 var(--alto-hora)
+        );
+    }
+
+    .columna-dia:last-child {
+      border-right: 0;
+    }
+
+    .turno {
+      position: absolute;
+      left: 5px;
+      right: 5px;
+      z-index: 5;
+      padding: 5px 8px;
+      border-left: 4px solid;
+      border-radius: 5px;
+      overflow: hidden;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .turno strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 13px;
+    }
+
+    .turno-paola {
+      border-left-color: #1a73e8;
+      background: #dbe8fc;
+    }
+
+    .turno-laura {
+      border-left-color: #d93025;
+      background: #fce8e6;
+    }
+
+    .turno-carla {
+      border-left-color: #188038;
+      background: #e6f4ea;
+    }
+
+    .linea-ahora {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #d93025;
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    .linea-ahora::before {
+      content: "";
+      position: absolute;
+      left: -5px;
+      top: -4px;
+      width: 10px;
+      height: 10px;
+      background: #d93025;
+      border-radius: 50%;
+    }
+
+    /* =========================================================
+       MES
+       ========================================================= */
+
+    .mes-vista {
+      padding: 0 14px 20px;
+    }
+
+    .mes-cabecera-dias {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      border-bottom: 1px solid var(--borde);
+    }
+
+    .mes-cabecera-dias div {
+      padding: 14px 6px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--texto-suave);
+      text-transform: uppercase;
+    }
+
+    .mes-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-auto-rows: minmax(112px, 1fr);
+      border-left: 1px solid var(--borde);
+    }
+
+    .mes-celda {
+      min-width: 0;
+      padding: 7px;
+      border-right: 1px solid var(--borde);
+      border-bottom: 1px solid var(--borde);
+      cursor: pointer;
+      background: #fff;
+    }
+
+    .mes-celda:hover {
+      background: #f8fafd;
+    }
+
+    .mes-celda.otro-mes {
+      background: #fafafa;
+      color: #9aa0a6;
+    }
+
+    .mes-numero {
+      width: 29px;
+      height: 29px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 5px;
+      border-radius: 50%;
+      font-size: 13px;
+    }
+
+    .mes-celda.hoy .mes-numero {
+      background: var(--azul);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .mes-evento {
+      margin: 3px 0;
+      padding: 3px 5px;
+      border-radius: 4px;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mes-evento.paola {
+      background: #dbe8fc;
+    }
+
+    .mes-evento.laura {
+      background: #fce8e6;
+    }
+
+    .mes-evento.carla {
+      background: #e6f4ea;
+    }
+
+    .sin-resultados {
+      padding: 40px;
+      text-align: center;
+      color: var(--texto-suave);
+    }
+
+    /* =========================================================
+       MOBILE
+       ========================================================= */
+
+    @media (max-width: 850px) {
+      .marca {
+        min-width: auto;
+      }
+
+      .marca-seccion {
+        display: none;
+      }
+
+      .titulo-fecha {
+        min-width: 0;
+        font-size: 16px;
+      }
+
+      .centro-comercio {
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .nombre-comercio {
+        max-width: 180px;
+        font-size: 16px;
+        text-align: right;
+      }
+
+      .buscador-turnos {
+        width: 220px;
+        max-width: 220px;
+      }
+
+      .boton-nuevo span {
+        display: none;
+      }
+
+      .cuerpo {
+        grid-template-columns: 210px minmax(0, 1fr);
+      }
+
+      .sidebar-atajos {
+        display: none;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .topbar {
+        flex-wrap: wrap;
+      }
+
+      .marca {
+        display: none;
+      }
+
+      .nav-fecha {
+        width: 100%;
+        order: 1;
+      }
+
+      .acciones {
+        width: 100%;
+        order: 3;
+        justify-content: flex-end;
+      }
+
+      .centro-comercio {
+        width: 100%;
+        order: 2;
+        justify-content: space-between;
+        padding: 0;
+        margin-top: 8px;
+      }
+
+      .nombre-comercio {
+        max-width: 48%;
+        font-size: 15px;
+        text-align: left;
+      }
+
+      .buscador-turnos {
+        width: 50%;
+        max-width: none;
+      }
+
+      .cuerpo {
+        display: block;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--borde);
+      }
+
+      .mini-calendario {
+        max-width: 360px;
+      }
+
+      .grupo-filtros {
+        display: inline-block;
+        vertical-align: top;
+        min-width: 145px;
+        margin-right: 20px;
+      }
+
+      .boton-config {
+        width: auto;
+        vertical-align: top;
+      }
+
+      .calendario-scroll {
+        height: auto;
+        max-height: 75vh;
+      }
+
+      .mes-grid {
+        grid-auto-rows: 90px;
+      }
+
+      .mes-evento {
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- =======================================================
+       CABECERA
+       ======================================================= -->
+
+  <header class="topbar">
+
+    <div class="marca">
+      <span class="marca-logo">ClickLocal</span>
+      <span class="marca-seccion">Turnos</span>
+    </div>
+
+    <div class="nav-fecha">
+
+      <button
+        id="btnHoy"
+        class="boton boton-hoy"
+        type="button"
+      >
+        Hoy
+      </button>
+
+      <button
+        id="btnAnterior"
+        class="boton boton-icono"
+        type="button"
+        aria-label="Anterior"
+      >
+        ‹
+      </button>
+
+      <button
+        id="btnSiguiente"
+        class="boton boton-icono"
+        type="button"
+        aria-label="Siguiente"
+      >
+        ›
+      </button>
+
+      <div
+        id="tituloFecha"
+        class="titulo-fecha"
+      ></div>
+
+      <div class="centro-comercio">
+        <div
+          class="nombre-comercio"
+          title="{{ nombre_comercio }}"
+        >
+          {{ nombre_comercio }}
+        </div>
+
+        <label
+          class="buscador-turnos"
+          aria-label="Buscar turnos"
+        >
+          <span class="buscador-turnos-icono">⌕</span>
+          <input
+            id="buscadorTurnos"
+            type="search"
+            placeholder="Buscar cliente, servicio, profesional o turno"
+          >
+        </label>
+      </div>
+
+    </div>
+
+    <div class="acciones">
+
+      <button
+        class="boton boton-icono"
+        type="button"
+        title="Configuración"
+        aria-label="Configuración"
+      >
+        ⚙
+      </button>
+
+      <select
+        id="selectorVista"
+        class="selector-vista"
+        aria-label="Vista del calendario"
+      >
+        <option value="dia">Día</option>
+        <option value="semana">Semana</option>
+        <option value="mes">Mes</option>
+      </select>
+
+      <button
+        id="btnNuevoTurno"
+        class="boton boton-nuevo"
+        type="button"
+      >
+        + <span>Nuevo turno</span>
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <div class="cuerpo">
+
+    <!-- =====================================================
+         LATERAL
+         ===================================================== -->
+
+    <aside class="sidebar">
+
+      <section class="mini-calendario">
+
+        <div class="mini-cabecera">
+
+          <div
+            id="miniTituloMes"
+            class="mini-mes"
+          ></div>
+
+          <button
+            id="miniAnterior"
+            class="mini-nav"
+            type="button"
+            aria-label="Mes anterior"
+          >
+            ‹
+          </button>
+
+          <button
+            id="miniSiguiente"
+            class="mini-nav"
+            type="button"
+            aria-label="Mes siguiente"
+          >
+            ›
+          </button>
+
+        </div>
+
+        <div class="mini-semana-nombres">
+          <div>L</div>
+          <div>M</div>
+          <div>X</div>
+          <div>J</div>
+          <div>V</div>
+          <div>S</div>
+          <div>D</div>
+        </div>
+
+        <div
+          id="miniGrid"
+          class="mini-grid"
+        ></div>
+
+      </section>
+
+
+      <section class="grupo-filtros">
+
+        <h3>Profesionales</h3>
+
+        <label class="filtro">
+          <input
+            class="filtro-profesional"
+            type="checkbox"
+            value="Paola"
+            checked
+          >
+          <span class="filtro-color color-paola"></span>
+          <span>Paola</span>
+        </label>
+
+        <label class="filtro">
+          <input
+            class="filtro-profesional"
+            type="checkbox"
+            value="Laura"
+            checked
+          >
+          <span class="filtro-color color-laura"></span>
+          <span>Laura</span>
+        </label>
+
+        <label class="filtro">
+          <input
+            class="filtro-profesional"
+            type="checkbox"
+            value="Carla"
+            checked
+          >
+          <span class="filtro-color color-carla"></span>
+          <span>Carla</span>
+        </label>
+
+      </section>
+
+
+      <section class="grupo-filtros">
+
+        <h3>Servicios</h3>
+
+        <label class="filtro">
+          <input
+            class="filtro-servicio"
+            type="checkbox"
+            value="Corte"
+            checked
+          >
+          <span>Corte</span>
+        </label>
+
+        <label class="filtro">
+          <input
+            class="filtro-servicio"
+            type="checkbox"
+            value="Color"
+            checked
+          >
+          <span>Color</span>
+        </label>
+
+        <label class="filtro">
+          <input
+            class="filtro-servicio"
+            type="checkbox"
+            value="Brushing"
+            checked
+          >
+          <span>Brushing</span>
+        </label>
+
+        <label class="filtro">
+          <input
+            class="filtro-servicio"
+            type="checkbox"
+            value="Clase grupal"
+            checked
+          >
+          <span>Clase grupal</span>
+        </label>
+
+      </section>
+
+
+      <button
+        class="boton boton-config"
+        type="button"
+      >
+        ⚙ Configuración
+      </button>
+
+    </aside>
+
+
+    <!-- =====================================================
+         PRINCIPAL
+         ===================================================== -->
+
+    <main class="principal">
+
+      <div id="vistaCalendario"></div>
+
+    </main>
+
+    <aside class="sidebar-atajos">
+      <div class="atajos-stick">
+        <p class="atajos-titulo">Navegación</p>
+
+        <nav
+          class="nav-atajos"
+          aria-label="Accesos rápidos"
+        >
+          <a href="/panel">Mi panel</a>
+          <a href="/">ClickLocal</a>
+          <a href="/gastronomia/">Gastronomía</a>
+        </nav>
+      </div>
+    </aside>
+
+  </div>
+
+</div>
+
+
+<script>
+(() => {
+  const NOMBRES_DIA = [
+    "domingo",
+    "lunes",
+    "martes",
+    "miércoles",
+    "jueves",
+    "viernes",
+    "sábado"
+  ];
+
+  const NOMBRES_DIA_CORTO = [
+    "DOM",
+    "LUN",
+    "MAR",
+    "MIÉ",
+    "JUE",
+    "VIE",
+    "SÁB"
+  ];
+
+  const MESES = [
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre"
+  ];
+
+  const MESES_TITULO = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre"
+  ];
+
+  const HORA_INICIO = 7;
+  const HORA_FIN = 20;
+  const ALTO_HORA = 88;
+
+  const hoy = limpiarHora(new Date());
+
+  let fechaSeleccionada = limpiarHora(new Date());
+  let miniFecha = new Date(
+    fechaSeleccionada.getFullYear(),
+    fechaSeleccionada.getMonth(),
+    1
+  );
+
+  let vista = "dia";
+
+
+  /*
+   * DATOS DE EJEMPLO.
+   * Se reemplazan por Supabase en la próxima etapa.
+   */
+  const turnosDemo = crearTurnosDemo();
+
+
+  const tituloFecha = document.getElementById("tituloFecha");
+  const selectorVista = document.getElementById("selectorVista");
+  const vistaCalendario = document.getElementById("vistaCalendario");
+
+  const miniTituloMes = document.getElementById("miniTituloMes");
+  const miniGrid = document.getElementById("miniGrid");
+
+
+  document
+    .getElementById("btnHoy")
+    .addEventListener("click", () => {
+      fechaSeleccionada = limpiarHora(new Date());
+
+      miniFecha = new Date(
+        fechaSeleccionada.getFullYear(),
+        fechaSeleccionada.getMonth(),
+        1
+      );
+
+      render();
+    });
+
+
+  document
+    .getElementById("btnAnterior")
+    .addEventListener("click", () => {
+      moverPrincipal(-1);
+    });
+
+
+  document
+    .getElementById("btnSiguiente")
+    .addEventListener("click", () => {
+      moverPrincipal(1);
+    });
+
+
+  document
+    .getElementById("miniAnterior")
+    .addEventListener("click", () => {
+      miniFecha.setMonth(miniFecha.getMonth() - 1);
+      renderMiniCalendario();
+    });
+
+
+  document
+    .getElementById("miniSiguiente")
+    .addEventListener("click", () => {
+      miniFecha.setMonth(miniFecha.getMonth() + 1);
+      renderMiniCalendario();
+    });
+
+
+  selectorVista.addEventListener("change", () => {
+    vista = selectorVista.value;
+
+    miniFecha = new Date(
+      fechaSeleccionada.getFullYear(),
+      fechaSeleccionada.getMonth(),
+      1
+    );
+
+    render();
+  });
+
+
+  document
+    .querySelectorAll(
+      ".filtro-profesional, .filtro-servicio"
+    )
+    .forEach((checkbox) => {
+      checkbox.addEventListener("change", renderVistaPrincipal);
+    });
+
+  document
+    .getElementById("buscadorTurnos")
+    .addEventListener("input", renderVistaPrincipal);
+
+
+  document
+    .getElementById("btnNuevoTurno")
+    .addEventListener("click", () => {
+      alert(
+        "El formulario de Nuevo turno lo conectamos en la próxima etapa."
+      );
+    });
+
+
+  function limpiarHora(fecha) {
+    return new Date(
+      fecha.getFullYear(),
+      fecha.getMonth(),
+      fecha.getDate()
+    );
+  }
+
+
+  function mismaFecha(a, b) {
+    return (
+      a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate()
+    );
+  }
+
+
+  function fechaISO(fecha) {
+    const y = fecha.getFullYear();
+    const m = String(fecha.getMonth() + 1).padStart(2, "0");
+    const d = String(fecha.getDate()).padStart(2, "0");
+
+    return `${y}-${m}-${d}`;
+  }
+
+
+  function sumarDias(fecha, cantidad) {
+    const nueva = limpiarHora(fecha);
+    nueva.setDate(nueva.getDate() + cantidad);
+    return nueva;
+  }
+
+
+  function inicioSemana(fecha) {
+    const resultado = limpiarHora(fecha);
+
+    const diaJS = resultado.getDay();
+
+    const diferencia = diaJS === 0
+      ? -6
+      : 1 - diaJS;
+
+    resultado.setDate(
+      resultado.getDate() + diferencia
+    );
+
+    return resultado;
+  }
+
+
+  function finSemana(fecha) {
+    return sumarDias(inicioSemana(fecha), 6);
+  }
+
+
+  function estaEnSemana(fecha, referencia) {
+    const desde = inicioSemana(referencia);
+    const hasta = finSemana(referencia);
+
+    return fecha >= desde && fecha <= hasta;
+  }
+
+
+  function moverPrincipal(direccion) {
+    if (vista === "dia") {
+      fechaSeleccionada = sumarDias(
+        fechaSeleccionada,
+        direccion
+      );
+    }
+
+    if (vista === "semana") {
+      fechaSeleccionada = sumarDias(
+        fechaSeleccionada,
+        direccion * 7
+      );
+    }
+
+    if (vista === "mes") {
+      fechaSeleccionada = new Date(
+        fechaSeleccionada.getFullYear(),
+        fechaSeleccionada.getMonth() + direccion,
+        1
+      );
+    }
+
+    miniFecha = new Date(
+      fechaSeleccionada.getFullYear(),
+      fechaSeleccionada.getMonth(),
+      1
+    );
+
+    render();
+  }
+
+
+  function render() {
+    selectorVista.value = vista;
+
+    renderTitulo();
+    renderMiniCalendario();
+    renderVistaPrincipal();
+  }
+
+
+  function renderTitulo() {
+    if (vista === "dia") {
+      tituloFecha.textContent =
+        `${fechaSeleccionada.getDate()} `
+        + `${MESES[fechaSeleccionada.getMonth()]} `
+        + `${fechaSeleccionada.getFullYear()}`;
+
+      return;
+    }
+
+    if (vista === "semana") {
+      const desde = inicioSemana(fechaSeleccionada);
+      const hasta = finSemana(fechaSeleccionada);
+
+      if (
+        desde.getMonth() === hasta.getMonth()
+        && desde.getFullYear() === hasta.getFullYear()
+      ) {
+        tituloFecha.textContent =
+          `${MESES_TITULO[desde.getMonth()]} `
+          + `${desde.getFullYear()}`;
+      } else {
+        tituloFecha.textContent =
+          `${desde.getDate()} `
+          + `${MESES[desde.getMonth()]} – `
+          + `${hasta.getDate()} `
+          + `${MESES[hasta.getMonth()]} `
+          + `${hasta.getFullYear()}`;
+      }
+
+      return;
+    }
+
+    tituloFecha.textContent =
+      `${MESES_TITULO[fechaSeleccionada.getMonth()]} `
+      + `${fechaSeleccionada.getFullYear()}`;
+  }
+
+
+  function renderMiniCalendario() {
+    miniTituloMes.textContent =
+      `${MESES_TITULO[miniFecha.getMonth()]} `
+      + `${miniFecha.getFullYear()}`;
+
+    miniGrid.innerHTML = "";
+
+    const primerDiaMes = new Date(
+      miniFecha.getFullYear(),
+      miniFecha.getMonth(),
+      1
+    );
+
+    const diaSemanaJS = primerDiaMes.getDay();
+
+    const desplazamiento =
+      diaSemanaJS === 0
+        ? -6
+        : 1 - diaSemanaJS;
+
+    const primerVisible = sumarDias(
+      primerDiaMes,
+      desplazamiento
+    );
+
+    for (let i = 0; i < 42; i++) {
+      const fecha = sumarDias(primerVisible, i);
+
+      const boton = document.createElement("button");
+
+      boton.type = "button";
+      boton.className = "mini-dia";
+      boton.textContent = fecha.getDate();
+
+      if (fecha.getMonth() !== miniFecha.getMonth()) {
+        boton.classList.add("otro-mes");
+      }
+
+      if (vista === "semana" && estaEnSemana(
+        fecha,
+        fechaSeleccionada
+      )) {
+        boton.classList.add("semana-seleccionada");
+
+        const posicion = i % 7;
+
+        if (posicion === 0) {
+          boton.classList.add("inicio-semana");
+        }
+
+        if (posicion === 6) {
+          boton.classList.add("fin-semana");
+        }
+      }
+
+      if (
+        vista !== "semana"
+        && mismaFecha(fecha, fechaSeleccionada)
+      ) {
+        boton.classList.add("seleccionado");
+      }
+
+      if (mismaFecha(fecha, hoy)) {
+        boton.classList.add("hoy");
+      }
+
+      boton.addEventListener("click", () => {
+        fechaSeleccionada = limpiarHora(fecha);
+
+        miniFecha = new Date(
+          fecha.getFullYear(),
+          fecha.getMonth(),
+          1
+        );
+
+        render();
+      });
+
+      miniGrid.appendChild(boton);
+    }
+  }
+
+
+  function profesionalesActivos() {
+    return new Set(
+      Array
+        .from(
+          document.querySelectorAll(
+            ".filtro-profesional:checked"
+          )
+        )
+        .map((input) => input.value)
+    );
+  }
+
+
+  function serviciosActivos() {
+    return new Set(
+      Array
+        .from(
+          document.querySelectorAll(
+            ".filtro-servicio:checked"
+          )
+        )
+        .map((input) => input.value)
+    );
+  }
+
+
+  function turnosFiltrados() {
+    const profesionales = profesionalesActivos();
+    const servicios = serviciosActivos();
+
+    const textoBusqueda = (
+      document.getElementById("buscadorTurnos")?.value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    return turnosDemo.filter((turno) => {
+      const coincideFiltros = (
+        profesionales.has(turno.profesional)
+        && servicios.has(turno.servicio)
+      );
+
+      if (!coincideFiltros) {
+        return false;
+      }
+
+      if (!textoBusqueda) {
+        return true;
+      }
+
+      const bolsa = [
+        turno.cliente,
+        turno.servicio,
+        turno.profesional,
+        turno.horaInicio,
+        turno.fecha
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return bolsa.includes(textoBusqueda);
+    });
+  }
+
+
+  function renderVistaPrincipal() {
+    if (vista === "dia") {
+      renderDia();
+      return;
+    }
+
+    if (vista === "semana") {
+      renderSemana();
+      return;
+    }
+
+    renderMes();
+  }
+
+
+  function renderDia() {
+    const fechas = [fechaSeleccionada];
+
+    renderGrillaHoraria(fechas);
+  }
+
+
+  function renderSemana() {
+    const lunes = inicioSemana(fechaSeleccionada);
+
+    const fechas = [];
+
+    for (let i = 0; i < 7; i++) {
+      fechas.push(sumarDias(lunes, i));
+    }
+
+    renderGrillaHoraria(fechas);
+  }
+
+
+  function renderGrillaHoraria(fechas) {
+    const anchoHora = 64;
+
+    const columnas =
+      `${anchoHora}px repeat(${fechas.length}, minmax(125px, 1fr))`;
+
+    const scroll = document.createElement("div");
+    scroll.className = "calendario-scroll";
+
+
+    const cabecera = document.createElement("div");
+    cabecera.className = "cabecera-dias";
+    cabecera.style.gridTemplateColumns = columnas;
+
+    const esquina = document.createElement("div");
+    esquina.className = "cabecera-hora";
+    cabecera.appendChild(esquina);
+
+
+    fechas.forEach((fecha) => {
+      const celda = document.createElement("div");
+      celda.className = "cabecera-dia";
+
+      if (mismaFecha(fecha, hoy)) {
+        celda.classList.add("hoy");
+      }
+
+      const nombre = document.createElement("div");
+      nombre.className = "nombre";
+      nombre.textContent = NOMBRES_DIA_CORTO[fecha.getDay()];
+
+      const numero = document.createElement("div");
+      numero.className = "numero";
+      numero.textContent = fecha.getDate();
+
+      celda.appendChild(nombre);
+      celda.appendChild(numero);
+
+      cabecera.appendChild(celda);
+    });
+
+
+    const grilla = document.createElement("div");
+    grilla.className = "grilla-tiempo";
+    grilla.style.gridTemplateColumns = columnas;
+
+
+    const horas = document.createElement("div");
+    horas.className = "columna-horas";
+
+    for (
+      let hora = HORA_INICIO;
+      hora <= HORA_FIN;
+      hora++
+    ) {
+      const etiqueta = document.createElement("div");
+      etiqueta.className = "etiqueta-hora";
+
+      etiqueta.style.top =
+        `${(hora - HORA_INICIO) * ALTO_HORA}px`;
+
+      etiqueta.textContent =
+        `${String(hora).padStart(2, "0")}:00`;
+
+      horas.appendChild(etiqueta);
+    }
+
+    grilla.appendChild(horas);
+
+
+    const turnos = turnosFiltrados();
+
+
+    fechas.forEach((fecha) => {
+      const columna = document.createElement("div");
+      columna.className = "columna-dia";
+
+      const turnosDia = turnos.filter(
+        (turno) => turno.fecha === fechaISO(fecha)
+      );
+
+      turnosDia.forEach((turno) => {
+        columna.appendChild(
+          crearBloqueTurno(turno)
+        );
+      });
+
+
+      if (mismaFecha(fecha, hoy)) {
+        const ahora = new Date();
+
+        const minutos =
+          ahora.getHours() * 60
+          + ahora.getMinutes();
+
+        const inicioMin = HORA_INICIO * 60;
+        const finMin = HORA_FIN * 60;
+
+        if (
+          minutos >= inicioMin
+          && minutos <= finMin
+        ) {
+          const linea = document.createElement("div");
+          linea.className = "linea-ahora";
+
+          linea.style.top =
+            `${((minutos - inicioMin) / 60) * ALTO_HORA}px`;
+
+          columna.appendChild(linea);
+        }
+      }
+
+      grilla.appendChild(columna);
+    });
+
+
+    scroll.appendChild(cabecera);
+    scroll.appendChild(grilla);
+
+    vistaCalendario.innerHTML = "";
+    vistaCalendario.appendChild(scroll);
+  }
+
+
+  function crearBloqueTurno(turno) {
+    const inicio = horaAMinutos(turno.horaInicio);
+
+    const top =
+      ((inicio - HORA_INICIO * 60) / 60)
+      * ALTO_HORA;
+
+    const alto =
+      Math.max(
+        26,
+        (turno.duracion / 60) * ALTO_HORA
+      );
+
+    const bloque = document.createElement("div");
+
+    bloque.className =
+      `turno turno-${turno.profesional.toLowerCase()}`;
+
+    bloque.style.top = `${top}px`;
+    bloque.style.height = `${alto}px`;
+
+    bloque.innerHTML = `
+      <strong>${turno.cliente}</strong>
+      ${turno.horaInicio} · ${turno.servicio}
+      · ${turno.profesional}
+      ${
+        turno.capacidad
+          ? `<br>${turno.ocupados}/${turno.capacidad} lugares`
+          : ""
+      }
+    `;
+
+    return bloque;
+  }
+
+
+  function horaAMinutos(hora) {
+    const [h, m] = hora
+      .split(":")
+      .map(Number);
+
+    return h * 60 + m;
+  }
+
+
+  function renderMes() {
+    const contenedor = document.createElement("div");
+    contenedor.className = "mes-vista";
+
+    const cabecera = document.createElement("div");
+    cabecera.className = "mes-cabecera-dias";
+
+    [
+      "Lun",
+      "Mar",
+      "Mié",
+      "Jue",
+      "Vie",
+      "Sáb",
+      "Dom"
+    ].forEach((nombre) => {
+      const celda = document.createElement("div");
+      celda.textContent = nombre;
+      cabecera.appendChild(celda);
+    });
+
+
+    const grid = document.createElement("div");
+    grid.className = "mes-grid";
+
+    const primerMes = new Date(
+      fechaSeleccionada.getFullYear(),
+      fechaSeleccionada.getMonth(),
+      1
+    );
+
+    const diaJS = primerMes.getDay();
+
+    const desplazamiento =
+      diaJS === 0
+        ? -6
+        : 1 - diaJS;
+
+    const inicio = sumarDias(
+      primerMes,
+      desplazamiento
+    );
+
+    const turnos = turnosFiltrados();
+
+
+    for (let i = 0; i < 42; i++) {
+      const fecha = sumarDias(inicio, i);
+
+      const celda = document.createElement("div");
+      celda.className = "mes-celda";
+
+      if (
+        fecha.getMonth()
+        !== fechaSeleccionada.getMonth()
+      ) {
+        celda.classList.add("otro-mes");
+      }
+
+      if (mismaFecha(fecha, hoy)) {
+        celda.classList.add("hoy");
+      }
+
+      const numero = document.createElement("div");
+      numero.className = "mes-numero";
+      numero.textContent = fecha.getDate();
+
+      celda.appendChild(numero);
+
+
+      turnos
+        .filter(
+          (turno) => turno.fecha === fechaISO(fecha)
+        )
+        .slice(0, 4)
+        .forEach((turno) => {
+          const evento = document.createElement("div");
+
+          evento.className =
+            `mes-evento ${turno.profesional.toLowerCase()}`;
+
+          evento.textContent =
+            `${turno.horaInicio} ${turno.cliente}`;
+
+          celda.appendChild(evento);
+        });
+
+
+      celda.addEventListener("click", () => {
+        fechaSeleccionada = limpiarHora(fecha);
+        vista = "dia";
+
+        miniFecha = new Date(
+          fecha.getFullYear(),
+          fecha.getMonth(),
+          1
+        );
+
+        render();
+      });
+
+      grid.appendChild(celda);
+    }
+
+
+    contenedor.appendChild(cabecera);
+    contenedor.appendChild(grid);
+
+    vistaCalendario.innerHTML = "";
+    vistaCalendario.appendChild(contenedor);
+  }
+
+
+  function crearTurnosDemo() {
+    const base = limpiarHora(new Date());
+
+    const fechas = {
+      hoy: fechaISO(base),
+      manana: fechaISO(sumarDias(base, 1)),
+      ayer: fechaISO(sumarDias(base, -1)),
+      mas2: fechaISO(sumarDias(base, 2)),
+      mas3: fechaISO(sumarDias(base, 3))
+    };
+
+    return [
+      {
+        fecha: fechas.hoy,
+        horaInicio: "09:00",
+        duracion: 30,
+        cliente: "Ana Gómez",
+        servicio: "Corte",
+        profesional: "Paola"
+      },
+
+      {
+        fecha: fechas.hoy,
+        horaInicio: "10:00",
+        duracion: 90,
+        cliente: "Mariana López",
+        servicio: "Color",
+        profesional: "Laura"
+      },
+
+      {
+        fecha: fechas.hoy,
+        horaInicio: "11:15",
+        duracion: 45,
+        cliente: "Sofía Martínez",
+        servicio: "Brushing",
+        profesional: "Carla"
+      },
+
+      {
+        fecha: fechas.hoy,
+        horaInicio: "17:00",
+        duracion: 60,
+        cliente: "Clase matemática",
+        servicio: "Clase grupal",
+        profesional: "Paola",
+        capacidad: 8,
+        ocupados: 5
+      },
+
+      {
+        fecha: fechas.manana,
+        horaInicio: "09:30",
+        duracion: 30,
+        cliente: "Lucía Fernández",
+        servicio: "Corte",
+        profesional: "Paola"
+      },
+
+      {
+        fecha: fechas.manana,
+        horaInicio: "15:00",
+        duracion: 90,
+        cliente: "Carolina Ruiz",
+        servicio: "Color",
+        profesional: "Laura"
+      },
+
+      {
+        fecha: fechas.mas2,
+        horaInicio: "10:30",
+        duracion: 45,
+        cliente: "Valentina Díaz",
+        servicio: "Brushing",
+        profesional: "Carla"
+      },
+
+      {
+        fecha: fechas.mas3,
+        horaInicio: "17:00",
+        duracion: 60,
+        cliente: "Clase matemática",
+        servicio: "Clase grupal",
+        profesional: "Paola",
+        capacidad: 8,
+        ocupados: 8
+      },
+
+      {
+        fecha: fechas.ayer,
+        horaInicio: "12:00",
+        duracion: 30,
+        cliente: "Micaela Pérez",
+        servicio: "Corte",
+        profesional: "Paola"
+      }
+    ];
+  }
+
+
+  render();
+})();
+</script>
+
+</body>
+</html>
