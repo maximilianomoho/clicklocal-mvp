@@ -6,6 +6,86 @@
 
 <title>{{ comercio.nombre_negocio }} | ClickLocal Gastronomía</title>
 
+{% set dominio_oficial = 'https://clicklocal.com.ar' %}
+
+{% set ns = namespace(imagen_compartir='') %}
+
+{% for producto in productos %}
+  {% if not ns.imagen_compartir and producto.imagen_url %}
+    {% set ns.imagen_compartir = producto.imagen_url %}
+  {% endif %}
+{% endfor %}
+
+{% if not ns.imagen_compartir and comercio.logo_url %}
+  {% set ns.imagen_compartir = comercio.logo_url %}
+{% endif %}
+
+<meta
+  name="description"
+  content="{{ comercio.descripcion or comercio.nombre_negocio }}"
+/>
+
+<meta property="og:type" content="website" />
+
+<meta
+  property="og:site_name"
+  content="ClickLocal Paraná"
+/>
+
+<meta
+  property="og:title"
+  content="{{ comercio.nombre_negocio }}"
+/>
+
+<meta
+  property="og:description"
+  content="{{ comercio.descripcion or 'Menú gastronómico en ClickLocal Paraná' }}"
+/>
+
+<meta
+  property="og:url"
+  content="{{ dominio_oficial }}{{ request.path }}"
+/>
+
+{% if ns.imagen_compartir %}
+<meta
+  property="og:image"
+  content="{{ ns.imagen_compartir }}"
+/>
+
+<meta
+  property="og:image:secure_url"
+  content="{{ ns.imagen_compartir }}"
+/>
+
+<meta
+  property="og:image:alt"
+  content="{{ comercio.nombre_negocio }}"
+/>
+{% endif %}
+
+<meta
+  name="twitter:card"
+  content="summary_large_image"
+/>
+
+<meta
+  name="twitter:title"
+  content="{{ comercio.nombre_negocio }}"
+/>
+
+<meta
+  name="twitter:description"
+  content="{{ comercio.descripcion or 'Menú gastronómico en ClickLocal Paraná' }}"
+/>
+
+{% if ns.imagen_compartir %}
+<meta
+  name="twitter:image"
+  content="{{ ns.imagen_compartir }}"
+/>
+{% endif %}
+
 <style>
 :root{
   --cream:#F7F1E8;
