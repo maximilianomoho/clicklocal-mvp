@@ -1012,6 +1012,38 @@
                           </form>
                         {% endif %}
 
+                        {% if c.activo and c.gastronomia_configurada %}
+                          <form
+                            method="POST"
+                            action="{{ url_for(
+                              'admin_toggle_gastronomia',
+                              comercio_id=c.id
+                            ) }}"
+                            style="margin: 0 0 6px 0;"
+                            onsubmit="return confirm(
+                              '{{ '¿Ocultar este comercio de Gastronomía?' if c.gastronomia_activa else '¿Hacer visible este comercio en Gastronomía?' }}'
+                            );"
+                          >
+                            <button
+                              type="submit"
+                              class="admin-mini-link"
+                              style="
+                                border:0;
+                                cursor:pointer;
+                                background:{% if c.gastronomia_activa %}#ffedd5{% else %}#dcfce7{% endif %};
+                                color:{% if c.gastronomia_activa %}#9a3412{% else %}#166534{% endif %};
+                                font-weight:800;
+                              "
+                            >
+                              {% if c.gastronomia_activa %}
+                                Ocultar Gastronomía
+                              {% else %}
+                                Mostrar Gastronomía
+                              {% endif %}
+                            </button>
+                          </form>
+                        {% endif %}
+
                         {% if c.activo %}
                           <form method="POST" action="{{ url_for('admin_bloquear_comercio', comercio_id=c.id) }}" style="margin: 0;" onsubmit="return confirm('¿Bloquear este comercio y ocultar su contenido?');">
                             <button type="submit" class="admin-mini-link" style="border: 0; cursor: pointer; background: #fee2e2; color: #991b1b;">

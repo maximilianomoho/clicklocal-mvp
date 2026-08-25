@@ -242,7 +242,7 @@
           name="pedido_minimo"
           inputmode="decimal"
           placeholder="Sin mínimo"
-          value="{% if configuracion.pedido_minimo is not none %}{{ configuracion.pedido_minimo }}{% endif %}"
+          value="{{ configuracion.pedido_minimo|int if configuracion.pedido_minimo is not none else 0 }}"
           style="
             width:100%;
             margin-top:7px;
@@ -275,7 +275,7 @@
           name="costo_envio"
           inputmode="decimal"
           placeholder="Ej.: 1500"
-          value="{% if configuracion.costo_envio is not none %}{{ configuracion.costo_envio }}{% endif %}"
+          value="{{ configuracion.costo_envio|int if configuracion.costo_envio is not none else 0 }}"
           style="
             width:100%;
             margin-top:7px;
@@ -330,6 +330,74 @@
           En minutos.
         </small>
       </label>
+
+      <label>
+        <strong>
+          Descuento en efectivo
+        </strong>
+
+        <input
+          type="number"
+          name="descuento_efectivo_pct"
+          min="0"
+          max="100"
+          step="0.01"
+          value="{{ configuracion.descuento_efectivo_pct or 0 }}"
+          style="
+            width:100%;
+            margin-top:7px;
+            padding:11px 12px;
+            border:1px solid #ccc;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <small
+          style="
+            display:block;
+            margin-top:6px;
+            color:#666;
+          "
+        >
+          Porcentaje opcional. Poné 0 si no ofrecés descuento.
+        </small>
+      </label>
+
+
+      <label>
+        <strong>
+          Descuento por transferencia
+        </strong>
+
+        <input
+          type="number"
+          name="descuento_transferencia_pct"
+          min="0"
+          max="100"
+          step="0.01"
+          value="{{ configuracion.descuento_transferencia_pct or 0 }}"
+          style="
+            width:100%;
+            margin-top:7px;
+            padding:11px 12px;
+            border:1px solid #ccc;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <small
+          style="
+            display:block;
+            margin-top:6px;
+            color:#666;
+          "
+        >
+          Incluye transferencias y billeteras. Poné 0 si no aplica.
+        </small>
+      </label>
+
 
     </div>
 

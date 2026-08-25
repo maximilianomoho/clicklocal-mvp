@@ -42,6 +42,38 @@ def _es_premium_gastronomia(comercio):
     )
 
 
+def _parsear_importe_config(valor):
+    texto = str(valor or "").strip()
+
+    if not texto:
+        return 0.0
+
+    texto = (
+        texto
+        .replace("$", "")
+        .replace(" ", "")
+    )
+
+    if "." in texto and "," in texto:
+        texto = texto.replace(".", "").replace(",", ".")
+    elif "," in texto:
+        texto = texto.replace(",", ".")
+    elif texto.count(".") > 1:
+        texto = texto.replace(".", "")
+    elif "." in texto:
+        parte_entera, parte_decimal = texto.split(".", 1)
+
+        if len(parte_decimal) == 3 and parte_entera:
+            texto = parte_entera + parte_decimal
+
+    importe = float(texto)
+
+    if importe < 0:
+        raise ValueError
+
+    return importe
+
+
 def _formatear_precio(valor):
     if valor is None:
         return ""
@@ -355,7 +387,8 @@ def comercio_gastronomico(comercio_id):
         .select(
             "comercio_id,activo,acepta_delivery,"
             "acepta_retiro,pedido_minimo,costo_envio,"
-            "tiempo_estimado_min"
+            "tiempo_estimado_min,descuento_efectivo_pct,"
+            "descuento_transferencia_pct"
         )
         .eq("comercio_id", comercio_id)
         .eq("activo", True)
@@ -368,7 +401,7 @@ def comercio_gastronomico(comercio_id):
     if not configuraciones:
         return redirect(
             url_for(
-                "gastronomia.configuracion_inicial"
+                "gastronomia.inicio"
             )
         )
 
@@ -1279,43 +1312,23 @@ def configuracion_inicial():
                 "Delivery o Retiro en el local."
             )
 
-        pedido_minimo = None
-        costo_envio = None
+        pedido_minimo = 0.0
+        costo_envio = 0.0
         tiempo_estimado_min = None
 
-        if not error and pedido_minimo_raw:
+        if not error:
             try:
-                pedido_minimo = float(
+                pedido_minimo = _parsear_importe_config(
                     pedido_minimo_raw
-                    .replace("$", "")
-                    .replace(" ", "")
-                    .replace(".", "")
-                    .replace(",", ".")
                 )
-
-                if pedido_minimo < 0:
-                    raise ValueError
-
             except (TypeError, ValueError):
                 error = "El pedido mínimo no es válido."
 
-        if (
-            not error
-            and acepta_delivery
-            and costo_envio_raw
-        ):
+        if not error and acepta_delivery:
             try:
-                costo_envio = float(
+                costo_envio = _parsear_importe_config(
                     costo_envio_raw
-                    .replace("$", "")
-                    .replace(" ", "")
-                    .replace(".", "")
-                    .replace(",", ".")
                 )
-
-                if costo_envio < 0:
-                    raise ValueError
-
             except (TypeError, ValueError):
                 error = "El costo de envío no es válido."
 
@@ -1344,7 +1357,7 @@ def configuracion_inicial():
                 "costo_envio": (
                     costo_envio
                     if acepta_delivery
-                    else None
+                    else 0.0
                 ),
                 "tiempo_estimado_min": tiempo_estimado_min,
             }
@@ -1428,45 +1441,34 @@ def guardar_configuracion_negocio():
         request.form.get("tiempo_estimado_min") or ""
     ).strip()
 
-    pedido_minimo = None
+    descuento_efectivo_raw = str(
+        request.form.get("descuento_efectivo_pct") or "0"
+    ).strip()
 
-    if pedido_minimo_raw:
-        try:
-            pedido_minimo = float(
-                pedido_minimo_raw
-                .replace("$", "")
-                .replace(" ", "")
-                .replace(".", "")
-                .replace(",", ".")
+    descuento_transferencia_raw = str(
+        request.form.get("descuento_transferencia_pct") or "0"
+    ).strip()
+
+    try:
+        pedido_minimo = _parsear_importe_config(
+            pedido_minimo_raw
+        )
+    except (TypeError, ValueError):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="pedido_minimo",
             )
+            + "#configuracion-negocio"
+        )
 
-            if pedido_minimo < 0:
-                raise ValueError
+    costo_envio = 0.0
 
-        except (TypeError, ValueError):
-            return redirect(
-                url_for(
-                    "gastronomia.panel_gastronomia",
-                    configuracion_error="pedido_minimo",
-                )
-                + "#configuracion-negocio"
-            )
-
-    costo_envio = None
-
-    if acepta_delivery and costo_envio_raw:
+    if acepta_delivery:
         try:
-            costo_envio = float(
+            costo_envio = _parsear_importe_config(
                 costo_envio_raw
-                .replace("$", "")
-                .replace(" ", "")
-                .replace(".", "")
-                .replace(",", ".")
             )
-
-            if costo_envio < 0:
-                raise ValueError
-
         except (TypeError, ValueError):
             return redirect(
                 url_for(
@@ -1491,6 +1493,29 @@ def guardar_configuracion_negocio():
             + "#configuracion-negocio"
         )
 
+    try:
+        descuento_efectivo_pct = float(
+            descuento_efectivo_raw.replace(",", ".")
+        )
+        descuento_transferencia_pct = float(
+            descuento_transferencia_raw.replace(",", ".")
+        )
+
+        if not 0 <= descuento_efectivo_pct <= 100:
+            raise ValueError
+
+        if not 0 <= descuento_transferencia_pct <= 100:
+            raise ValueError
+
+    except (TypeError, ValueError):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="descuentos",
+            )
+            + "#configuracion-negocio"
+        )
+
     datos = {
         "acepta_delivery": acepta_delivery,
         "acepta_retiro": acepta_retiro,
@@ -1498,9 +1523,11 @@ def guardar_configuracion_negocio():
         "costo_envio": (
             costo_envio
             if acepta_delivery
-            else None
+            else 0.0
         ),
         "tiempo_estimado_min": tiempo_estimado_min,
+        "descuento_efectivo_pct": descuento_efectivo_pct,
+        "descuento_transferencia_pct": descuento_transferencia_pct,
     }
 
     try:
@@ -1552,7 +1579,8 @@ def panel_gastronomia():
         .select(
             "comercio_id,activo,acepta_delivery,"
             "acepta_retiro,pedido_minimo,costo_envio,"
-            "tiempo_estimado_min"
+            "tiempo_estimado_min,descuento_efectivo_pct,"
+            "descuento_transferencia_pct"
         )
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -2772,7 +2800,8 @@ def registrar_pedido(comercio_id):
         .table("gastronomia_configuracion")
         .select(
             "comercio_id,activo,acepta_delivery,"
-            "acepta_retiro,costo_envio"
+            "acepta_retiro,pedido_minimo,costo_envio,"
+            "descuento_efectivo_pct,descuento_transferencia_pct"
         )
         .eq("comercio_id", comercio_id)
         .eq("activo", True)
@@ -3060,6 +3089,32 @@ def registrar_pedido(comercio_id):
     subtotal = round(subtotal, 2)
 
     # ----------------------------------------------------------
+    # Pedido mínimo
+    # None, vacío o 0 significa que el comercio no exige mínimo.
+    # El mínimo se aplica sobre productos, antes del costo de envío.
+    # ----------------------------------------------------------
+
+    try:
+        pedido_minimo = float(
+            configuracion.get("pedido_minimo") or 0
+        )
+    except (TypeError, ValueError):
+        pedido_minimo = 0.0
+
+    pedido_minimo = round(pedido_minimo, 2)
+
+    if pedido_minimo > 0 and subtotal < pedido_minimo:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "El pedido mínimo de este comercio es "
+                "$" +
+                f"{round(pedido_minimo):,.0f}".replace(",", ".")
+                + "."
+            )
+        }), 400
+
+    # ----------------------------------------------------------
     # Costo de envío
     # Se calcula en servidor desde la configuración del comercio.
     # No forma parte de la venta de productos: se guarda separado.
@@ -3081,6 +3136,29 @@ def registrar_pedido(comercio_id):
         )
 
     descuento = 0.0
+    descuento_pct_aplicado = 0.0
+
+    try:
+        if forma_pago == "efectivo":
+            descuento_pct_aplicado = float(
+                configuracion.get("descuento_efectivo_pct") or 0
+            )
+        elif forma_pago == "transferencia":
+            descuento_pct_aplicado = float(
+                configuracion.get("descuento_transferencia_pct") or 0
+            )
+    except (TypeError, ValueError):
+        descuento_pct_aplicado = 0.0
+
+    descuento_pct_aplicado = min(
+        max(descuento_pct_aplicado, 0.0),
+        100.0
+    )
+
+    descuento = round(
+        subtotal * descuento_pct_aplicado / 100,
+        2
+    )
 
     total = round(
         subtotal + costo_envio - descuento,
@@ -3156,6 +3234,24 @@ def registrar_pedido(comercio_id):
     lineas.append(
         "Productos: " + pesos(subtotal)
     )
+
+    if descuento > 0:
+        medio_descuento = (
+            "efectivo"
+            if forma_pago == "efectivo"
+            else "transferencia"
+        )
+
+        porcentaje_texto = f"{descuento_pct_aplicado:g}"
+
+        lineas.append(
+            "Descuento "
+            + medio_descuento
+            + " ("
+            + porcentaje_texto
+            + "%): -"
+            + pesos(descuento)
+        )
 
     if modalidad == "delivery":
         lineas.append(

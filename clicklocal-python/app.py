@@ -500,7 +500,7 @@ def procesar_logo_clicklocal(archivo):
     else:
         imagen = imagen.convert("RGB")
 
-    tamanio_canvas = 800
+    tamanio_canvas = 512
 
     remuestreo = getattr(Image, "Resampling", Image)
 
@@ -616,8 +616,9 @@ def procesar_logo_clicklocal(archivo):
 
     canvas.save(
         buffer_logo,
-        format="PNG",
-        optimize=True
+        format="WEBP",
+        quality=82,
+        method=6
     )
 
     buffer_logo.seek(0)
@@ -4936,7 +4937,7 @@ def subir_logo_negocio():
 
         buffer_logo = procesar_logo_clicklocal(archivo)
 
-        nombre_final = f"{uuid.uuid4().hex}.png"
+        nombre_final = f"{uuid.uuid4().hex}.webp"
         ruta_objeto = (
             f"logos/{comercio_id}/{nombre_final}"
         )
@@ -4950,7 +4951,7 @@ def subir_logo_negocio():
                 ruta_objeto,
                 contenido_logo,
                 file_options={
-                    "content-type": "image/png"
+                    "content-type": "image/webp"
                 }
             )
         except TypeError:
@@ -4960,7 +4961,7 @@ def subir_logo_negocio():
                 ruta_objeto,
                 contenido_logo,
                 {
-                    "content-type": "image/png"
+                    "content-type": "image/webp"
                 }
             )
 
@@ -8868,6 +8869,82 @@ def admin_logout():
 
 
 @app.route(
+    "/admin/gastronomia/<comercio_id>/toggle",
+    methods=["POST"]
+)
+@admin_requerido
+def admin_toggle_gastronomia(comercio_id):
+    try:
+        uuid.UUID(str(comercio_id))
+    except Exception:
+        return redirect(
+            url_for("admin", gastronomia_error="id_invalido")
+        )
+
+    try:
+        config_res = (
+            supabase_admin
+            .table("gastronomia_configuracion")
+            .select("comercio_id,activo")
+            .eq("comercio_id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+
+        configuraciones = config_res.data or []
+
+        if not configuraciones:
+            return redirect(
+                url_for(
+                    "admin",
+                    gastronomia_error="sin_configuracion"
+                )
+            )
+
+        activo_actual = bool(
+            configuraciones[0].get("activo")
+        )
+
+        nuevo_estado = not activo_actual
+
+        (
+            supabase_admin
+            .table("gastronomia_configuracion")
+            .update({
+                "activo": nuevo_estado
+            })
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+
+        return redirect(
+            url_for(
+                "admin",
+                gastronomia_estado=(
+                    "visible"
+                    if nuevo_estado
+                    else "oculta"
+                )
+            )
+        )
+
+    except Exception as e:
+        print(
+            "ERROR CAMBIANDO VISIBILIDAD GASTRONOMIA:",
+            type(e),
+            e,
+            flush=True
+        )
+
+        return redirect(
+            url_for(
+                "admin",
+                gastronomia_error="servidor"
+            )
+        )
+
+
+@app.route(
     "/admin/gestionar/<comercio_id>",
     methods=["POST"]
 )
@@ -8981,6 +9058,7 @@ def admin():
     error = None
     comercios_raw = []
     publicaciones_raw = []
+    gastronomia_config_raw = []
     consultas_soporte = []
     consultas_soporte_resueltas = []
 
@@ -9008,6 +9086,26 @@ def admin():
             error += f" | No se pudieron cargar las publicaciones: {e}"
         else:
             error = f"No se pudieron cargar las publicaciones: {e}"
+
+    try:
+        gastronomia_config_res = (
+            supabase_admin
+            .table("gastronomia_configuracion")
+            .select("comercio_id,activo")
+            .execute()
+        )
+        gastronomia_config_raw = (
+            gastronomia_config_res.data or []
+        )
+    except Exception as e:
+        if error:
+            error += (
+                f" | No se pudo cargar Gastronomía: {e}"
+            )
+        else:
+            error = (
+                f"No se pudo cargar Gastronomía: {e}"
+            )
 
     try:
         soporte_res = (
@@ -9097,6 +9195,12 @@ def admin():
             if es_publicacion_activa(pub):
                 publicaciones_activas_por_comercio[comercio_id] = publicaciones_activas_por_comercio.get(comercio_id, 0) + 1
 
+    gastronomia_por_comercio = {
+        str(config.get("comercio_id")): config
+        for config in gastronomia_config_raw
+        if config.get("comercio_id")
+    }
+
     comercios = []
 
     for c in comercios_raw:
@@ -9116,6 +9220,19 @@ def admin():
         publicaciones_total = publicaciones_por_comercio.get(comercio_id, 0)
         publicaciones_restaurables = publicaciones_restaurables_por_comercio.get(comercio_id, 0)
         publicaciones_activas = publicaciones_activas_por_comercio.get(comercio_id, 0)
+
+        gastronomia_config = gastronomia_por_comercio.get(
+            str(comercio_id)
+        )
+
+        gastronomia_configurada = bool(
+            gastronomia_config
+        )
+
+        gastronomia_activa = bool(
+            gastronomia_config
+            and gastronomia_config.get("activo")
+        )
 
         necesita_restaurar = (
             cuenta_habilitada
@@ -9151,6 +9268,8 @@ def admin():
             "created_at": c.get("created_at") or "-",
             "publicaciones_total": publicaciones_total,
             "publicaciones_activas": publicaciones_activas,
+            "gastronomia_configurada": gastronomia_configurada,
+            "gastronomia_activa": gastronomia_activa,
             "perfil_url": url_for("perfil_comercio", comercio_id=comercio_id) if comercio_id else None,
         })
 

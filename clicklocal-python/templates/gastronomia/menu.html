@@ -984,7 +984,7 @@ input{
 
 .cart-total-box span{
   color:var(--muted);
-  font-size:13px;
+  font-size:16px;
 }
 
 .cart-total-box strong{
@@ -3692,12 +3692,127 @@ function obtenerCostoEnvioPedido(bloque){
 }
 
 
+function obtenerDescuentoPagoPedido(bloque){
+
+  if(!bloque){
+    return 0;
+  }
+
+  const formaPago =
+    obtenerRadioSeleccionado(
+      bloque,
+      'input[name^="forma-pago-"]'
+    );
+
+  let porcentaje = 0;
+
+  if(formaPago === "Efectivo"){
+    porcentaje =
+      Number("{{ configuracion.descuento_efectivo_pct or 0 }}");
+  }
+
+  if(formaPago === "Transferencia"){
+    porcentaje =
+      Number("{{ configuracion.descuento_transferencia_pct or 0 }}");
+  }
+
+  if(
+    !Number.isFinite(porcentaje) ||
+    porcentaje < 0 ||
+    porcentaje > 100
+  ){
+    porcentaje = 0;
+  }
+
+  return Math.round(
+    (
+      obtenerTotalPedido() *
+      porcentaje /
+      100
+    ) * 100
+  ) / 100;
+}
+
+
 function obtenerTotalFinalPedido(bloque){
 
   return (
     obtenerTotalPedido() +
-    obtenerCostoEnvioPedido(bloque)
+    obtenerCostoEnvioPedido(bloque) -
+    obtenerDescuentoPagoPedido(bloque)
   );
+}
+
+
+
+function actualizarResumenDescuentoPago(bloque){
+
+  if(!bloque){
+    return;
+  }
+
+  const contenedor =
+    bloque.parentElement || bloque;
+
+  const info =
+    contenedor.querySelector(
+      ".cart-summary-discount-row"
+    );
+
+  if(!info){
+    return;
+  }
+
+  const formaPago =
+    obtenerRadioSeleccionado(
+      bloque,
+      'input[name^="forma-pago-"]'
+    );
+
+  const descuento =
+    obtenerDescuentoPagoPedido(bloque);
+
+  let porcentaje = 0;
+
+  if(formaPago === "Efectivo"){
+    porcentaje =
+      Number("{{ configuracion.descuento_efectivo_pct or 0 }}");
+  }
+
+  if(formaPago === "Transferencia"){
+    porcentaje =
+      Number("{{ configuracion.descuento_transferencia_pct or 0 }}");
+  }
+
+  if(!formaPago || descuento <= 0){
+    info.hidden = true;
+    return;
+  }
+
+  const etiqueta =
+    info.querySelector(
+      ".cart-summary-discount-label"
+    );
+
+  const valor =
+    info.querySelector(
+      ".cart-summary-discount-value"
+    );
+
+  info.hidden = false;
+
+  if(etiqueta){
+    etiqueta.textContent =
+      formaPago +
+      " -" +
+      porcentaje +
+      "%";
+  }
+
+  if(valor){
+    valor.textContent =
+      "-" + formatearPesos(descuento);
+  }
 }
 
 
@@ -3728,10 +3843,19 @@ function actualizarResumenCostoEnvio(bloque){
   const esDelivery =
     modalidad === "Delivery";
 
-  resumen.hidden = !esDelivery;
+  resumen.hidden = !modalidad;
 
-  if(!esDelivery){
+  if(!modalidad){
     return;
+  }
+
+  const filaEnvio =
+    resumen.querySelector(
+      ".cart-delivery-cost-row"
+    );
+
+  if(filaEnvio){
+    filaEnvio.hidden = !esDelivery;
   }
 
   const costo =
@@ -3841,6 +3965,14 @@ function avisarFormaEntregaAntesDePago(event){
 function actualizarPagoEfectivo(input){
 
   actualizarCompactChoice(input);
+
+  const bloqueEntrega =
+    input.closest(".cart-delivery-step");
+
+  if(bloqueEntrega){
+    actualizarResumenDescuentoPago(bloqueEntrega);
+    actualizarResumenCostoEnvio(bloqueEntrega);
+  }
 
   const bloque =
     input.closest(".cart-payment-step");
@@ -4956,21 +5088,23 @@ function renderizarCarritoMobile(){
   html += '</div>';
 
   html +=
-    '<div class="cart-total-box">' +
-      '<span>' +
-        cantidadTotal +
-        (cantidadTotal === 1
-          ? " producto"
-          : " productos") +
-      '</span>' +
+    '<div class="cart-total-box" style="font-size:16px;">' +
+      '<span>Productos</span>' +
       '<strong>' +
         formatearPesos(importeTotal) +
       '</strong>' +
     '</div>' +
 
+    '<div class="cart-summary-discount-row" hidden ' +
+      'style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;font-size:16px;">' +
+      '<span class="cart-summary-discount-label"></span>' +
+      '<strong class="cart-summary-discount-value"></strong>' +
+    '</div>' +
+
     '<div class="cart-delivery-cost-summary" hidden>' +
 
-      '<div style="display:flex;justify-content:space-between;gap:12px;">' +
+      '<div class="cart-delivery-cost-row" ' +
+        'style="display:flex;justify-content:space-between;gap:12px;font-size:16px;">' +
         '<span>Envío</span>' +
         '<strong class="cart-delivery-cost-value">$0</strong>' +
       '</div>' +
@@ -5390,19 +5524,23 @@ function actualizarCarrito(){
   html += '</div>';
 
   html +=
-    '<div class="cart-total-box">' +
-      '<span>' +
-        cantidadTotal +
-        (cantidadTotal === 1 ? " producto" : " productos") +
-      '</span>' +
+    '<div class="cart-total-box" style="font-size:16px;">' +
+      '<span>Productos</span>' +
       '<strong>' +
         formatearPesos(importeTotal) +
       '</strong>' +
     '</div>' +
 
+    '<div class="cart-summary-discount-row" hidden ' +
+      'style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;font-size:16px;">' +
+      '<span class="cart-summary-discount-label"></span>' +
+      '<strong class="cart-summary-discount-value"></strong>' +
+    '</div>' +
+
     '<div class="cart-delivery-cost-summary" hidden>' +
 
-      '<div style="display:flex;justify-content:space-between;gap:12px;">' +
+      '<div class="cart-delivery-cost-row" ' +
+        'style="display:flex;justify-content:space-between;gap:12px;font-size:16px;">' +
         '<span>Envío</span>' +
         '<strong class="cart-delivery-cost-value">$0</strong>' +
       '</div>' +
