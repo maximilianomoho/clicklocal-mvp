@@ -824,43 +824,35 @@ def disponibilidad_turnos():
 
 
 
-@turnos_bp.route(
-    "/agenda/reservas/nueva",
-    methods=["POST"],
-)
-def crear_reserva():
-    comercio = session.get("comercio") or {}
-    comercio_id = comercio.get("id")
-
-    if not comercio_id:
-        return {"ok": False, "error": "comercio"}, 401
-
-    cliente_nombre = (
-        request.form.get("cliente_nombre") or ""
+def _crear_reserva_validada(
+    comercio_id,
+    datos,
+    whatsapp_comercio="",
+):
+    cliente_nombre = str(
+        datos.get("cliente_nombre") or ""
     ).strip()
 
-    cliente_whatsapp = (
-        request.form.get("cliente_whatsapp") or ""
+    cliente_whatsapp = str(
+        datos.get("cliente_whatsapp") or ""
     ).strip()
 
-    servicio_id = (
-        request.form.get("servicio_id") or ""
+    servicio_id = str(
+        datos.get("servicio_id") or ""
     ).strip()
 
-    profesional_id = (
-        request.form.get("profesional_id") or ""
+    profesional_id = str(
+        datos.get("profesional_id") or ""
     ).strip()
 
-    fecha = (
-        request.form.get("fecha") or ""
+    fecha = str(datos.get("fecha") or "").strip()
+
+    hora_inicio_raw = str(
+        datos.get("hora_inicio") or ""
     ).strip()
 
-    hora_inicio_raw = (
-        request.form.get("hora_inicio") or ""
-    ).strip()
-
-    observacion = (
-        request.form.get("observacion") or ""
+    observacion = str(
+        datos.get("observacion") or ""
     ).strip()
 
     if not all([
@@ -1330,14 +1322,24 @@ def crear_reserva():
             .execute()
         )
 
-        reserva = (
+        reserva_guardada = (
             (reserva_res.data or [None])[0]
-        )
+        ) or {}
+
+        reserva = {
+            "id": reserva_guardada.get("id"),
+            "servicio_id": servicio_id,
+            "profesional_id": profesional_id,
+            "fecha": fecha,
+            "hora_inicio": inicio.strftime("%H:%M"),
+            "hora_fin": hora_fin,
+            "estado": reserva_guardada.get("estado") or "pendiente",
+        }
 
         return {
             "ok": True,
             "reserva": reserva,
-            "whatsapp_comercio": comercio.get("whatsapp") or ""
+            "whatsapp_comercio": whatsapp_comercio or ""
         }
 
     except ValueError:
@@ -1358,6 +1360,94 @@ def crear_reserva():
             "ok": False,
             "error": "guardar"
         }, 500
+
+
+@turnos_bp.route(
+    "/agenda/reservas/nueva",
+    methods=["POST"],
+)
+def crear_reserva():
+    comercio = session.get("comercio") or {}
+    comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return {"ok": False, "error": "comercio"}, 401
+
+    return _crear_reserva_validada(
+        comercio_id,
+        request.form,
+        comercio.get("whatsapp") or "",
+    )
+
+
+@turnos_bp.route(
+    "/comercio/<comercio_id>/reservas",
+    methods=["POST"],
+)
+def crear_reserva_publica(comercio_id):
+    try:
+        comercio_id = str(UUID(str(comercio_id)))
+    except (TypeError, ValueError, AttributeError):
+        return {"ok": False, "error": "no_encontrado"}, 404
+
+    servicio_id = str(
+        request.form.get("servicio_id") or ""
+    ).strip()
+    profesional_id = str(
+        request.form.get("profesional_id") or ""
+    ).strip()
+
+    try:
+        UUID(servicio_id)
+        UUID(profesional_id)
+    except (TypeError, ValueError, AttributeError):
+        return {"ok": False, "error": "identificador"}, 400
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,whatsapp")
+            .eq("id", comercio_id)
+            .eq("activo", True)
+            .limit(1)
+            .execute()
+        )
+
+        comercios = comercio_res.data or []
+
+        if not comercios:
+            return {"ok": False, "error": "no_encontrado"}, 404
+
+        modulo_res = (
+            supabase_admin
+            .table("comercio_modulos")
+            .select("comercio_id")
+            .eq("comercio_id", comercio_id)
+            .eq("modulo", "turnos")
+            .eq("activo", True)
+            .limit(1)
+            .execute()
+        )
+
+        if not (modulo_res.data or []):
+            return {"ok": False, "error": "no_encontrado"}, 404
+
+        return _crear_reserva_validada(
+            comercio_id,
+            request.form,
+            comercios[0].get("whatsapp") or "",
+        )
+
+    except Exception as error:
+        print(
+            "ERROR CREANDO RESERVA PUBLICA TURNOS:",
+            type(error),
+            error,
+            flush=True,
+        )
+
+        return {"ok": False, "error": "guardar"}, 500
 
 
 @turnos_bp.route(

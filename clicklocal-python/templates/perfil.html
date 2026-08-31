@@ -84,6 +84,10 @@
     border-radius: 999px;
   }
 
+  .perfil-turnos {
+    text-decoration: none;
+  }
+
   /* Logo real del negocio dentro del cuadrado del perfil */
 
 
@@ -162,6 +166,7 @@
       justify-content: stretch;
     }
 
+    .perfil-acciones-principales .perfil-turnos,
     .perfil-acciones-principales .perfil-whatsapp,
     .perfil-acciones-principales .perfil-compartir {
       width: 100%;
@@ -658,6 +663,7 @@
   align-items: center;
 }
 
+.pagina-perfil-b1 .perfil-turnos,
 .pagina-perfil-b1 .perfil-whatsapp,
 .pagina-perfil-b1 .perfil-compartir {
   box-sizing: border-box;
@@ -694,6 +700,18 @@
 
   box-shadow:
     0 8px 18px rgba(107, 112, 77, 0.20);
+}
+
+.pagina-perfil-b1 .perfil-turnos {
+  grid-column: 1 / -1;
+  border: 1px solid #7A1F2B;
+  background: #7A1F2B;
+  color: #FFFDFC;
+  box-shadow: 0 8px 18px rgba(122, 31, 43, 0.20);
+}
+
+.pagina-perfil-b1 .perfil-turnos:hover {
+  background: #651823;
 }
 
 .pagina-perfil-b1 .perfil-compartir {
@@ -1373,6 +1391,15 @@
           </div>
 
           <div class="perfil-acciones-principales">
+            {% if modulo_turnos_activo %}
+              <a
+                href="{{ url_for('turnos.turnera_publica', comercio_id=comercio.id) }}"
+                class="perfil-turnos"
+              >
+                Sacar turno
+              </a>
+            {% endif %}
+
             {% if comercio.categoria != "Cine y Teatro" %}
               <a
                 href="{{ comercio.whatsapp_url or '#' }}"
