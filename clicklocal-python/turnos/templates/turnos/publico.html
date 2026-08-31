@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservar turno · {{ comercio.nombre_negocio }}</title>
+  <style>
+    :root{--ink:#29221d;--muted:#776d65;--line:#d9d0c8;--paper:#fffdfa;--soft:#f7f3ef;--cream:#eee2d4;--brand:#8d1f2d;--brand-dark:#711724;--shadow:0 24px 70px rgba(73,43,34,.18)}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif}button,input,select{font:inherit}
+    .shell{width:min(100%,720px);margin:auto;padding:22px 14px 50px}.card{position:relative;width:min(100%,430px);margin:auto;border:1px solid rgba(141,31,45,.2);border-radius:22px;background:var(--paper);box-shadow:var(--shadow)}
+    .head{position:relative;padding:20px 20px 18px;border-bottom:1px solid rgba(141,31,45,.14);background:linear-gradient(180deg,#fffdfa 0%,#fbf4ec 100%);border-radius:22px 22px 0 0}.head-nav{position:absolute;top:14px;right:14px;left:14px;display:flex;justify-content:space-between;pointer-events:none}.head-action{display:grid;place-items:center;width:42px;height:42px;border:1px solid rgba(141,31,45,.2);border-radius:12px;background:rgba(255,253,250,.9);color:var(--brand);font-size:24px;line-height:1;text-decoration:none;pointer-events:auto}.head-action:hover,.head-action:focus-visible{border-color:var(--brand);background:#f9edef;outline:3px solid rgba(141,31,45,.12);outline-offset:1px}.brand-lockup{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:18px}.brand-mark{display:grid;place-items:center;width:43px;height:43px;border:2px solid var(--brand);border-radius:13px;background:var(--brand);color:#fff;font-size:17px;font-weight:800;letter-spacing:-1px;box-shadow:0 5px 14px rgba(141,31,45,.2)}.brand-copy{display:grid;line-height:1}.brand-name{color:var(--ink);font-size:23px;letter-spacing:-1px}.brand-name strong{font-weight:800}.brand-name span{font-weight:300}.brand-product{margin-top:4px;color:var(--brand);font-size:11px;font-weight:800;letter-spacing:2.2px;text-transform:uppercase}.head h1{margin:0;text-align:center;color:var(--ink);font-size:24px;line-height:1.1}.business{margin:10px 0 0;text-align:center;color:var(--brand);font-size:18px;font-weight:800;line-height:1.25}
+    form{display:grid;gap:16px;padding:20px}.field{display:grid;gap:7px;min-width:0}.field label,.field-label{color:var(--brand-dark);font-size:13px;font-weight:700}input{width:100%;min-height:44px;padding:11px 12px;border:1px solid #cdbbb1;border-radius:12px;background:#fff;color:var(--ink);outline:none}input:focus,.date-button:focus-visible,.custom-select-button:focus-visible{border-color:var(--brand);box-shadow:0 0 0 3px rgba(141,31,45,.12)}.helper{min-height:18px;margin:0;color:#6f6259;font-size:13px;line-height:1.4}.duration{display:flex;justify-content:space-between;gap:10px;padding:10px 13px;border:1px solid #eaded3;border-radius:12px;background:var(--soft);color:#5f554d;font-size:14px}.duration strong{color:var(--brand-dark)}
+    .custom-select{position:relative}.custom-select-button{display:grid;grid-template-columns:minmax(0,1fr) 18px;align-items:center;gap:8px;width:100%;min-height:44px;padding:11px 12px;border:1px solid #cdbbb1;border-radius:12px;background:#fff;color:var(--ink);text-align:left;cursor:pointer}.custom-select-button:disabled{background:var(--soft);color:#9a9088;cursor:not-allowed}.custom-select-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.custom-select-button[aria-expanded="true"] .arrow{transform:rotate(180deg)}.custom-select-list{position:absolute;z-index:900;top:calc(100% + 7px);left:0;display:none;width:100%;max-height:240px;overflow-y:auto;padding:6px;border:1px solid rgba(141,31,45,.26);border-radius:12px;background:#fffdfa;box-shadow:0 18px 45px rgba(73,43,34,.2)}.custom-select.open .custom-select-list{display:grid;gap:3px;animation:appear .14s ease-out}.custom-select-option{width:100%;min-height:44px;padding:10px 11px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--ink);text-align:left;cursor:pointer}.custom-select-option:hover,.custom-select-option:focus-visible{border-color:rgba(141,31,45,.28);background:#f9edef;outline:none}.custom-select-option.selected{border-color:var(--brand);background:#f5e8e9;color:var(--brand-dark);font-weight:800}
+    .date-button{display:grid;grid-template-columns:32px minmax(0,1fr) 18px;align-items:center;gap:8px;width:100%;min-height:44px;padding:6px 11px 6px 8px;border:1px solid #cdbbb1;border-radius:12px;background:#fff;color:var(--ink);text-align:left;cursor:pointer}.date-button:disabled{background:var(--soft);color:#9a9088;cursor:not-allowed}.date-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:#f5e8e9;color:var(--brand);font-size:17px}.date-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:700}.arrow{color:var(--brand);transition:transform .15s ease}.date-button[aria-expanded="true"] .arrow{transform:rotate(180deg)}
+    .popover{position:fixed;z-index:1000;display:none;width:min(356px,calc(100vw - 24px));max-width:calc(100vw - 24px);padding:13px;border:1px solid rgba(141,31,45,.26);border-radius:14px;background:#fffdfa;box-shadow:0 24px 70px rgba(73,43,34,.24)}.popover.open{display:grid;gap:11px;animation:appear .14s ease-out}@keyframes appear{from{opacity:0;transform:translateY(-4px)}}.picker-head{display:grid;grid-template-columns:39px 1fr 39px;align-items:center;gap:7px;padding:3px;border-radius:11px;background:#f7eee6}.month-title{margin:0;text-align:center;color:var(--brand-dark);font-size:16px;font-weight:800}.month-nav{width:39px;height:39px;padding:0;border:1px solid rgba(141,31,45,.2);border-radius:10px;background:#fffdfa;color:var(--brand);font-size:21px;cursor:pointer}.month-nav:disabled{opacity:.38;cursor:not-allowed}.week,.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}.week span{text-align:center;color:#715b50;font-size:10px;font-weight:800}.day,.blank{min-width:0;width:100%;height:39px}.day{display:grid;place-items:center;padding:0;border:1px solid transparent;border-radius:9px;background:#fffdfa;color:#29221d;font-size:13px;font-weight:700;cursor:pointer}.day:not(:disabled):hover{border-color:var(--brand);background:#f9edef}.day:disabled{background:#f5f0eb;color:#b9afa7;cursor:not-allowed;opacity:.72}.day.selected{border-color:var(--brand);background:var(--brand);color:#fff}.day:focus-visible,.chip:focus-visible{outline:3px solid rgba(141,31,45,.22);outline-offset:1px}
+    .times-wrap[hidden]{display:none}.times-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}.times-head strong{color:var(--brand-dark);font-size:13px}.times-status{min-height:18px;margin:0 0 8px;color:#776d65;font-size:12px;line-height:1.4}.times{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:220px;overflow-y:auto;padding:2px}.chip{min-height:45px;border:1px solid #cfbbb2;border-radius:12px;background:#fff;color:#4d302d;font-weight:700;cursor:pointer}.chip:hover{border-color:var(--brand);background:#fcf5f3}.chip.selected{border-color:var(--brand);background:var(--brand);color:#fff;box-shadow:inset 0 0 0 1px var(--brand)}
+    .submit{min-height:48px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:700;box-shadow:0 7px 16px rgba(141,31,45,.2)}.submit:disabled{cursor:not-allowed;opacity:.58}.notice{margin:-3px 0 0;padding:10px 12px;border-radius:11px;background:#f7f3ef;color:#6f6259;font-size:12px;line-height:1.45}
+    @media(max-width:480px){.shell{padding:0}.card{width:100%;min-height:100vh;border-width:1px 0 0;border-radius:22px 22px 0 0;box-shadow:none}.head{padding:20px 16px 16px}form{padding:18px 16px 28px}.popover{width:min(356px,calc(100vw - 24px));max-width:calc(100vw - 24px);padding:12px}.day,.blank{height:40px}.times{max-height:238px}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="card" aria-labelledby="title">
+      <header class="head">
+        <nav class="head-nav" aria-label="Navegación">
+          <a id="backLink" class="head-action" href="{{ url_for('perfil_comercio', comercio_id=comercio.id) }}" aria-label="Volver">←</a>
+          <a class="head-action" href="{{ url_for('perfil_comercio', comercio_id=comercio.id) }}" aria-label="Cerrar">×</a>
+        </nav>
+        <div class="brand-lockup" aria-label="ClickLocal Turnos">
+          <span class="brand-mark" aria-hidden="true">CL</span>
+          <span class="brand-copy">
+            <span class="brand-name"><strong>Click</strong><span>Local</span></span>
+            <span class="brand-product">Turnos</span>
+          </span>
+        </div>
+        <h1 id="title">Nuevo turno</h1>
+        <p class="business">{{ comercio.nombre_negocio }}</p>
+      </header>
+
+      <form id="form" novalidate>
+        <div class="field">
+          <label for="serviceButton">Servicio</label>
+          <div id="serviceControl" class="custom-select">
+            <button id="serviceButton" class="custom-select-button" type="button" aria-expanded="false" aria-controls="serviceOptions" aria-haspopup="listbox">
+              <span id="serviceText" class="custom-select-value">Elegí un servicio</span>
+              <span class="arrow" aria-hidden="true">⌄</span>
+            </button>
+            <div id="serviceOptions" class="custom-select-list" role="listbox" aria-label="Servicio"></div>
+          </div>
+        </div>
+
+        <div class="duration">
+          <span>Duración del servicio</span>
+          <strong id="duration">—</strong>
+        </div>
+
+        <div class="field">
+          <label for="professionalButton">Profesional</label>
+          <div id="professionalControl" class="custom-select">
+            <button id="professionalButton" class="custom-select-button" type="button" aria-expanded="false" aria-controls="professionalOptions" aria-haspopup="listbox" disabled>
+              <span id="professionalText" class="custom-select-value">Elegí primero un servicio</span>
+              <span class="arrow" aria-hidden="true">⌄</span>
+            </button>
+            <div id="professionalOptions" class="custom-select-list" role="listbox" aria-label="Profesional"></div>
+          </div>
+          <p id="professionalHelp" class="helper">Elegí un servicio para continuar.</p>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Fecha</span>
+          <button id="dateButton" class="date-button" type="button" aria-expanded="false" aria-controls="popover" disabled>
+            <span class="date-icon" aria-hidden="true">▦</span>
+            <span id="dateText" class="date-text">Elegí una fecha</span>
+            <span class="arrow" aria-hidden="true">⌄</span>
+          </button>
+        </div>
+
+        <div id="popover" class="popover" role="dialog" aria-label="Elegir fecha">
+          <div class="picker-head">
+            <button id="previous" class="month-nav" type="button" aria-label="Mes anterior">‹</button>
+            <p id="monthTitle" class="month-title"></p>
+            <button id="next" class="month-nav" type="button" aria-label="Mes siguiente">›</button>
+          </div>
+          <div class="week" aria-hidden="true">
+            <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+          </div>
+          <div id="days" class="days"></div>
+        </div>
+
+        <section id="timesWrap" class="times-wrap" hidden aria-labelledby="timesTitle">
+          <div class="times-head">
+            <strong id="timesTitle">Horarios disponibles</strong>
+          </div>
+          <p id="timesStatus" class="times-status" aria-live="polite"></p>
+          <div id="times" class="times" role="group" aria-label="Horarios disponibles"></div>
+        </section>
+
+        <div class="field">
+          <label for="client">Cliente</label>
+          <input id="client" autocomplete="name" placeholder="Nombre y apellido" required>
+        </div>
+
+        <div class="field">
+          <label for="whatsapp">WhatsApp</label>
+          <input id="whatsapp" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej. 343 555 1234" required>
+        </div>
+
+        <p class="notice">La confirmación de la reserva se habilitará al conectar la disponibilidad pública real.</p>
+        <button class="submit" type="submit" disabled>Reservar turno</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const SERVICIOS = {{ servicios | tojson }};
+      const PROFESIONALES = {{ profesionales | tojson }};
+      const SERVICIOS_POR_PROFESIONAL = {{ servicios_por_profesional | tojson }};
+      const DIAS_POR_PROFESIONAL = {{ dias_por_profesional | tojson }};
+      const DISPONIBILIDAD_URL = {{ url_for('turnos.disponibilidad_turnos_publica', comercio_id=comercio.id) | tojson }};
+      const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      const NOMBRES_DIA = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
+      const CUALQUIER_PROFESIONAL = "__cualquier_profesional__";
+      const $ = (id) => document.getElementById(id);
+      const backLink = $("backLink");
+      const serviceControl = $("serviceControl");
+      const serviceButton = $("serviceButton");
+      const serviceText = $("serviceText");
+      const serviceOptions = $("serviceOptions");
+      const professionalControl = $("professionalControl");
+      const professionalButton = $("professionalButton");
+      const professionalText = $("professionalText");
+      const professionalOptions = $("professionalOptions");
+      const professionalHelp = $("professionalHelp");
+      const duration = $("duration");
+      const dateButton = $("dateButton");
+      const dateText = $("dateText");
+      const popover = $("popover");
+      const monthTitle = $("monthTitle");
+      const days = $("days");
+      const previous = $("previous");
+      const next = $("next");
+      const timesWrap = $("timesWrap");
+      const timesStatus = $("timesStatus");
+      const times = $("times");
+      let visibleMonth = new Date();
+      visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+      let selectedDate = null;
+      let selectedTime = "";
+      let selectedServiceId = "";
+      let selectedProfessionalId = "";
+      let selectedProfessionalMode = "";
+      let professionalsByTime = {};
+      let availabilityRequest = 0;
+      let availabilityController = null;
+
+      const today = () => {
+        const date = new Date();
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      };
+
+      const same = (a, b) => Boolean(a && b)
+        && a.getFullYear() === b.getFullYear()
+        && a.getMonth() === b.getMonth()
+        && a.getDate() === b.getDate();
+
+      const natural = (date) => {
+        const weekday = date.toLocaleDateString("es-AR", { weekday: "long" });
+        return `${weekday[0].toUpperCase() + weekday.slice(1)} ${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+      };
+
+      const dayIndex = (date) => (date.getDay() + 6) % 7;
+
+      function setOpen(open) {
+        if (open) closeCustomSelectors();
+        popover.classList.toggle("open", open);
+        dateButton.setAttribute("aria-expanded", String(open));
+        if (open) requestAnimationFrame(positionPopover);
+      }
+
+      function setCustomOpen(control, button, open) {
+        [
+          [serviceControl, serviceButton],
+          [professionalControl, professionalButton]
+        ].forEach(([otherControl, otherButton]) => {
+          const shouldOpen = open && otherControl === control;
+          otherControl.classList.toggle("open", shouldOpen);
+          otherButton.setAttribute("aria-expanded", String(shouldOpen));
+        });
+        if (open) {
+          popover.classList.remove("open");
+          dateButton.setAttribute("aria-expanded", "false");
+          requestAnimationFrame(() => {
+            const selected = control.querySelector(".custom-select-option.selected");
+            const first = control.querySelector(".custom-select-option");
+            (selected || first)?.focus();
+          });
+        }
+      }
+
+      function closeCustomSelectors() {
+        [
+          [serviceControl, serviceButton],
+          [professionalControl, professionalButton]
+        ].forEach(([control, button]) => {
+          control.classList.remove("open");
+          button.setAttribute("aria-expanded", "false");
+        });
+      }
+
+      function optionButton(label, value, selected, select) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "custom-select-option";
+        button.textContent = label;
+        button.dataset.value = value;
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", String(selected));
+        if (selected) button.classList.add("selected");
+        button.addEventListener("click", () => select(value, label));
+        return button;
+      }
+
+      function compatibleProfessionals() {
+        return PROFESIONALES.filter((item) =>
+          (SERVICIOS_POR_PROFESIONAL[item.id] || []).includes(
+            selectedServiceId
+          )
+        );
+      }
+
+      function professionalHelpText(professional, workDays) {
+        const role = String(professional.rol || "").trim();
+        if (!workDays.length) {
+          return role
+            ? `${role} · No tiene horarios configurados.`
+            : "No tiene horarios configurados.";
+        }
+        const dayNames = workDays.map((day) => NOMBRES_DIA[day]);
+        const formattedDays = new Intl.ListFormat(
+          "es",
+          { style: "long", type: "conjunction" }
+        ).format(dayNames);
+        return `${role ? `${role} · ` : ""}Atiende ${formattedDays}.`;
+      }
+
+      function renderServiceOptions() {
+        serviceOptions.innerHTML = "";
+        SERVICIOS.forEach((item) => {
+          serviceOptions.append(optionButton(
+            item.nombre,
+            item.id,
+            item.id === selectedServiceId,
+            selectService
+          ));
+        });
+      }
+
+      function renderProfessionalOptions(compatibles) {
+        professionalOptions.innerHTML = "";
+        professionalOptions.append(optionButton(
+          "Cualquier profesional",
+          CUALQUIER_PROFESIONAL,
+          selectedProfessionalMode === "any",
+          selectProfessional
+        ));
+        compatibles.forEach((item) => {
+          const label = item.rol ? `${item.nombre} · ${item.rol}` : item.nombre;
+          professionalOptions.append(optionButton(
+            label,
+            item.id,
+            selectedProfessionalMode === "specific"
+              && item.id === selectedProfessionalId,
+            selectProfessional
+          ));
+        });
+      }
+
+      function selectService(value, label) {
+        selectedServiceId = value;
+        selectedProfessionalId = "";
+        selectedProfessionalMode = "";
+        serviceText.textContent = label;
+        professionalText.textContent = "Elegí un profesional";
+        resetDate();
+        setOpen(false);
+        dateButton.disabled = true;
+        const selectedService = SERVICIOS.find((item) => item.id === selectedServiceId);
+        duration.textContent = selectedService ? `${selectedService.duracion_min} min` : "—";
+        const compatibles = compatibleProfessionals();
+        renderServiceOptions();
+        renderProfessionalOptions(compatibles);
+        professionalButton.disabled = compatibles.length === 0;
+        professionalHelp.textContent = compatibles.length
+          ? "Elegí un profesional compatible con este servicio."
+          : "No hay profesionales disponibles para este servicio.";
+        closeCustomSelectors();
+        serviceButton.focus();
+      }
+
+      function selectProfessional(value, label) {
+        const selectedProfessional = PROFESIONALES.find(
+          (item) => item.id === value
+        );
+        selectedProfessionalMode = value === CUALQUIER_PROFESIONAL
+          ? "any"
+          : "specific";
+        selectedProfessionalId = selectedProfessional
+          ? selectedProfessional.id
+          : "";
+        professionalText.textContent = selectedProfessional
+          ? selectedProfessional.nombre
+          : "Cualquier profesional";
+        resetDate();
+        setOpen(false);
+        visibleMonth = new Date(today().getFullYear(), today().getMonth(), 1);
+        const compatibles = compatibleProfessionals();
+        renderProfessionalOptions(compatibles);
+        if (value === CUALQUIER_PROFESIONAL) {
+          dateButton.disabled = compatibles.length === 0;
+          professionalHelp.textContent = "Te mostraremos todos los horarios disponibles.";
+        } else {
+          const workDays = DIAS_POR_PROFESIONAL[value] || [];
+          dateButton.disabled = !selectedProfessional;
+          professionalHelp.textContent = !selectedProfessional
+            ? "Elegí un profesional para continuar."
+            : professionalHelpText(selectedProfessional, workDays);
+        }
+        renderCalendar();
+        closeCustomSelectors();
+        professionalButton.focus();
+      }
+
+      function positionPopover() {
+        if (!popover.classList.contains("open")) return;
+        const rect = dateButton.getBoundingClientRect();
+        const gap = 7;
+        const margin = 12;
+        const width = Math.min(356, window.innerWidth - margin * 2);
+        popover.style.width = `${width}px`;
+        popover.style.left = `${Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))}px`;
+        const height = popover.offsetHeight || 340;
+        const below = rect.bottom + gap;
+        const above = rect.top - height - gap;
+        popover.style.top = `${below + height <= window.innerHeight - 8 ? below : Math.max(8, above)}px`;
+      }
+
+      function resetDate() {
+        availabilityRequest += 1;
+        availabilityController?.abort();
+        availabilityController = null;
+        selectedDate = null;
+        selectedTime = "";
+        professionalsByTime = {};
+        if (selectedProfessionalMode === "any") {
+          selectedProfessionalId = "";
+        }
+        dateText.textContent = "Elegí una fecha";
+        timesWrap.hidden = true;
+        timesStatus.textContent = "";
+        times.innerHTML = "";
+      }
+
+      function selectedWorkDays() {
+        if (selectedProfessionalMode === "any") {
+          const workDays = new Set();
+          compatibleProfessionals().forEach((professional) => {
+            (DIAS_POR_PROFESIONAL[professional.id] || []).forEach(
+              (day) => workDays.add(day)
+            );
+          });
+          return workDays;
+        }
+        return new Set(DIAS_POR_PROFESIONAL[selectedProfessionalId] || []);
+      }
+
+      function apiDate(date) {
+        return [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, "0"),
+          String(date.getDate()).padStart(2, "0")
+        ].join("-");
+      }
+
+      function renderCalendar() {
+        const now = today();
+        const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const workDays = selectedWorkDays();
+        monthTitle.textContent = `${MESES[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}`;
+        previous.disabled = visibleMonth <= currentMonth;
+        days.innerHTML = "";
+        const first = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+        const last = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0);
+        const offset = first.getDay() === 0 ? 6 : first.getDay() - 1;
+
+        for (let index = 0; index < offset; index += 1) {
+          const blank = document.createElement("span");
+          blank.className = "blank";
+          days.appendChild(blank);
+        }
+
+        for (let number = 1; number <= last.getDate(); number += 1) {
+          const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), number);
+          const button = document.createElement("button");
+          const enabled = Boolean(selectedProfessionalMode)
+            && date >= now
+            && workDays.has(dayIndex(date));
+          button.type = "button";
+          button.className = "day";
+          button.textContent = number;
+          button.disabled = !enabled;
+          button.setAttribute("aria-label", natural(date));
+          button.setAttribute("aria-pressed", String(same(date, selectedDate)));
+          if (same(date, selectedDate)) button.classList.add("selected");
+          if (enabled) {
+            button.addEventListener("click", () => {
+              selectedDate = date;
+              selectedTime = "";
+              professionalsByTime = {};
+              if (selectedProfessionalMode === "any") {
+                selectedProfessionalId = "";
+              }
+              dateText.textContent = natural(date);
+              renderCalendar();
+              loadAvailability();
+              setOpen(false);
+              dateButton.focus();
+            });
+          }
+          days.appendChild(button);
+        }
+      }
+
+      function renderAvailableTimes() {
+        times.innerHTML = "";
+        const availableTimes = Object.keys(professionalsByTime).sort();
+        if (!availableTimes.length) {
+          timesStatus.textContent = "No hay horarios disponibles para esta fecha.";
+          return;
+        }
+        timesStatus.textContent = "";
+        availableTimes.forEach((time) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "chip";
+          button.textContent = time;
+          button.setAttribute("aria-pressed", String(time === selectedTime));
+          if (time === selectedTime) button.classList.add("selected");
+          button.addEventListener("click", () => {
+            selectedTime = time;
+            if (selectedProfessionalMode === "any") {
+              selectedProfessionalId = professionalsByTime[time][0];
+            }
+            renderAvailableTimes();
+          });
+          times.appendChild(button);
+        });
+      }
+
+      async function fetchProfessionalAvailability(professionalId, date, signal) {
+        const params = new URLSearchParams({
+          servicio_id: selectedServiceId,
+          profesional_id: professionalId,
+          fecha: date
+        });
+        const response = await fetch(`${DISPONIBILIDAD_URL}?${params}`, {
+          signal,
+          headers: { "Accept": "application/json" }
+        });
+        let payload;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          throw new Error("respuesta_invalida");
+        }
+        if (!response.ok) {
+          throw new Error("consulta_rechazada");
+        }
+        if (payload.ok !== true || !Array.isArray(payload.horarios)) {
+          throw new Error("respuesta_invalida");
+        }
+        return payload.horarios;
+      }
+
+      async function loadAvailability() {
+        availabilityRequest += 1;
+        const requestId = availabilityRequest;
+        availabilityController?.abort();
+        availabilityController = new AbortController();
+        const professionals = selectedProfessionalMode === "any"
+          ? compatibleProfessionals()
+          : PROFESIONALES.filter(
+              (item) => item.id === selectedProfessionalId
+            );
+        const serviceId = selectedServiceId;
+        const date = selectedDate ? apiDate(selectedDate) : "";
+
+        selectedTime = "";
+        professionalsByTime = {};
+        times.innerHTML = "";
+        timesWrap.hidden = false;
+        timesStatus.textContent = "Consultando horarios...";
+
+        try {
+          const results = await Promise.all(
+            professionals.map(async (professional) => ({
+              professional,
+              schedules: await fetchProfessionalAvailability(
+                professional.id,
+                date,
+                availabilityController.signal
+              )
+            }))
+          );
+
+          if (
+            requestId !== availabilityRequest
+            || serviceId !== selectedServiceId
+            || date !== (selectedDate ? apiDate(selectedDate) : "")
+          ) return;
+
+          results.forEach(({ professional, schedules }) => {
+            schedules.forEach((schedule) => {
+              const time = String(schedule.hora_inicio || "").slice(0, 5);
+              if (!/^\d{2}:\d{2}$/.test(time)) return;
+              professionalsByTime[time] ||= [];
+              professionalsByTime[time].push(professional.id);
+            });
+          });
+          renderAvailableTimes();
+        } catch (error) {
+          if (error.name === "AbortError" || requestId !== availabilityRequest) return;
+          professionalsByTime = {};
+          times.innerHTML = "";
+          timesStatus.textContent = error.message === "respuesta_invalida"
+            ? "No pudimos interpretar la disponibilidad. Intentá nuevamente."
+            : error.message === "consulta_rechazada"
+              ? "No pudimos consultar la disponibilidad. Intentá nuevamente."
+              : "No pudimos consultar los horarios. Revisá tu conexión e intentá nuevamente.";
+        } finally {
+          if (requestId === availabilityRequest) {
+            availabilityController = null;
+          }
+        }
+      }
+
+      backLink.addEventListener("click", (event) => {
+        if (!document.referrer || window.history.length <= 1) return;
+        try {
+          const previousUrl = new URL(document.referrer);
+          if (
+            previousUrl.origin === window.location.origin
+            && previousUrl.href !== window.location.href
+          ) {
+            event.preventDefault();
+            window.history.back();
+          }
+        } catch (error) {
+          // El href mantiene el fallback al perfil público del comercio.
+        }
+      });
+
+      serviceButton.addEventListener("click", () => {
+        setCustomOpen(serviceControl, serviceButton, !serviceControl.classList.contains("open"));
+      });
+      professionalButton.addEventListener("click", () => {
+        if (!professionalButton.disabled) {
+          setCustomOpen(professionalControl, professionalButton, !professionalControl.classList.contains("open"));
+        }
+      });
+
+      dateButton.addEventListener("click", () => {
+        setOpen(!popover.classList.contains("open"));
+        renderCalendar();
+      });
+      previous.addEventListener("click", () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1);
+        renderCalendar();
+        positionPopover();
+      });
+      next.addEventListener("click", () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+        renderCalendar();
+        positionPopover();
+      });
+      document.addEventListener("click", (event) => {
+        if (!popover.contains(event.target) && !dateButton.contains(event.target)) setOpen(false);
+        if (!serviceControl.contains(event.target) && !professionalControl.contains(event.target)) closeCustomSelectors();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          const openButton = serviceControl.classList.contains("open")
+            ? serviceButton
+            : professionalControl.classList.contains("open")
+              ? professionalButton
+              : null;
+          setOpen(false);
+          closeCustomSelectors();
+          openButton?.focus();
+        }
+      });
+      window.addEventListener("resize", positionPopover);
+      window.addEventListener("scroll", positionPopover, true);
+      renderServiceOptions();
+      renderCalendar();
+    })();
+  </script>
+</body>
+</html>
