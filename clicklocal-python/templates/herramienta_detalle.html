@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ modulo.nombre }} | ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body style="background:#f6f7f9;">
+  <main style="width:min(920px, calc(100% - 32px)); margin:40px auto;">
+    <a
+      href="{{ url_for('panel') if comercio.id else url_for('inicio') }}"
+      style="display:inline-block; margin-bottom:18px; color:#374151; font-weight:700; text-decoration:none;"
+    >
+      ← {{ 'Volver al panel' if comercio.id else 'Volver a ClickLocal' }}
+    </a>
+
+    <article class="panel-card" style="background:white; padding:clamp(22px, 5vw, 48px);">
+      <div class="panel-card-header">
+        <div>
+          <p class="titulo-chico">HERRAMIENTA CLICKLOCAL</p>
+          <h1 style="margin:4px 0 0;">{{ modulo.nombre }}</h1>
+        </div>
+
+        {% if modulo.activo %}
+          <span class="badge">Activada</span>
+        {% else %}
+          <span class="badge" style="background:#f3f4f6; color:#4b5563;">
+            Inactiva
+          </span>
+        {% endif %}
+      </div>
+
+      <p style="font-size:18px; line-height:1.65; color:#374151;">
+        {{ modulo.descripcion_detalle }}
+      </p>
+
+      <section style="margin-top:28px;">
+        <h2>Beneficios principales</h2>
+        <ul style="display:grid; gap:10px; padding-left:22px; line-height:1.55;">
+          {% for beneficio in modulo.beneficios %}
+            <li>{{ beneficio }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <section style="margin-top:28px; padding:18px; border-radius:14px; background:#f8fafc;">
+        <strong>Precio</strong>
+        <p style="margin:6px 0 0;">{{ modulo.precio }}</p>
+      </section>
+
+      {% if modulo.imagenes %}
+        <section style="margin-top:28px;">
+          <h2>Imágenes</h2>
+          <div style="display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));">
+            {% for imagen in modulo.imagenes %}
+              <img src="{{ imagen }}" alt="{{ modulo.nombre }}" style="width:100%; border-radius:14px;" />
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:30px;">
+        {% if modulo.activo %}
+          <a
+            href="{{ url_for(modulo.endpoint_operativo) }}"
+            class="boton-principal-form"
+            style="text-decoration:none;"
+          >
+            Abrir {{ modulo.nombre }}
+          </a>
+          <span class="boton-whatsapp" style="display:inline-flex; align-items:center;">
+            Activada
+          </span>
+        {% elif comercio.id %}
+          <a
+            href="{{ url_for(
+              'contacto',
+              motivo='Activación de ' ~ modulo.nombre,
+              whatsapp=comercio.whatsapp or '',
+              origen='detalle_modulo',
+              comercio_id=comercio.id
+            ) }}"
+            class="boton-whatsapp"
+            style="text-decoration:none;"
+          >
+            Activar
+          </a>
+          <span style="align-self:center; color:#6b7280;">
+            La activación será revisada por ClickLocal.
+          </span>
+        {% endif %}
+      </div>
+    </article>
+  </main>
+</body>
+</html>

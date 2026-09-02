@@ -498,11 +498,11 @@
         <a href="#datos" class="panel-menu-link">Mis datos</a>
         <a href="#plan" class="panel-menu-link">Mi plan</a>
 
-        {% if modulo_turnos_activo %}
-        <a href="#gestion-turnos" class="panel-menu-link">
-          Gestión de turnos
+        {% for modulo in modulos_activos %}
+        <a href="#herramienta-{{ modulo.slug }}" class="panel-menu-link">
+          {{ modulo.nombre }}
         </a>
-        {% endif %}
+        {% endfor %}
         <a
           href="{{ url_for(
               'contacto',
@@ -524,19 +524,19 @@
 
         {% block panel_contenido_principal %}
 
-        {% if modulo_turnos_activo %}
-        <article id="gestion-turnos" class="panel-card">
+        {% for modulo in modulos_activos %}
+        <article id="herramienta-{{ modulo.slug }}" class="panel-card">
           <div class="panel-card-header">
             <div>
-              <p class="titulo-chico">MICRO-TOOL</p>
-              <h2>Gestión de turnos</h2>
+              <p class="titulo-chico">HERRAMIENTA ACTIVA</p>
+              <h2>{{ modulo.nombre }}</h2>
             </div>
 
             <span class="badge">Activo</span>
           </div>
 
           <p class="panel-descripcion">
-            Administrá los servicios, horarios y turnos de tu negocio.
+            {{ modulo.descripcion_corta }}
           </p>
 
           <div style="
@@ -546,15 +546,15 @@
             margin-top:18px;
           ">
             <a
-              href="/turnos/agenda"
+              href="{{ url_for(modulo.endpoint_operativo) }}"
               class="boton-principal-form"
               style="text-decoration:none;"
             >
-              Abrir Gestión de turnos
+              Abrir {{ modulo.nombre }}
             </a>
           </div>
         </article>
-        {% endif %}
+        {% endfor %}
 
         <!-- CARGAR PUBLICACIÓN -->
         {% if not es_cine_teatro %}
@@ -1951,6 +1951,70 @@
               </div>
             {% endif %}
           </article>
+
+          <section id="catalogo-herramientas" style="margin-top:28px;">
+            <div style="margin-bottom:14px;">
+              <p class="titulo-chico">CATÁLOGO</p>
+              <h2 style="margin:0;">Herramientas disponibles</h2>
+              <p class="panel-descripcion">
+                Conocé las herramientas que podés sumar a tu comercio.
+              </p>
+            </div>
+
+            <div style="display:grid; gap:16px;">
+              {% for modulo in modulos_catalogo if modulo.disponible %}
+              <article class="panel-card" style="margin:0;">
+                <div class="panel-card-header">
+                  <div>
+                    <p class="titulo-chico">HERRAMIENTA</p>
+                    <h2>{{ modulo.nombre }}</h2>
+                  </div>
+                  {% if modulo.activo %}
+                    <span class="badge">Activada</span>
+                  {% else %}
+                    <span class="badge" style="background:#f3f4f6; color:#4b5563;">
+                      Inactiva
+                    </span>
+                  {% endif %}
+                </div>
+
+                <p class="panel-descripcion">
+                  {{ modulo.descripcion_corta }}
+                </p>
+
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px;">
+                  <a
+                    href="{{ url_for('herramienta_detalle', slug=modulo.slug) }}"
+                    class="boton-principal-form"
+                    style="text-decoration:none;"
+                  >
+                    Ver
+                  </a>
+
+                  {% if modulo.activo %}
+                    <span class="boton-whatsapp" style="display:inline-flex; align-items:center;">
+                      Activada
+                    </span>
+                  {% else %}
+                    <a
+                      href="{{ url_for(
+                        'contacto',
+                        motivo='Activación de ' ~ modulo.nombre,
+                        whatsapp=comercio.whatsapp or '',
+                        origen='catalogo_modulos',
+                        comercio_id=comercio.id
+                      ) }}"
+                      class="boton-whatsapp"
+                      style="text-decoration:none;"
+                    >
+                      Activar
+                    </a>
+                  {% endif %}
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+          </section>
 
       </section>
 

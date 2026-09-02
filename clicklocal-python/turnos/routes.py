@@ -5,11 +5,13 @@ from zoneinfo import ZoneInfo
 from flask import redirect, render_template, request, session, url_for
 
 from config.supabase_config import supabase_admin
+from modulos import modulo_activo, requerir_modulo
 
 from . import turnos_bp
 
 
 @turnos_bp.route("/agenda")
+@requerir_modulo("turnos")
 def agenda_turnos():
     comercio = session.get("comercio") or {}
 
@@ -277,18 +279,7 @@ def turnera_publica(comercio_id):
     if not comercios:
         return "", 404
 
-    modulo_res = (
-        supabase_admin
-        .table("comercio_modulos")
-        .select("comercio_id")
-        .eq("comercio_id", comercio_id)
-        .eq("modulo", "turnos")
-        .eq("activo", True)
-        .limit(1)
-        .execute()
-    )
-
-    if not (modulo_res.data or []):
+    if not modulo_activo(comercio_id, "turnos"):
         return "", 404
 
     servicios_res = (
@@ -440,18 +431,7 @@ def disponibilidad_turnos_publica(comercio_id):
         if not (comercio_res.data or []):
             return {"ok": False, "error": "no_encontrado"}, 404
 
-        modulo_res = (
-            supabase_admin
-            .table("comercio_modulos")
-            .select("comercio_id")
-            .eq("comercio_id", comercio_id)
-            .eq("modulo", "turnos")
-            .eq("activo", True)
-            .limit(1)
-            .execute()
-        )
-
-        if not (modulo_res.data or []):
+        if not modulo_activo(comercio_id, "turnos"):
             return {"ok": False, "error": "no_encontrado"}, 404
 
         resultado, estado = _calcular_horarios_disponibles(
@@ -784,6 +764,7 @@ def _calcular_horarios_disponibles(
 
 
 @turnos_bp.route("/disponibilidad")
+@requerir_modulo("turnos")
 def disponibilidad_turnos():
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -1366,6 +1347,7 @@ def _crear_reserva_validada(
     "/agenda/reservas/nueva",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def crear_reserva():
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -1419,18 +1401,7 @@ def crear_reserva_publica(comercio_id):
         if not comercios:
             return {"ok": False, "error": "no_encontrado"}, 404
 
-        modulo_res = (
-            supabase_admin
-            .table("comercio_modulos")
-            .select("comercio_id")
-            .eq("comercio_id", comercio_id)
-            .eq("modulo", "turnos")
-            .eq("activo", True)
-            .limit(1)
-            .execute()
-        )
-
-        if not (modulo_res.data or []):
+        if not modulo_activo(comercio_id, "turnos"):
             return {"ok": False, "error": "no_encontrado"}, 404
 
         return _crear_reserva_validada(
@@ -1454,6 +1425,7 @@ def crear_reserva_publica(comercio_id):
     "/agenda/profesionales/nuevo",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def crear_profesional():
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -1572,6 +1544,7 @@ def crear_profesional():
     "/agenda/profesionales/<profesional_id>/toggle",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def toggle_profesional(profesional_id):
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -1644,6 +1617,7 @@ def toggle_profesional(profesional_id):
     "/agenda/profesionales/<profesional_id>/servicios/<servicio_id>/toggle",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def toggle_profesional_servicio(profesional_id, servicio_id):
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -1748,6 +1722,7 @@ def toggle_profesional_servicio(profesional_id, servicio_id):
     "/agenda/servicios/nuevo",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def crear_servicio():
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -1898,6 +1873,7 @@ def crear_servicio():
     "/agenda/servicios/<servicio_id>/toggle",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def toggle_servicio(servicio_id):
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -1970,6 +1946,7 @@ def toggle_servicio(servicio_id):
     "/agenda/profesionales/<profesional_id>/horarios/nuevo",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def crear_horario(profesional_id):
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -2075,6 +2052,7 @@ def crear_horario(profesional_id):
     "/agenda/horarios/<horario_id>/eliminar",
     methods=["POST"],
 )
+@requerir_modulo("turnos")
 def eliminar_horario(horario_id):
     comercio = session.get("comercio") or {}
     comercio_id = comercio.get("id")
@@ -2133,8 +2111,3 @@ def eliminar_horario(horario_id):
             configuracion="1"
         )
     )
-
-
-@turnos_bp.route("/prueba")
-def prueba_turnos():
-    return "CLICKLOCAL TURNOS OK"

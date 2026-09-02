@@ -176,13 +176,19 @@
 
   .admin-tabla-comercios th:nth-child(9),
   .admin-tabla-comercios td:nth-child(9) {
-    width: 6%;
-    min-width: 70px;
-    text-align: center;
+    width: 9%;
+    min-width: 115px;
   }
 
   .admin-tabla-comercios th:nth-child(10),
   .admin-tabla-comercios td:nth-child(10) {
+    width: 5%;
+    min-width: 65px;
+    text-align: center;
+  }
+
+  .admin-tabla-comercios th:nth-child(11),
+  .admin-tabla-comercios td:nth-child(11) {
     width: 13%;
     min-width: 155px;
   }
@@ -341,17 +347,17 @@
 
   .admin-tabla-comercios th:nth-child(1),
   .admin-tabla-comercios td:nth-child(1) {
-    width: 16%;
+    width: 14%;
   }
 
   .admin-tabla-comercios th:nth-child(2),
   .admin-tabla-comercios td:nth-child(2) {
-    width: 17%;
+    width: 14%;
   }
 
   .admin-tabla-comercios th:nth-child(3),
   .admin-tabla-comercios td:nth-child(3) {
-    width: 11%;
+    width: 10%;
   }
 
   .admin-tabla-comercios th:nth-child(4),
@@ -361,35 +367,91 @@
 
   .admin-tabla-comercios th:nth-child(5),
   .admin-tabla-comercios td:nth-child(5) {
-    width: 12%;
+    width: 10%;
   }
 
   .admin-tabla-comercios th:nth-child(6),
   .admin-tabla-comercios td:nth-child(6) {
-    width: 7%;
+    width: 6%;
   }
 
   .admin-tabla-comercios th:nth-child(7),
   .admin-tabla-comercios td:nth-child(7) {
-    width: 7%;
+    width: 6%;
     text-align: center;
   }
 
   .admin-tabla-comercios th:nth-child(8),
   .admin-tabla-comercios td:nth-child(8) {
-    width: 6%;
+    width: 5%;
     text-align: center;
   }
 
   .admin-tabla-comercios th:nth-child(9),
   .admin-tabla-comercios td:nth-child(9) {
-    width: 6%;
-    text-align: center;
+    width: 9%;
   }
 
   .admin-tabla-comercios th:nth-child(10),
   .admin-tabla-comercios td:nth-child(10) {
-    width: 11%;
+    width: 5%;
+    text-align: center;
+  }
+
+  .admin-tabla-comercios th:nth-child(11),
+  .admin-tabla-comercios td:nth-child(11) {
+    width: 14%;
+  }
+
+  .admin-modulos-celda {
+    white-space: normal;
+  }
+
+  .admin-modulo-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .admin-modulo-resumen {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .admin-modulo-estado {
+    color: #6b7280;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .admin-modulo-form {
+    margin: 0;
+  }
+
+  .admin-modulo-boton {
+    max-width: 100%;
+    border: 0;
+    border-radius: 6px;
+    padding: 4px 7px;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1.1;
+    white-space: normal;
+  }
+
+  .admin-modulo-boton-activo {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .admin-modulo-boton-inactivo {
+    background: #dcfce7;
+    color: #166534;
   }
 
   .admin-tabla-comercios td:last-child {
@@ -961,6 +1023,7 @@
                   <th>Plan</th>
                   <th>Publicaciones</th>
                   <th>Activas</th>
+                  <th>Módulos</th>
                   <th>Perfil</th>
                   <th>Acciones</th>
                 </tr>
@@ -980,6 +1043,38 @@
                     <td><span class="admin-plan">{{ c.plan }}</span></td>
                     <td>{{ c.publicaciones_total }}</td>
                     <td>{{ c.publicaciones_activas }}</td>
+                    <td class="admin-modulos-celda">
+                      {% for modulo in c.modulos %}
+                        <div class="admin-modulo-item">
+                          <span class="admin-modulo-resumen">
+                            <strong>{{ modulo.slug|capitalize }}</strong>
+                            <span class="admin-modulo-estado">
+                              · {{ 'Activo' if modulo.activo else 'Inactivo' }}
+                            </span>
+                          </span>
+
+                          <form
+                            method="POST"
+                            action="{{ url_for(
+                              'admin_toggle_modulo',
+                              comercio_id=c.id,
+                              slug=modulo.slug
+                            ) }}"
+                            class="admin-modulo-form"
+                            onsubmit="return confirm(
+                              '{{ '¿Desactivar' if modulo.activo else '¿Activar' }} {{ modulo.nombre }} para {{ c.nombre }}?'
+                            );"
+                          >
+                            <button
+                              type="submit"
+                              class="admin-mini-link admin-modulo-boton {{ 'admin-modulo-boton-activo' if modulo.activo else 'admin-modulo-boton-inactivo' }}"
+                            >
+                              {{ 'Desactivar' if modulo.activo else 'Activar' }}
+                            </button>
+                          </form>
+                        </div>
+                      {% endfor %}
+                    </td>
                     <td>
                       {% if c.perfil_url %}
                         <a class="admin-mini-link" href="{{ c.perfil_url }}" target="_blank">Ver</a>

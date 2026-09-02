@@ -118,6 +118,10 @@ create table if not exists public.turnos_profesionales (
 
     nombre text not null,
 
+    -- Profesión, especialidad o rol visible.
+    -- Ej.: Peluquera, Colorista, Pediatra, Psicóloga.
+    rol text,
+
     activo boolean not null default true,
 
     orden integer not null default 0,

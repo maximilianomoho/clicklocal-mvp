@@ -20,6 +20,13 @@ from threading import Lock
 from config.supabase_config import supabase_auth, supabase_admin
 from gastronomia import gastronomia_bp
 from turnos import turnos_bp
+from modulos import (
+    CATALOGO_MODULOS,
+    combinar_catalogo_con_estado,
+    modulo_activo,
+    obtener_modulo,
+    slug_modulo_valido,
+)
 
 
 def normalizar_precio(valor):
@@ -4175,6 +4182,24 @@ def contacto():
     )
 
 
+@app.route("/herramientas/<slug>")
+def herramienta_detalle(slug):
+    modulo = obtener_modulo(slug)
+
+    if not modulo or not modulo.get("disponible"):
+        return "Herramienta no encontrada.", 404
+
+    comercio = session.get("comercio") or {}
+    comercio_id = comercio.get("id")
+    modulo["activo"] = modulo_activo(comercio_id, slug)
+
+    return render_template(
+        "herramienta_detalle.html",
+        modulo=modulo,
+        comercio=comercio,
+    )
+
+
 # TÉRMINOS Y CONDICIONES
 @app.route("/terminos")
 @app.route("/terminos.html")
@@ -6348,37 +6373,19 @@ def panel():
     # CLICKLOCAL - MODULOS TRANSVERSALES DEL COMERCIO
     # ==========================================================
 
-    modulo_turnos_activo = False
-
-    try:
-        modulo_turnos_res = (
-            supabase_admin
-            .table("comercio_modulos")
-            .select("id")
-            .eq("comercio_id", comercio_id)
-            .eq("modulo", "turnos")
-            .eq("activo", True)
-            .limit(1)
-            .execute()
-        )
-
-        modulo_turnos_activo = bool(
-            modulo_turnos_res.data
-        )
-
-    except Exception as error:
-        print(
-            "AVISO DETECTANDO MODULO TURNOS:",
-            type(error),
-            error,
-            flush=True
-        )
+    modulos_catalogo = combinar_catalogo_con_estado(comercio_id)
+    modulos_activos = [
+        modulo
+        for modulo in modulos_catalogo
+        if modulo.get("activo") and modulo.get("disponible")
+    ]
 
     return render_template(
         "panel.html",
         comercio=comercio,
         publicaciones=publicaciones,
-        modulo_turnos_activo=modulo_turnos_activo,
+        modulos_activos=modulos_activos,
+        modulos_catalogo=modulos_catalogo,
         listas_buscables=listas_buscables,
         es_cine_teatro=es_cine_teatro,
         es_premium=es_premium,
@@ -8560,31 +8567,10 @@ def perfil_comercio(comercio_id):
 
         comercio = comercio_data[0]
 
-        modulo_turnos_activo = False
-
-        try:
-            modulo_turnos_res = (
-                supabase_admin
-                .table("comercio_modulos")
-                .select("id")
-                .eq("comercio_id", comercio_id)
-                .eq("modulo", "turnos")
-                .eq("activo", True)
-                .limit(1)
-                .execute()
-            )
-
-            modulo_turnos_activo = bool(
-                modulo_turnos_res.data
-            )
-
-        except Exception as error:
-            print(
-                "AVISO DETECTANDO MODULO TURNOS EN PERFIL:",
-                type(error),
-                error,
-                flush=True,
-            )
+        modulo_turnos_activo = modulo_activo(
+            comercio_id,
+            "turnos",
+        )
 
         nombre_negocio = comercio.get("nombre_negocio") or "Comercio"
         palabras_nombre = nombre_negocio.split()
@@ -8972,6 +8958,93 @@ def admin_toggle_gastronomia(comercio_id):
 
 
 @app.route(
+    "/admin/comercios/<comercio_id>/modulos/<slug>/toggle",
+    methods=["POST"],
+)
+@admin_requerido
+def admin_toggle_modulo(comercio_id, slug):
+    try:
+        comercio_id = str(uuid.UUID(str(comercio_id)))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(url_for("admin", modulo_error="id_invalido"))
+
+    slug = str(slug or "").strip().lower()
+    if not slug_modulo_valido(slug):
+        return redirect(url_for("admin", modulo_error="slug_invalido"))
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id")
+            .eq("id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+
+        if not (comercio_res.data or []):
+            return redirect(
+                url_for("admin", modulo_error="comercio_no_encontrado")
+            )
+
+        relacion_res = (
+            supabase_admin
+            .table("comercio_modulos")
+            .select("id,activo")
+            .eq("comercio_id", comercio_id)
+            .eq("modulo", slug)
+            .limit(1)
+            .execute()
+        )
+        relaciones = relacion_res.data or []
+
+        if relaciones:
+            nuevo_estado = not (relaciones[0].get("activo") is True)
+            (
+                supabase_admin
+                .table("comercio_modulos")
+                .update({
+                    "activo": nuevo_estado,
+                    "updated_at": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
+                })
+                .eq("id", relaciones[0].get("id"))
+                .eq("comercio_id", comercio_id)
+                .eq("modulo", slug)
+                .execute()
+            )
+        else:
+            nuevo_estado = True
+            (
+                supabase_admin
+                .table("comercio_modulos")
+                .insert({
+                    "comercio_id": comercio_id,
+                    "modulo": slug,
+                    "activo": True,
+                })
+                .execute()
+            )
+
+        return redirect(
+            url_for(
+                "admin",
+                modulo_estado="activo" if nuevo_estado else "inactivo",
+            )
+        )
+
+    except Exception as error:
+        print(
+            "ERROR CAMBIANDO MODULO DEL COMERCIO:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(url_for("admin", modulo_error="servidor"))
+
+
+@app.route(
     "/admin/gestionar/<comercio_id>",
     methods=["POST"]
 )
@@ -9086,6 +9159,7 @@ def admin():
     comercios_raw = []
     publicaciones_raw = []
     gastronomia_config_raw = []
+    comercio_modulos_raw = []
     consultas_soporte = []
     consultas_soporte_resueltas = []
 
@@ -9133,6 +9207,20 @@ def admin():
             error = (
                 f"No se pudo cargar Gastronomía: {e}"
             )
+
+    try:
+        modulos_res = (
+            supabase_admin
+            .table("comercio_modulos")
+            .select("comercio_id,modulo,activo")
+            .execute()
+        )
+        comercio_modulos_raw = modulos_res.data or []
+    except Exception as e:
+        if error:
+            error += f" | No se pudieron cargar los módulos: {e}"
+        else:
+            error = f"No se pudieron cargar los módulos: {e}"
 
     try:
         soporte_res = (
@@ -9228,6 +9316,21 @@ def admin():
         if config.get("comercio_id")
     }
 
+    modulos_por_comercio = {}
+    for relacion in comercio_modulos_raw:
+        relacion_comercio_id = str(
+            relacion.get("comercio_id") or ""
+        )
+        relacion_slug = str(
+            relacion.get("modulo") or ""
+        ).strip().lower()
+
+        if relacion_comercio_id and relacion_slug:
+            modulos_por_comercio.setdefault(
+                relacion_comercio_id,
+                {},
+            )[relacion_slug] = relacion.get("activo") is True
+
     comercios = []
 
     for c in comercios_raw:
@@ -9260,6 +9363,20 @@ def admin():
             gastronomia_config
             and gastronomia_config.get("activo")
         )
+
+        estados_modulos = modulos_por_comercio.get(
+            str(comercio_id),
+            {},
+        )
+        modulos_admin = [
+            {
+                "slug": slug,
+                "nombre": datos_modulo.get("nombre") or slug,
+                "activo": estados_modulos.get(slug, False),
+            }
+            for slug, datos_modulo in CATALOGO_MODULOS.items()
+            if datos_modulo.get("disponible")
+        ]
 
         necesita_restaurar = (
             cuenta_habilitada
@@ -9297,6 +9414,7 @@ def admin():
             "publicaciones_activas": publicaciones_activas,
             "gastronomia_configurada": gastronomia_configurada,
             "gastronomia_activa": gastronomia_activa,
+            "modulos": modulos_admin,
             "perfil_url": url_for("perfil_comercio", comercio_id=comercio_id) if comercio_id else None,
         })
 
