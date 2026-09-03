@@ -3821,7 +3821,8 @@
   btnCompartirTurnera.addEventListener("click", async () => {
     const enlace = window.location.origin + TURNERA_PUBLICA_PATH;
     const titulo = `Sacá tu turno en ${NOMBRE_COMERCIO}`;
-    const mensaje = `${titulo}\n${enlace}`;
+    const textoCompartir = "Reservá tu turno acá 👇";
+    const mensaje = `${textoCompartir}\n${enlace}`;
 
     btnCompartirTurnera.disabled = true;
     btnCompartirTurnera.setAttribute("aria-busy", "true");
@@ -3830,7 +3831,7 @@
       if (navigator.share) {
         await navigator.share({
           title: titulo,
-          text: titulo,
+          text: textoCompartir,
           url: enlace
         });
         mostrarResultadoCompartir("Compartido ✓");
