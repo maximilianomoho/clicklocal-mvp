@@ -20,6 +20,15 @@
       --borde: #dadce0;
       --linea: #eceff1;
       --fondo-lateral: #f8fafd;
+      --clicklocal-bordo: #8d1f2d;
+      --clicklocal-crema: #fbf6ef;
+      --clicklocal-crema-claro: #fffdfa;
+      --clicklocal-borde-suave: rgba(141, 31, 45, .28);
+      --clicklocal-texto-lateral: #76555a;
+      --clicklocal-hover-lateral: #f7eee7;
+      --clicklocal-crema-topbar: #fffcf8;
+      --clicklocal-borde-topbar: rgba(141, 31, 45, .20);
+      --clicklocal-hover-topbar: #faf3ed;
 
       --alto-15: 22px;
       --alto-hora: 88px;
@@ -54,9 +63,9 @@
       gap: 4px;
       height: 40px;
       padding: 3px;
-      border: 1px solid var(--borde);
+      border: 1px solid var(--clicklocal-borde-topbar);
       border-radius: 999px;
-      background: #fff;
+      background: var(--clicklocal-crema-claro);
     }
 
     .zoom-agenda button {
@@ -72,7 +81,7 @@
     }
 
     .zoom-agenda button:hover:not(:disabled) {
-      background: #f1f3f4;
+      background: var(--clicklocal-hover-topbar);
     }
 
     .zoom-agenda button:disabled {
@@ -85,7 +94,7 @@
       text-align: center;
       font-size: 12px;
       font-weight: 700;
-      color: var(--texto-suave);
+      color: var(--clicklocal-texto-lateral);
     }
 
     .app {
@@ -105,8 +114,8 @@
       align-items: center;
       gap: 10px;
       padding: 10px 16px;
-      border-bottom: 1px solid var(--borde);
-      background: #fff;
+      border-bottom: 1px solid var(--clicklocal-borde-topbar);
+      background: var(--clicklocal-crema-topbar);
     }
 
     .marca {
@@ -123,7 +132,8 @@
 
     .marca-seccion {
       font-size: 20px;
-      color: var(--texto-suave);
+      color: var(--clicklocal-texto-lateral);
+      font-weight: 600;
     }
 
     .nav-fecha {
@@ -157,6 +167,30 @@
 
     .boton-hoy {
       min-width: 72px;
+    }
+
+    .topbar .boton-hoy,
+    .topbar .selector-vista {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .topbar .nav-fecha > .boton-icono,
+    .topbar .zoom-agenda button {
+      color: var(--clicklocal-texto-lateral);
+    }
+
+    .topbar .boton:not(.boton-nuevo):not(.btn-menu-mobile),
+    .topbar .selector-vista {
+      border-color: var(--clicklocal-borde-topbar);
+      background: var(--clicklocal-crema-claro);
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--texto);
+    }
+
+    .topbar .boton:not(.boton-nuevo):not(.btn-menu-mobile):hover,
+    .topbar .selector-vista:hover {
+      background: var(--clicklocal-hover-topbar);
     }
 
     .titulo-fecha {
@@ -233,9 +267,9 @@
       min-height: 40px;
       min-width: 122px;
       padding: 8px 28px 8px 14px;
-      border: 1px solid #9aa0a6;
+      border: 1px solid var(--clicklocal-borde-topbar);
       border-radius: 22px;
-      background: #fff;
+      background: var(--clicklocal-crema-claro);
       color: var(--texto);
       cursor: pointer;
     }
@@ -269,12 +303,12 @@
 
     .sidebar {
       padding: 18px 16px 24px;
-      border-right: 1px solid var(--borde);
-      background: var(--fondo-lateral);
+      border-right: 1px solid var(--clicklocal-borde-suave);
+      background: var(--clicklocal-crema);
     }
 
     .mini-calendario {
-      margin-bottom: 24px;
+      margin-bottom: 6px;
     }
 
     .mini-cabecera {
@@ -372,14 +406,102 @@
       border-radius: 50%;
     }
 
+    .resumen-mes {
+      margin-bottom: 24px;
+      padding: 14px;
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .resumen-mes h3 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      color: var(--texto-suave);
+      text-transform: uppercase;
+      letter-spacing: .45px;
+    }
+
+    .resumen-metrica {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 9px;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .resumen-metrica span {
+      color: var(--texto-suave);
+    }
+
+    .resumen-metrica strong {
+      max-width: 52%;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .btn-ver-metricas {
+      width: 100%;
+      margin: 8px 0 0;
+      padding: 9px 12px;
+      border: 1px solid var(--borde);
+      border-radius: 9px;
+      background: #fff;
+      color: var(--texto);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-ver-metricas:hover {
+      background: #f8f5f2;
+    }
+
+    .metricas-navegacion {
+      display: grid;
+      grid-template-columns: 38px 1fr 38px;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .metricas-mes {
+      margin: 0;
+      text-align: center;
+      font-size: 18px;
+    }
+
+    .metricas-nav {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--borde);
+      border-radius: 50%;
+      background: #fff;
+      color: var(--texto);
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .metricas-lista .resumen-metrica {
+      padding: 10px 0;
+      margin: 0;
+      border-bottom: 1px solid var(--borde);
+      font-size: 14px;
+    }
+
+    .metricas-lista .resumen-metrica:last-child {
+      border-bottom: 0;
+    }
+
     .grupo-filtros {
-      margin-top: 22px;
+      margin-top: 14px;
     }
 
     .grupo-filtros h3 {
       margin: 0 0 11px;
       font-size: 13px;
-      color: var(--texto-suave);
+      color: var(--clicklocal-texto-lateral);
       text-transform: uppercase;
       letter-spacing: .45px;
     }
@@ -419,19 +541,41 @@
 
     .boton-config {
       width: 100%;
-      margin-top: 25px;
+      margin-top: 16px;
       border-radius: 8px;
       text-align: left;
     }
 
     .boton-compartir-turnera {
-      margin-top: 10px;
+      margin: 0 0 10px;
+    }
+
+    .sidebar .boton-config,
+    .sidebar .btn-ver-metricas {
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 1px solid var(--clicklocal-borde-suave);
+      border-radius: 9px;
+      background: var(--clicklocal-crema-claro);
+      color: var(--clicklocal-bordo);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: left;
+    }
+
+    .sidebar .boton-config:hover,
+    .sidebar .btn-ver-metricas:hover {
+      background: var(--clicklocal-hover-lateral);
     }
 
     .sidebar-atajos {
       padding: 18px 12px 24px;
-      border-left: 1px solid var(--borde);
-      background: #fff;
+      border-left: 1px solid var(--clicklocal-borde-suave);
+      background: var(--clicklocal-crema);
     }
 
     .atajos-stick {
@@ -442,7 +586,7 @@
     .atajos-titulo {
       margin: 0 0 10px;
       font-size: 12px;
-      color: var(--texto-suave);
+      color: var(--clicklocal-texto-lateral);
       text-transform: uppercase;
       letter-spacing: .45px;
       font-weight: 700;
@@ -460,19 +604,19 @@
       width: 100%;
       min-height: 42px;
       padding: 8px 10px;
-      border: 1px solid var(--borde);
-      border-radius: 8px;
-      background: #fff;
-      color: var(--texto);
+      border: 1px solid var(--clicklocal-borde-suave);
+      border-radius: 9px;
+      background: var(--clicklocal-crema-claro);
+      color: var(--clicklocal-bordo);
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 700;
       text-align: center;
       text-decoration: none;
     }
 
     .nav-atajos a:hover {
-      background: #f1f3f4;
+      background: var(--clicklocal-hover-lateral);
     }
 
     /* =========================================================
@@ -1768,6 +1912,10 @@
   padding-top: 4px;
 }
 
+.modal-turno-acciones[hidden] {
+  display: none;
+}
+
 .modal-turno-acciones button {
   min-height: 44px;
 
@@ -2264,9 +2412,9 @@
     overscroll-behavior: contain;
 
     border: 0;
-    border-right: 1px solid var(--borde);
+    border-right: 1px solid var(--clicklocal-borde-suave);
 
-    background: #fff;
+    background: var(--clicklocal-crema);
 
     transform: translateX(-105%);
     transition: transform .22s ease;
@@ -2297,20 +2445,28 @@
   .sidebar .mini-calendario {
     width: 100%;
     max-width: none;
-    margin-bottom: 24px;
+    margin-bottom: 6px;
   }
 
   .sidebar .grupo-filtros {
     display: block;
     width: 100%;
     min-width: 0;
-    margin: 0 0 22px;
+    margin: 0 0 14px;
   }
 
   .sidebar .boton-config {
     width: 100%;
     margin-top: 4px;
-    min-height: 44px;
+    min-height: 40px;
+  }
+
+  .sidebar .boton-compartir-turnera {
+    margin: 0 0 10px;
+  }
+
+  .sidebar .btn-ver-metricas {
+    margin: 8px 0 0;
   }
 
   .mobile-accesos {
@@ -2323,7 +2479,7 @@
   .mobile-accesos h3 {
     margin: 0 0 10px;
     font-size: 12px;
-    color: var(--texto-suave);
+    color: var(--clicklocal-texto-lateral);
     text-transform: uppercase;
     letter-spacing: .45px;
   }
@@ -2335,17 +2491,21 @@
     margin-bottom: 8px;
     padding: 8px 12px;
 
-    border: 1px solid var(--borde);
+    border: 1px solid var(--clicklocal-borde-suave);
     border-radius: 9px;
 
-    background: #fff;
-    color: var(--texto);
+    background: var(--clicklocal-crema-claro);
+    color: var(--clicklocal-bordo);
 
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
 
     text-decoration: none;
+  }
+
+  .mobile-acceso-link:hover {
+    background: var(--clicklocal-hover-lateral);
   }
 
 
@@ -2581,6 +2741,15 @@
       </section>
 
 
+      <button
+        id="btnCompartirTurnera"
+        class="boton boton-config boton-compartir-turnera"
+        type="button"
+      >
+        Compartir turnos
+      </button>
+
+
       <section class="grupo-filtros">
 
         <h3>Buscar turno</h3>
@@ -2656,11 +2825,12 @@
       </button>
 
       <button
-        id="btnCompartirTurnera"
-        class="boton boton-config boton-compartir-turnera"
+        id="btnVerMetricas"
+        class="btn-ver-metricas"
         type="button"
+        aria-haspopup="dialog"
       >
-        Compartir turnera
+        Métricas
       </button>
 
       <section class="mobile-accesos">
@@ -3290,6 +3460,78 @@
 
 
 <div
+  id="modalMetricasTurnos"
+  class="modal-turno-fondo"
+  aria-hidden="true"
+>
+  <section
+    class="modal-turno"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalMetricas"
+  >
+    <div class="modal-turno-cabecera">
+      <div style="flex:1;min-width:0;">
+        <h2 id="tituloModalMetricas" class="modal-turno-titulo">
+          Métricas
+        </h2>
+      </div>
+
+      <button
+        id="btnCerrarMetricas"
+        class="modal-turno-cerrar"
+        type="button"
+        aria-label="Cerrar métricas"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="metricas-navegacion">
+      <button
+        id="metricasMesAnterior"
+        class="metricas-nav"
+        type="button"
+        aria-label="Mes anterior"
+      >‹</button>
+
+      <h3 id="metricasMesTitulo" class="metricas-mes"></h3>
+
+      <button
+        id="metricasMesSiguiente"
+        class="metricas-nav"
+        type="button"
+        aria-label="Mes siguiente"
+      >›</button>
+    </div>
+
+    <div class="metricas-lista">
+      <div class="resumen-metrica">
+        <span>Turnos del mes</span>
+        <strong id="metricaTurnosMes">0</strong>
+      </div>
+      <div class="resumen-metrica">
+        <span>Semana con más turnos</span>
+        <strong id="metricaSemanaMasTurnos">0</strong>
+      </div>
+      <div class="resumen-metrica">
+        <span>Servicio más solicitado</span>
+        <strong id="metricaServicioMasSolicitado">Sin datos</strong>
+      </div>
+      <div class="resumen-metrica">
+        <span>Profesional con más turnos</span>
+        <strong id="metricaProfesionalMasTurnos">Sin datos</strong>
+      </div>
+      <div class="resumen-metrica">
+        <span>Día con más turnos</span>
+        <strong id="metricaDiaMasTurnos">Sin datos</strong>
+      </div>
+    </div>
+  </section>
+</div>
+
+
+<div
   id="modalDetalleTurno"
   class="modal-turno-fondo"
   aria-hidden="true"
@@ -3664,7 +3906,6 @@
           inputmode="tel"
           autocomplete="tel"
           placeholder="Ej. 343 555 1234"
-          required
         >
       </div>
 
@@ -3764,6 +4005,23 @@
           Modificar
         </button>
         <button
+          id="btnGuardarTurnoRevision"
+          class="btn-turno-guardar"
+          type="button"
+        >
+          Guardar turno
+        </button>
+      </div>
+
+      <div id="turnoGuardadoAcciones" class="modal-turno-acciones" hidden>
+        <button
+          id="btnCerrarTurnoGuardado"
+          class="btn-turno-cancelar"
+          type="button"
+        >
+          Cerrar
+        </button>
+        <button
           id="btnEnviarTurnoWhatsapp"
           class="btn-turno-guardar"
           type="button"
@@ -3811,7 +4069,7 @@
     btnCompartirTurnera.textContent = texto;
 
     window.setTimeout(() => {
-      btnCompartirTurnera.textContent = "Compartir turnera";
+      btnCompartirTurnera.textContent = "Compartir turnos";
       btnCompartirTurnera.disabled = false;
       btnCompartirTurnera.removeAttribute("aria-busy");
     }, 2400);
@@ -3971,6 +4229,176 @@
    * para no tocar todavía toda la lógica de render.
    */
   const turnosDemo = {{ reservas | tojson }};
+
+  const modalMetricasTurnos =
+    document.getElementById("modalMetricasTurnos");
+
+  const btnVerMetricas =
+    document.getElementById("btnVerMetricas");
+
+  const btnCerrarMetricas =
+    document.getElementById("btnCerrarMetricas");
+
+  let mesMetricas = new Date(
+    miniFecha.getFullYear(),
+    miniFecha.getMonth(),
+    1
+  );
+
+  let overflowAnteriorMetricas = "";
+
+  function fechaTurnoLocal(valor) {
+    const partes = String(valor || "").split("-").map(Number);
+
+    if (partes.length !== 3 || partes.some(Number.isNaN)) {
+      return null;
+    }
+
+    const fecha = new Date(partes[0], partes[1] - 1, partes[2]);
+
+    return Number.isNaN(fecha.getTime()) ? null : fecha;
+  }
+
+  function valoresMasFrecuentes(valores, orden = null) {
+    const conteos = new Map();
+
+    valores.filter(Boolean).forEach((valor) => {
+      conteos.set(valor, (conteos.get(valor) || 0) + 1);
+    });
+
+    if (!conteos.size) {
+      return "Sin datos";
+    }
+
+    const maximo = Math.max(...conteos.values());
+    const empatados = [...conteos.entries()]
+      .filter(([, cantidad]) => cantidad === maximo)
+      .map(([valor]) => valor);
+
+    empatados.sort((a, b) => orden
+      ? orden.indexOf(a) - orden.indexOf(b)
+      : a.localeCompare(b, "es", { sensitivity: "base" })
+    );
+
+    return empatados.join(" / ");
+  }
+
+  function renderMetricasMes() {
+    const diasSemana = [
+      "Lunes", "Martes", "Miércoles", "Jueves",
+      "Viernes", "Sábado", "Domingo"
+    ];
+
+    const reservasMes = turnosDemo
+      .filter((turno) => turno.estado !== "rechazado")
+      .map((turno) => ({ turno, fecha: fechaTurnoLocal(turno.fecha) }))
+      .filter(({ fecha }) => (
+        fecha
+        && fecha.getFullYear() === mesMetricas.getFullYear()
+        && fecha.getMonth() === mesMetricas.getMonth()
+      ));
+
+    const turnosPorSemana = new Map();
+
+    reservasMes.forEach(({ fecha }) => {
+      const lunes = limpiarHora(fecha);
+      const diaJS = lunes.getDay();
+      lunes.setDate(lunes.getDate() + (diaJS === 0 ? -6 : 1 - diaJS));
+      const clave = fechaISO(lunes);
+      turnosPorSemana.set(clave, (turnosPorSemana.get(clave) || 0) + 1);
+    });
+
+    const semanaMasTurnos = turnosPorSemana.size
+      ? Math.max(...turnosPorSemana.values())
+      : 0;
+
+    document.getElementById("metricasMesTitulo").textContent =
+      `${MESES_TITULO[mesMetricas.getMonth()]} `
+      + `${mesMetricas.getFullYear()}`;
+
+    document.getElementById("metricaTurnosMes").textContent =
+      reservasMes.length;
+    document.getElementById("metricaSemanaMasTurnos").textContent =
+      semanaMasTurnos;
+    document.getElementById("metricaServicioMasSolicitado").textContent =
+      valoresMasFrecuentes(
+        reservasMes.map(({ turno }) => turno.servicio)
+      );
+    document.getElementById("metricaProfesionalMasTurnos").textContent =
+      valoresMasFrecuentes(
+        reservasMes.map(({ turno }) => turno.profesional)
+      );
+    document.getElementById("metricaDiaMasTurnos").textContent =
+      valoresMasFrecuentes(
+        reservasMes.map(({ fecha }) => diasSemana[
+          fecha.getDay() === 0 ? 6 : fecha.getDay() - 1
+        ]),
+        diasSemana
+      );
+  }
+
+  function abrirMetricasTurnos() {
+    mesMetricas = new Date(
+      miniFecha.getFullYear(),
+      miniFecha.getMonth(),
+      1
+    );
+    renderMetricasMes();
+    overflowAnteriorMetricas = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    modalMetricasTurnos.classList.add("abierto");
+    modalMetricasTurnos.setAttribute("aria-hidden", "false");
+    btnCerrarMetricas.focus();
+  }
+
+  function cerrarMetricasTurnos() {
+    if (!modalMetricasTurnos.classList.contains("abierto")) {
+      return;
+    }
+
+    modalMetricasTurnos.classList.remove("abierto");
+    modalMetricasTurnos.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = overflowAnteriorMetricas;
+    btnVerMetricas.focus();
+  }
+
+  btnVerMetricas.addEventListener("click", abrirMetricasTurnos);
+  btnCerrarMetricas.addEventListener("click", cerrarMetricasTurnos);
+
+  document.getElementById("metricasMesAnterior")
+    .addEventListener("click", () => {
+      mesMetricas = new Date(
+        mesMetricas.getFullYear(),
+        mesMetricas.getMonth() - 1,
+        1
+      );
+      renderMetricasMes();
+    });
+
+  document.getElementById("metricasMesSiguiente")
+    .addEventListener("click", () => {
+      mesMetricas = new Date(
+        mesMetricas.getFullYear(),
+        mesMetricas.getMonth() + 1,
+        1
+      );
+      renderMetricasMes();
+    });
+
+  modalMetricasTurnos.addEventListener("click", (evento) => {
+    if (evento.target === modalMetricasTurnos) {
+      cerrarMetricasTurnos();
+    }
+  });
+
+  document.addEventListener("keydown", (evento) => {
+    if (
+      evento.key === "Escape"
+      && modalMetricasTurnos.classList.contains("abierto")
+    ) {
+      cerrarMetricasTurnos();
+    }
+  });
 
   const ESTADOS_TURNO = {
     pendiente: "Pendiente",
@@ -4387,7 +4815,15 @@
   const btnEnviarTurnoWhatsapp =
     document.getElementById("btnEnviarTurnoWhatsapp");
 
+  const btnGuardarTurnoRevision =
+    document.getElementById("btnGuardarTurnoRevision");
+
+  const turnoGuardadoAcciones =
+    document.getElementById("turnoGuardadoAcciones");
+
   let datosTurnoParaConfirmar = null;
+  let reservaTurnoGuardada = false;
+  let urlWhatsappTurnoGuardado = "";
 
   const turnoCliente =
     document.getElementById("turnoCliente");
@@ -4989,8 +5425,14 @@
     formNuevoTurno.reset();
     formNuevoTurno.hidden = false;
     turnoRevision.hidden = true;
+    turnoGuardadoAcciones.hidden = true;
+    btnGuardarTurnoRevision.parentElement.hidden = false;
+    btnGuardarTurnoRevision.disabled = false;
+    btnEnviarTurnoWhatsapp.disabled = false;
     tituloModalNuevoTurno.textContent = "Nuevo turno";
     datosTurnoParaConfirmar = null;
+    reservaTurnoGuardada = false;
+    urlWhatsappTurnoGuardado = "";
 
     cargarProfesionalesCompatibles();
 
@@ -5030,6 +5472,12 @@
 
 
   function cerrarModalNuevoTurno() {
+
+    if (reservaTurnoGuardada) {
+      window.location.href =
+        "{{ url_for('turnos.agenda_turnos') }}";
+      return;
+    }
 
     cambiarEstadoCalendarioNuevoTurno(false);
 
@@ -5208,7 +5656,6 @@
 
       if (
         !cliente
-        || !whatsapp
         || !servicioId
         || !profesionalId
         || !fecha
@@ -5289,7 +5736,8 @@
       document.getElementById("revisionDuracion").textContent =
         `${duracion} min`;
       document.getElementById("revisionCliente").textContent = cliente;
-      document.getElementById("revisionWhatsapp").textContent = whatsapp;
+      document.getElementById("revisionWhatsapp").textContent =
+        whatsapp || "Sin WhatsApp";
       document.getElementById("revisionNotas").textContent = observacion;
       document.getElementById("revisionNotasFila").hidden = !observacion;
 
@@ -5317,14 +5765,12 @@
     });
 
 
-  btnEnviarTurnoWhatsapp.addEventListener(
+  btnGuardarTurnoRevision.addEventListener(
     "click",
     async () => {
-      if (!datosTurnoParaConfirmar) {
+      if (!datosTurnoParaConfirmar || reservaTurnoGuardada) {
         return;
       }
-
-      const ventanaWhatsapp = window.open("", "_blank");
 
       const {
         cliente,
@@ -5350,11 +5796,8 @@
       datos.set("hora_inicio", hora);
       datos.set("observacion", observacion);
 
-      let reservaCreada = false;
-
       try {
-
-        btnEnviarTurnoWhatsapp.disabled = true;
+        btnGuardarTurnoRevision.disabled = true;
 
         const respuesta = await fetch(
           "{{ url_for('turnos.crear_reserva') }}",
@@ -5371,9 +5814,6 @@
         const resultado = await respuesta.json();
 
         if (!respuesta.ok || !resultado.ok) {
-
-          ventanaWhatsapp?.close();
-
           const mensajes = {
             campos_obligatorios:
               "Completá los campos obligatorios.",
@@ -5412,19 +5852,11 @@
           return;
         }
 
-        reservaCreada = true;
+        reservaTurnoGuardada = true;
 
         const whatsappComercio = String(
           resultado.whatsapp_comercio || ""
         ).replace(/\D/g, "");
-
-        if (!whatsappComercio) {
-          ventanaWhatsapp?.close();
-          turnoRevisionError.textContent =
-            "El turno se guardó, pero el comercio no tiene un WhatsApp configurado.";
-          turnoRevisionError.classList.add("visible");
-          return;
-        }
 
         const lineasMensaje = [
           "Hola, reservé un turno desde ClickLocal.",
@@ -5449,47 +5881,29 @@
           "(max-width: 650px)"
         ).matches;
 
-        const urlWhatsapp = esMovil
-          ? "https://wa.me/"
-            + whatsappComercio
-            + "?text="
-            + mensajeWhatsapp
-          : "https://web.whatsapp.com/send?phone="
-            + whatsappComercio
-            + "&text="
-            + mensajeWhatsapp;
+        urlWhatsappTurnoGuardado = !whatsappComercio
+          ? ""
+          : esMovil
+            ? "https://wa.me/"
+              + whatsappComercio
+              + "?text="
+              + mensajeWhatsapp
+            : "https://web.whatsapp.com/send?phone="
+              + whatsappComercio
+              + "&text="
+              + mensajeWhatsapp;
 
-        if (ventanaWhatsapp) {
-          ventanaWhatsapp.opener = null;
-          ventanaWhatsapp.location.href = urlWhatsapp;
-          window.location.href =
-            "{{ url_for('turnos.agenda_turnos') }}";
-          return;
-        }
-
-        turnoRevisionError.textContent =
-          "El turno se guardó. El navegador bloqueó la pestaña de WhatsApp. ";
-
-        const enlaceWhatsapp = document.createElement("a");
-        enlaceWhatsapp.href = urlWhatsapp;
-        enlaceWhatsapp.target = "_blank";
-        enlaceWhatsapp.rel = "noopener noreferrer";
-        enlaceWhatsapp.textContent = "Abrir WhatsApp";
-        enlaceWhatsapp.addEventListener("click", () => {
-          setTimeout(() => {
-            window.location.href =
-              "{{ url_for('turnos.agenda_turnos') }}";
-          }, 100);
-        });
-
-        turnoRevisionError.appendChild(enlaceWhatsapp);
+        turnoRevisionError.textContent = whatsappComercio
+          ? "El turno se guardó correctamente."
+          : "El turno se guardó, pero el comercio no tiene un WhatsApp configurado.";
         turnoRevisionError.classList.add("visible");
-        datosTurnoParaConfirmar = null;
+        tituloModalNuevoTurno.textContent = "Turno guardado";
+        btnGuardarTurnoRevision.parentElement.hidden = true;
+        turnoGuardadoAcciones.hidden = false;
+        btnEnviarTurnoWhatsapp.disabled = !urlWhatsappTurnoGuardado;
+        document.getElementById("btnCerrarTurnoGuardado").focus();
 
       } catch (error) {
-
-        ventanaWhatsapp?.close();
-
         console.error(
           "ERROR GUARDANDO TURNO:",
           error
@@ -5500,10 +5914,27 @@
 
         turnoRevisionError.classList.add("visible");
       } finally {
-        btnEnviarTurnoWhatsapp.disabled = reservaCreada;
+        btnGuardarTurnoRevision.disabled = reservaTurnoGuardada;
       }
     }
   );
+
+
+  btnEnviarTurnoWhatsapp.addEventListener("click", () => {
+    if (!reservaTurnoGuardada || !urlWhatsappTurnoGuardado) {
+      return;
+    }
+
+    window.open(
+      urlWhatsappTurnoGuardado,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  });
+
+
+  document.getElementById("btnCerrarTurnoGuardado")
+    .addEventListener("click", cerrarModalNuevoTurno);
 
 
   function limpiarHora(fecha) {

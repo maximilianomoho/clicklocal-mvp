@@ -242,6 +242,87 @@ def agenda_turnos():
                 flush=True
             )
 
+    hoy_argentina = datetime.now(
+        ZoneInfo("America/Argentina/Cordoba")
+    ).date()
+    inicio_semana = hoy_argentina - timedelta(
+        days=hoy_argentina.weekday()
+    )
+    fin_semana = inicio_semana + timedelta(days=6)
+
+    reservas_mes = []
+    turnos_semana = 0
+
+    for reserva in reservas:
+        if reserva.get("estado") == "rechazado":
+            continue
+
+        try:
+            fecha_reserva = datetime.strptime(
+                reserva.get("fecha") or "",
+                "%Y-%m-%d"
+            ).date()
+        except (TypeError, ValueError):
+            continue
+
+        if inicio_semana <= fecha_reserva <= fin_semana:
+            turnos_semana += 1
+
+        if (
+            fecha_reserva.year == hoy_argentina.year
+            and fecha_reserva.month == hoy_argentina.month
+        ):
+            reservas_mes.append((reserva, fecha_reserva))
+
+    def valor_mas_frecuente(valores, orden=None):
+        conteos = {}
+
+        for valor in valores:
+            if valor:
+                conteos[valor] = conteos.get(valor, 0) + 1
+
+        if not conteos:
+            return None
+
+        maximo = max(conteos.values())
+        empatados = [
+            valor
+            for valor, cantidad in conteos.items()
+            if cantidad == maximo
+        ]
+
+        if orden:
+            empatados.sort(key=lambda valor: orden.index(valor))
+        else:
+            empatados.sort(key=str.casefold)
+
+        return " / ".join(empatados)
+
+    dias_semana = [
+        "Lunes", "Martes", "Miércoles", "Jueves",
+        "Viernes", "Sábado", "Domingo"
+    ]
+
+    metricas_turnos = {
+        "turnos_mes": len(reservas_mes),
+        "turnos_semana": turnos_semana,
+        "servicio_mas_solicitado": valor_mas_frecuente([
+            reserva.get("servicio")
+            for reserva, _ in reservas_mes
+        ]),
+        "profesional_mas_solicitado": valor_mas_frecuente([
+            reserva.get("profesional")
+            for reserva, _ in reservas_mes
+        ]),
+        "dia_mas_solicitado": valor_mas_frecuente(
+            [
+                dias_semana[fecha_reserva.weekday()]
+                for _, fecha_reserva in reservas_mes
+            ],
+            orden=dias_semana
+        ),
+    }
+
     return render_template(
         "turnos/agenda.html",
         nombre_comercio=nombre_comercio,
@@ -253,6 +334,7 @@ def agenda_turnos():
         servicios_por_profesional=servicios_por_profesional,
         horarios_por_profesional=horarios_por_profesional,
         reservas=reservas,
+        metricas_turnos=metricas_turnos,
         turnera_publica_path=url_for(
             "turnos.turnera_publica",
             comercio_id=comercio_id,
@@ -845,7 +927,6 @@ def _crear_reserva_validada(
 
     if not all([
         cliente_nombre,
-        cliente_whatsapp,
         servicio_id,
         profesional_id,
         fecha,
