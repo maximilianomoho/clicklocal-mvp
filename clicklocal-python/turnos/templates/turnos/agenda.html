@@ -3780,7 +3780,6 @@
 <script>
 (() => {
   const TURNERA_PUBLICA_PATH = {{ turnera_publica_path | tojson }};
-  const NOMBRE_COMERCIO = {{ nombre_comercio | tojson }};
 
   const btnCompartirTurnera =
     document.getElementById("btnCompartirTurnera");
@@ -3820,9 +3819,6 @@
 
   btnCompartirTurnera.addEventListener("click", async () => {
     const enlace = window.location.origin + TURNERA_PUBLICA_PATH;
-    const titulo = `Sacá tu turno en ${NOMBRE_COMERCIO}`;
-    const textoCompartir = "Reservá tu turno acá 👇";
-    const mensaje = `${textoCompartir}\n${enlace}`;
 
     btnCompartirTurnera.disabled = true;
     btnCompartirTurnera.setAttribute("aria-busy", "true");
@@ -3830,15 +3826,13 @@
     try {
       if (navigator.share) {
         await navigator.share({
-          title: titulo,
-          text: textoCompartir,
           url: enlace
         });
         mostrarResultadoCompartir("Compartido ✓");
         return;
       }
 
-      await copiarEnlaceTurnera(mensaje);
+      await copiarEnlaceTurnera(enlace);
       mostrarResultadoCompartir("Enlace copiado ✓");
     } catch (error) {
       if (error && error.name === "AbortError") {
@@ -3847,7 +3841,7 @@
       }
 
       try {
-        await copiarEnlaceTurnera(mensaje);
+        await copiarEnlaceTurnera(enlace);
         mostrarResultadoCompartir("Enlace copiado ✓");
       } catch (errorCopiar) {
         mostrarResultadoCompartir("No se pudo compartir");
