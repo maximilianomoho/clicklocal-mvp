@@ -217,12 +217,15 @@ def agenda_turnos():
 
                 reservas.append({
                     "id": reserva.get("id"),
+                    "servicioId": reserva.get("servicio_id"),
+                    "profesionalId": reserva.get("profesional_id"),
                     "fecha": str(reserva.get("fecha") or ""),
                     "horaInicio": hora_inicio,
                     "horaFin": hora_fin,
                     "cliente": reserva.get("cliente_nombre") or "",
                     "whatsapp": reserva.get("cliente_whatsapp") or "",
                     "servicio": servicio.get("nombre") or "",
+                    "precio": servicio.get("precio"),
                     "duracion": int(
                         servicio.get("duracion_min") or 30
                     ),
@@ -250,6 +253,10 @@ def agenda_turnos():
         servicios_por_profesional=servicios_por_profesional,
         horarios_por_profesional=horarios_por_profesional,
         reservas=reservas,
+        turnera_publica_path=url_for(
+            "turnos.turnera_publica",
+            comercio_id=comercio_id,
+        ),
         abrir_configuracion=(
             request.args.get("configuracion") == "1"
         ),
@@ -1306,6 +1313,12 @@ def _crear_reserva_validada(
         reserva_guardada = (
             (reserva_res.data or [None])[0]
         ) or {}
+
+        if not reserva_guardada.get("id"):
+            return {
+                "ok": False,
+                "error": "guardar"
+            }, 500
 
         reserva = {
             "id": reserva_guardada.get("id"),

@@ -424,6 +424,10 @@
       text-align: left;
     }
 
+    .boton-compartir-turnera {
+      margin-top: 10px;
+    }
+
     .sidebar-atajos {
       padding: 18px 12px 24px;
       border-left: 1px solid var(--borde);
@@ -636,6 +640,13 @@
       overflow: hidden;
       font-size: 12px;
       cursor: pointer;
+      border-top: 0;
+      border-right: 0;
+      border-bottom: 0;
+      font-family: inherit;
+      line-height: normal;
+      text-align: left;
+      appearance: none;
     }
 
     .turno strong {
@@ -785,13 +796,20 @@
     }
 
     .mes-evento {
+      display: block;
+      width: 100%;
       margin: 3px 0;
       padding: 3px 5px;
+      border: 0;
       border-radius: 4px;
+      font-family: inherit;
+      line-height: normal;
+      text-align: left;
       font-size: 11px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      cursor: pointer;
     }
 
     .mes-evento.paola {
@@ -1162,6 +1180,62 @@
   }
 }
 
+
+.detalle-turno-estado {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  margin-top: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #f5e8e9;
+  color: #711724;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detalle-turno-lista {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(141, 31, 45, 0.18);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.detalle-turno-fila {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 13px 14px;
+  border-bottom: 1px solid rgba(141, 31, 45, 0.10);
+}
+
+.detalle-turno-fila:nth-child(even) {
+  border-right: 1px solid rgba(141, 31, 45, 0.10);
+}
+
+.detalle-turno-fila.detalle-turno-ancho {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+.detalle-turno-fila dt {
+  color: #711724;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.detalle-turno-fila dd {
+  margin: 0;
+  color: #29221d;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 
 .modal-turno-fondo {
   position: fixed;
@@ -1783,6 +1857,15 @@
 
   .modal-turno-titulo {
     font-size: 23px;
+  }
+
+  .detalle-turno-lista {
+    grid-template-columns: 1fr;
+  }
+
+  .detalle-turno-fila,
+  .detalle-turno-fila:nth-child(even) {
+    border-right: 0;
   }
 
   .form-turno-fila {
@@ -2572,6 +2655,14 @@
         ⚙ Configuración
       </button>
 
+      <button
+        id="btnCompartirTurnera"
+        class="boton boton-config boton-compartir-turnera"
+        type="button"
+      >
+        Compartir turnera
+      </button>
+
       <section class="mobile-accesos">
         <h3>ClickLocal</h3>
 
@@ -3199,6 +3290,83 @@
 
 
 <div
+  id="modalDetalleTurno"
+  class="modal-turno-fondo"
+  aria-hidden="true"
+>
+  <section
+    class="modal-turno"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalDetalleTurno"
+  >
+    <div class="modal-turno-cabecera">
+      <div style="flex:1;min-width:0;">
+        <h2
+          id="tituloModalDetalleTurno"
+          class="modal-turno-titulo"
+        >
+          Detalle del turno
+        </h2>
+        <span
+          id="detalleTurnoEstado"
+          class="detalle-turno-estado"
+        ></span>
+      </div>
+
+      <button
+        id="btnCerrarDetalleTurno"
+        class="modal-turno-cerrar"
+        type="button"
+        aria-label="Cerrar detalle del turno"
+      >
+        ×
+      </button>
+    </div>
+
+    <dl class="detalle-turno-lista">
+      <div class="detalle-turno-fila detalle-turno-ancho">
+        <dt>Cliente</dt>
+        <dd id="detalleTurnoCliente"></dd>
+      </div>
+      <div class="detalle-turno-fila">
+        <dt>WhatsApp</dt>
+        <dd id="detalleTurnoWhatsapp"></dd>
+      </div>
+      <div class="detalle-turno-fila">
+        <dt>Servicio</dt>
+        <dd id="detalleTurnoServicio"></dd>
+      </div>
+      <div class="detalle-turno-fila">
+        <dt>Profesional</dt>
+        <dd id="detalleTurnoProfesional"></dd>
+      </div>
+      <div class="detalle-turno-fila">
+        <dt>Fecha</dt>
+        <dd id="detalleTurnoFecha"></dd>
+      </div>
+      <div class="detalle-turno-fila">
+        <dt>Horario</dt>
+        <dd id="detalleTurnoHorario"></dd>
+      </div>
+      <div class="detalle-turno-fila">
+        <dt>Duración</dt>
+        <dd id="detalleTurnoDuracion"></dd>
+      </div>
+      <div class="detalle-turno-fila detalle-turno-ancho">
+        <dt>Precio</dt>
+        <dd id="detalleTurnoPrecio"></dd>
+      </div>
+      <div class="detalle-turno-fila detalle-turno-ancho">
+        <dt>Notas</dt>
+        <dd id="detalleTurnoNotas"></dd>
+      </div>
+    </dl>
+  </section>
+</div>
+
+
+<div
   id="modalNuevoTurno"
   class="modal-turno-fondo"
   aria-hidden="true"
@@ -3611,6 +3779,81 @@
 
 <script>
 (() => {
+  const TURNERA_PUBLICA_PATH = {{ turnera_publica_path | tojson }};
+  const NOMBRE_COMERCIO = {{ nombre_comercio | tojson }};
+
+  const btnCompartirTurnera =
+    document.getElementById("btnCompartirTurnera");
+
+  async function copiarEnlaceTurnera(texto) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(texto);
+      return;
+    }
+
+    const areaTemporal = document.createElement("textarea");
+    areaTemporal.value = texto;
+    areaTemporal.setAttribute("readonly", "");
+    areaTemporal.style.position = "fixed";
+    areaTemporal.style.left = "-9999px";
+    areaTemporal.style.opacity = "0";
+    document.body.appendChild(areaTemporal);
+    areaTemporal.select();
+
+    const copiado = document.execCommand("copy");
+    document.body.removeChild(areaTemporal);
+
+    if (!copiado) {
+      throw new Error("No se pudo copiar el enlace.");
+    }
+  }
+
+  function mostrarResultadoCompartir(texto) {
+    btnCompartirTurnera.textContent = texto;
+
+    window.setTimeout(() => {
+      btnCompartirTurnera.textContent = "Compartir turnera";
+      btnCompartirTurnera.disabled = false;
+      btnCompartirTurnera.removeAttribute("aria-busy");
+    }, 2400);
+  }
+
+  btnCompartirTurnera.addEventListener("click", async () => {
+    const enlace = window.location.origin + TURNERA_PUBLICA_PATH;
+    const titulo = `Sacá tu turno en ${NOMBRE_COMERCIO}`;
+    const mensaje = `${titulo}\n${enlace}`;
+
+    btnCompartirTurnera.disabled = true;
+    btnCompartirTurnera.setAttribute("aria-busy", "true");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: titulo,
+          text: titulo,
+          url: enlace
+        });
+        mostrarResultadoCompartir("Compartido ✓");
+        return;
+      }
+
+      await copiarEnlaceTurnera(mensaje);
+      mostrarResultadoCompartir("Enlace copiado ✓");
+    } catch (error) {
+      if (error && error.name === "AbortError") {
+        mostrarResultadoCompartir("Compartir turnera");
+        return;
+      }
+
+      try {
+        await copiarEnlaceTurnera(mensaje);
+        mostrarResultadoCompartir("Enlace copiado ✓");
+      } catch (errorCopiar) {
+        mostrarResultadoCompartir("No se pudo compartir");
+      }
+    }
+  });
+
   const NOMBRES_DIA = [
     "domingo",
     "lunes",
@@ -3733,6 +3976,177 @@
    * para no tocar todavía toda la lógica de render.
    */
   const turnosDemo = {{ reservas | tojson }};
+
+  const ESTADOS_TURNO = {
+    pendiente: "Pendiente",
+    confirmado: "Confirmado",
+    rechazado: "Cancelado",
+    atendido: "Realizado",
+    no_vino: "No asistió"
+  };
+
+  const modalDetalleTurno =
+    document.getElementById("modalDetalleTurno");
+
+  const btnCerrarDetalleTurno =
+    document.getElementById("btnCerrarDetalleTurno");
+
+  let disparadorDetalleTurno = null;
+  let overflowAnteriorDetalleTurno = "";
+
+  function textoFechaDetalle(valor) {
+    const partes = String(valor || "").split("-");
+
+    if (partes.length !== 3) {
+      return valor || "Sin fecha";
+    }
+
+    const fecha = new Date(
+      Number(partes[0]),
+      Number(partes[1]) - 1,
+      Number(partes[2])
+    );
+
+    if (Number.isNaN(fecha.getTime())) {
+      return valor || "Sin fecha";
+    }
+
+    return fecha.toLocaleDateString("es-AR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  function duracionRealTurno(turno) {
+    const inicio = horarioAMinutos(turno.horaInicio);
+    const fin = horarioAMinutos(turno.horaFin);
+
+    if (
+      inicio !== null
+      && fin !== null
+      && fin > inicio
+    ) {
+      return fin - inicio;
+    }
+
+    return Number(turno.duracion || 0);
+  }
+
+  function textoPrecioTurno(valor) {
+    if (valor === null || valor === undefined || valor === "") {
+      return "Sin precio";
+    }
+
+    const numero = Number(valor);
+
+    if (!Number.isFinite(numero)) {
+      return "Sin precio";
+    }
+
+    return numero.toLocaleString("es-AR", {
+      style: "currency",
+      currency: "ARS",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function asignarTextoDetalle(id, valor) {
+    document.getElementById(id).textContent = valor;
+  }
+
+  function abrirDetalleTurno(turno, disparador) {
+    disparadorDetalleTurno = disparador || null;
+
+    asignarTextoDetalle(
+      "detalleTurnoEstado",
+      ESTADOS_TURNO[turno.estado] || turno.estado || "Sin estado"
+    );
+    asignarTextoDetalle(
+      "detalleTurnoCliente",
+      turno.cliente || "Sin nombre"
+    );
+    asignarTextoDetalle(
+      "detalleTurnoWhatsapp",
+      turno.whatsapp || "Sin WhatsApp"
+    );
+    asignarTextoDetalle(
+      "detalleTurnoServicio",
+      turno.servicio || "Sin servicio"
+    );
+    asignarTextoDetalle(
+      "detalleTurnoProfesional",
+      turno.profesional || "Sin profesional"
+    );
+    asignarTextoDetalle(
+      "detalleTurnoFecha",
+      textoFechaDetalle(turno.fecha)
+    );
+    asignarTextoDetalle(
+      "detalleTurnoHorario",
+      `${turno.horaInicio || "--:--"} – ${turno.horaFin || "--:--"}`
+    );
+
+    const duracion = duracionRealTurno(turno);
+    asignarTextoDetalle(
+      "detalleTurnoDuracion",
+      duracion > 0 ? `${duracion} min` : "Sin duración"
+    );
+    asignarTextoDetalle(
+      "detalleTurnoPrecio",
+      textoPrecioTurno(turno.precio)
+    );
+    asignarTextoDetalle(
+      "detalleTurnoNotas",
+      turno.observacion || "Sin notas"
+    );
+
+    overflowAnteriorDetalleTurno = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    modalDetalleTurno.classList.add("abierto");
+    modalDetalleTurno.setAttribute("aria-hidden", "false");
+    modalDetalleTurno.querySelector(".modal-turno").scrollTop = 0;
+    btnCerrarDetalleTurno.focus();
+  }
+
+  function cerrarDetalleTurno() {
+    if (!modalDetalleTurno.classList.contains("abierto")) {
+      return;
+    }
+
+    modalDetalleTurno.classList.remove("abierto");
+    modalDetalleTurno.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = overflowAnteriorDetalleTurno;
+
+    const foco = disparadorDetalleTurno;
+    disparadorDetalleTurno = null;
+
+    if (foco && document.contains(foco)) {
+      foco.focus();
+    }
+  }
+
+  btnCerrarDetalleTurno.addEventListener(
+    "click",
+    cerrarDetalleTurno
+  );
+
+  modalDetalleTurno.addEventListener("click", (evento) => {
+    if (evento.target === modalDetalleTurno) {
+      cerrarDetalleTurno();
+    }
+  });
+
+  document.addEventListener("keydown", (evento) => {
+    if (
+      evento.key === "Escape"
+      && modalDetalleTurno.classList.contains("abierto")
+    ) {
+      cerrarDetalleTurno();
+    }
+  });
 
 
   const tituloFecha = document.getElementById("tituloFecha");
@@ -5915,7 +6329,8 @@
         (turno.duracion / 60) * ALTO_HORA
       );
 
-    const bloque = document.createElement("div");
+    const bloque = document.createElement("button");
+    bloque.type = "button";
 
     const duracion = Number(turno.duracion || 30);
 
@@ -5948,6 +6363,11 @@
       + ` · ${turno.servicio}`
       + ` · ${turno.profesional}`;
 
+    bloque.setAttribute(
+      "aria-label",
+      `Ver detalle del turno de ${turno.cliente || "cliente"}`
+    );
+
     if (duracion < 30) {
       bloque.innerHTML = `
         ${turno.horaInicio} · <strong style="display:inline">${turno.cliente}</strong> · ${turno.servicio}
@@ -5969,6 +6389,10 @@
         }
       `;
     }
+
+    bloque.addEventListener("click", () => {
+      abrirDetalleTurno(turno, bloque);
+    });
 
     return bloque;
   }
@@ -6059,7 +6483,8 @@
         )
         .slice(0, 4)
         .forEach((turno) => {
-          const evento = document.createElement("div");
+          const evento = document.createElement("button");
+          evento.type = "button";
 
           evento.className = "mes-evento";
 
@@ -6078,6 +6503,16 @@
 
           evento.textContent =
             `${turno.horaInicio} ${turno.cliente}`;
+
+          evento.setAttribute(
+            "aria-label",
+            `Ver detalle del turno de ${turno.cliente || "cliente"}`
+          );
+
+          evento.addEventListener("click", (eventoClick) => {
+            eventoClick.stopPropagation();
+            abrirDetalleTurno(turno, evento);
+          });
 
           celda.appendChild(evento);
         });

@@ -3,7 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reservar turno · {{ comercio.nombre_negocio }}</title>
+  {% set titulo_social = comercio.nombre_negocio ~ ' | ClickLocal Turnos' %}
+  <title>{{ titulo_social }}</title>
+  <meta property="og:title" content="{{ titulo_social }}">
+  <meta property="og:description" content="Reservá tu turno online">
+  <meta
+    property="og:url"
+    content="{{ url_for('turnos.turnera_publica', comercio_id=comercio.id, _external=True) }}"
+  >
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ titulo_social }}">
+  <meta name="twitter:description" content="Reservá tu turno online">
   <style>
     :root{--ink:#29221d;--muted:#776d65;--line:#d9d0c8;--paper:#fffdfa;--soft:#f7f3ef;--cream:#eee2d4;--brand:#8d1f2d;--brand-dark:#711724;--shadow:0 24px 70px rgba(73,43,34,.18)}
     *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif}button,input,textarea{font:inherit}
@@ -155,6 +166,7 @@
       const DIAS_POR_PROFESIONAL = {{ dias_por_profesional | tojson }};
       const DISPONIBILIDAD_URL = {{ url_for('turnos.disponibilidad_turnos_publica', comercio_id=comercio.id) | tojson }};
       const RESERVA_URL = {{ url_for('turnos.crear_reserva_publica', comercio_id=comercio.id) | tojson }};
+      const AGENDA_PRIVADA_PATH = {{ url_for('turnos.agenda_turnos') | tojson }};
       const COMERCIO_NOMBRE = {{ comercio.nombre_negocio | tojson }};
       const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
       const NOMBRES_DIA = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
@@ -785,6 +797,7 @@
           }
 
           const phone = String(result.whatsapp_comercio || "").replace(/\D/g, "");
+          const agendaUrl = window.location.origin + AGENDA_PRIVADA_PATH;
           const lines = [
             "Hola, reservé un turno desde ClickLocal.",
             "",
@@ -799,6 +812,11 @@
           if (reviewData.observation) {
             lines.push(`Observación: ${reviewData.observation}`);
           }
+          lines.push(
+            "",
+            "Ver y confirmar en ClickLocal Turnos:",
+            agendaUrl
+          );
           const link = phone ? whatsappUrl(phone, lines.join("\n")) : "";
           if (link && whatsappWindow) {
             whatsappWindow.opener = null;
