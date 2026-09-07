@@ -6,7 +6,14 @@ from flask import abort, g, jsonify, redirect, render_template, request, session
 from config.supabase_config import supabase_admin
 
 from . import gastronomia_bp
-from .services.pedidos import PedidoError, crear_pedido
+from .services.pedidos import (
+    ESTADOS_PAGO,
+    ESTADOS_PEDIDO,
+    ORIGENES_PEDIDO,
+    TIPOS_ENTREGA,
+    PedidoError,
+    crear_pedido,
+)
 
 
 def _fecha_desde_iso(valor):
@@ -626,6 +633,191 @@ def _comercio_panel_gastronomia():
         return None
 
     return comercio
+
+
+ESTADOS_PEDIDO_ACTIVOS = (
+    "pendiente",
+    "marchando",
+    "preparado",
+)
+
+ESTADOS_PEDIDO_FINALIZADOS = (
+    "cerrado",
+    "cancelado",
+)
+
+ESTADOS_PEDIDO_VALIDOS = ESTADOS_PEDIDO
+ORIGENES_PEDIDO_VALIDOS = ORIGENES_PEDIDO
+TIPOS_ENTREGA_VALIDOS = TIPOS_ENTREGA
+ESTADOS_PAGO_VALIDOS = ESTADOS_PAGO
+
+
+def _fecha_hora_pedido_mostrar(valor):
+    try:
+        fecha = datetime.fromisoformat(
+            str(valor or "").replace("Z", "+00:00")
+        )
+
+        if fecha.tzinfo is None:
+            fecha = fecha.replace(tzinfo=timezone.utc)
+
+        return (
+            fecha
+            .astimezone(ZoneInfo("America/Argentina/Cordoba"))
+            .strftime("%d/%m/%Y %H:%M")
+        )
+    except (TypeError, ValueError):
+        return "Fecha no disponible"
+
+
+@gastronomia_bp.route("/panel/pedidos", methods=["GET"])
+def pedidos_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+
+    vista = str(
+        request.args.get("vista") or "activos"
+    ).strip().lower()
+    if vista not in ("activos", "finalizados", "todos"):
+        vista = "activos"
+
+    estado = str(
+        request.args.get("estado") or ""
+    ).strip().lower()
+    if estado not in ESTADOS_PEDIDO_VALIDOS:
+        estado = ""
+
+    origen = str(
+        request.args.get("origen") or ""
+    ).strip().lower()
+    if origen not in ORIGENES_PEDIDO_VALIDOS:
+        origen = ""
+
+    tipo_entrega = str(
+        request.args.get("tipo_entrega") or ""
+    ).strip().lower()
+    if tipo_entrega not in TIPOS_ENTREGA_VALIDOS:
+        tipo_entrega = ""
+
+    estado_pago = str(
+        request.args.get("estado_pago") or ""
+    ).strip().lower()
+    if estado_pago not in ESTADOS_PAGO_VALIDOS:
+        estado_pago = ""
+
+    try:
+        pagina = int(request.args.get("pagina") or 1)
+    except (TypeError, ValueError):
+        pagina = 1
+
+    if pagina < 1:
+        pagina = 1
+
+    por_pagina = 25
+    desde = (pagina - 1) * por_pagina
+    hasta = desde + por_pagina - 1
+
+    consulta = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select(
+            "id,numero_pedido,created_at,updated_at,estado,estado_pago,"
+            "pagado_at,cerrado_at,origen,"
+            "tipo_entrega,nombre_cliente,apellido_cliente,"
+            "telefono_cliente,direccion_entrega,referencia_direccion,"
+            "forma_pago,paga_con,subtotal,costo_envio,descuento,total,"
+            "observaciones,detalle,enviado_whatsapp_at",
+            count="exact",
+        )
+        .eq("comercio_id", comercio_id)
+    )
+
+    if estado:
+        consulta = consulta.eq("estado", estado)
+    elif vista == "activos":
+        consulta = consulta.in_(
+            "estado",
+            list(ESTADOS_PEDIDO_ACTIVOS),
+        )
+    elif vista == "finalizados":
+        consulta = consulta.in_(
+            "estado",
+            list(ESTADOS_PEDIDO_FINALIZADOS),
+        )
+
+    if origen:
+        consulta = consulta.eq("origen", origen)
+
+    if tipo_entrega:
+        consulta = consulta.eq(
+            "tipo_entrega",
+            tipo_entrega,
+        )
+
+    if estado_pago:
+        consulta = consulta.eq("estado_pago", estado_pago)
+
+    pedidos_res = (
+        consulta
+        .order("created_at", desc=True)
+        .order("numero_pedido", desc=True)
+        .range(desde, hasta)
+        .execute()
+    )
+
+    pedidos = pedidos_res.data or []
+
+    for pedido in pedidos:
+        pedido["created_at_mostrar"] = (
+            _fecha_hora_pedido_mostrar(
+                pedido.get("created_at")
+            )
+        )
+
+        detalle = pedido.get("detalle")
+        pedido["detalle_items"] = (
+            [
+                item
+                for item in detalle
+                if isinstance(item, dict)
+            ]
+            if isinstance(detalle, list)
+            else []
+        )
+
+    total_pedidos = (
+        pedidos_res.count
+        if isinstance(pedidos_res.count, int)
+        else len(pedidos)
+    )
+    total_paginas = max(
+        1,
+        (total_pedidos + por_pagina - 1) // por_pagina,
+    )
+
+    return render_template(
+        "gastronomia/pedidos.html",
+        comercio=comercio,
+        pedidos=pedidos,
+        filtros={
+            "vista": vista,
+            "estado": estado,
+            "origen": origen,
+            "tipo_entrega": tipo_entrega,
+            "estado_pago": estado_pago,
+        },
+        estados=ESTADOS_PEDIDO_VALIDOS,
+        origenes=ORIGENES_PEDIDO_VALIDOS,
+        tipos_entrega=TIPOS_ENTREGA_VALIDOS,
+        estados_pago=ESTADOS_PAGO_VALIDOS,
+        pagina=pagina,
+        total_paginas=total_paginas,
+        total_pedidos=total_pedidos,
+    )
 
 
 @gastronomia_bp.route(

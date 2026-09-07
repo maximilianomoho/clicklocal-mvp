@@ -1,0 +1,521 @@
+{% extends "panel.html" %}
+
+{% block retorno_terminos %}gastronomia{% endblock %}
+
+{% block panel_hero_texto %}
+<div>
+  <p class="titulo-chico">GASTRONOMÍA</p>
+  <h1>Pedidos de {{ comercio.nombre_negocio or "Mi comercio" }}</h1>
+  <p>Consultá los pedidos recibidos y su información operativa.</p>
+</div>
+{% endblock %}
+
+{% block panel_menu_principal %}
+<a
+  href="{{ url_for('gastronomia.panel_gastronomia') }}"
+  class="panel-menu-link"
+>
+  Panel gastronómico
+</a>
+
+<a
+  href="{{ url_for('gastronomia.pedidos_gastronomia') }}"
+  class="panel-menu-link activo"
+>
+  Pedidos
+</a>
+
+<a
+  href="{{ url_for('gastronomia.panel_gastronomia') }}#configuracion-negocio"
+  class="panel-menu-link"
+>
+  Entrega y pedidos
+</a>
+
+<a
+  href="{{ url_for('gastronomia.comercio_gastronomico', comercio_id=comercio.id) }}"
+  class="panel-menu-link"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  Ver menú público
+</a>
+{% endblock %}
+
+{% block panel_contenido_principal %}
+<style>
+  .pedidos-panel{
+    display:grid;
+    gap:18px;
+  }
+
+  .pedidos-filtros{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:12px;
+    align-items:end;
+  }
+
+  .pedidos-filtros label{
+    display:grid;
+    gap:6px;
+    color:#374151;
+    font-size:13px;
+    font-weight:700;
+  }
+
+  .pedidos-filtros select{
+    width:100%;
+    min-height:42px;
+    padding:9px 10px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    background:#fff;
+    color:#111827;
+  }
+
+  .pedidos-filtros-accion{
+    min-height:42px;
+    border:0;
+    border-radius:10px;
+    padding:10px 16px;
+    background:#006aa6;
+    color:#fff;
+    font-weight:800;
+    cursor:pointer;
+  }
+
+  .pedidos-resumen{
+    margin:0;
+    color:#6b7280;
+    font-size:14px;
+  }
+
+  .pedidos-lista{
+    display:grid;
+    gap:14px;
+  }
+
+  .pedido-card{
+    overflow:hidden;
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    background:#fff;
+  }
+
+  .pedido-cabecera{
+    display:grid;
+    grid-template-columns:minmax(120px, .8fr) minmax(170px, 1.4fr) repeat(3, minmax(110px, .8fr));
+    gap:12px;
+    align-items:center;
+    padding:16px;
+  }
+
+  .pedido-cabecera p,
+  .pedido-cabecera strong{
+    margin:0;
+  }
+
+  .pedido-numero{
+    color:#111827;
+    font-size:17px;
+  }
+
+  .pedido-fecha,
+  .pedido-dato small{
+    color:#6b7280;
+    font-size:12px;
+  }
+
+  .pedido-dato{
+    display:grid;
+    gap:3px;
+  }
+
+  .pedido-estado{
+    justify-self:start;
+    padding:6px 9px;
+    border-radius:999px;
+    background:#eef2f7;
+    color:#374151;
+    font-size:12px;
+    font-weight:800;
+    text-transform:capitalize;
+  }
+
+  .pedido-detalle{
+    border-top:1px solid #e5e7eb;
+  }
+
+  .pedido-detalle summary{
+    padding:13px 16px;
+    color:#006aa6;
+    font-weight:800;
+    cursor:pointer;
+  }
+
+  .pedido-detalle-contenido{
+    display:grid;
+    gap:18px;
+    padding:4px 16px 18px;
+  }
+
+  .pedido-items{
+    display:grid;
+    gap:10px;
+  }
+
+  .pedido-item{
+    padding:12px;
+    border-radius:10px;
+    background:#f8fafc;
+  }
+
+  .pedido-item p,
+  .pedido-item ul{
+    margin:6px 0 0;
+  }
+
+  .pedido-item ul{
+    padding-left:20px;
+  }
+
+  .pedido-info-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
+    gap:12px;
+  }
+
+  .pedido-info{
+    padding:12px;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+  }
+
+  .pedido-info small{
+    display:block;
+    margin-bottom:4px;
+    color:#6b7280;
+    font-weight:700;
+  }
+
+  .pedido-totales{
+    margin-left:auto;
+    width:min(100%, 360px);
+    display:grid;
+    gap:7px;
+  }
+
+  .pedido-total-fila{
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+  }
+
+  .pedido-total-final{
+    padding-top:8px;
+    border-top:1px solid #d1d5db;
+    font-size:17px;
+    font-weight:900;
+  }
+
+  .pedidos-paginacion{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .pedidos-paginacion a{
+    padding:9px 13px;
+    border:1px solid #d1d5db;
+    border-radius:9px;
+    background:#fff;
+    color:#006aa6;
+    font-weight:800;
+    text-decoration:none;
+  }
+
+  .pedidos-vacio{
+    padding:30px 18px;
+    border:1px dashed #cbd5e1;
+    border-radius:12px;
+    color:#64748b;
+    text-align:center;
+  }
+
+  @media (max-width:760px){
+    .pedido-cabecera{
+      grid-template-columns:1fr 1fr;
+    }
+
+    .pedido-cliente{
+      grid-column:1 / -1;
+    }
+  }
+
+  @media (max-width:480px){
+    .pedido-cabecera{
+      grid-template-columns:1fr;
+    }
+
+    .pedido-cliente{
+      grid-column:auto;
+    }
+  }
+</style>
+
+<article class="panel-card pedidos-panel">
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">PEDIDOS</p>
+      <h2>Bandeja de pedidos</h2>
+      <p class="panel-descripcion">
+        Vista de consulta. Los estados no pueden modificarse desde esta pantalla.
+      </p>
+    </div>
+  </div>
+
+  <form method="GET" class="pedidos-filtros">
+    <label>
+      Vista
+      <select name="vista">
+        <option value="activos" {% if filtros.vista == 'activos' %}selected{% endif %}>Activos</option>
+        <option value="finalizados" {% if filtros.vista == 'finalizados' %}selected{% endif %}>Finalizados</option>
+        <option value="todos" {% if filtros.vista == 'todos' %}selected{% endif %}>Todos</option>
+      </select>
+    </label>
+
+    <label>
+      Estado
+      <select name="estado">
+        <option value="">Todos los de la vista</option>
+        {% for valor in estados %}
+        <option value="{{ valor }}" {% if filtros.estado == valor %}selected{% endif %}>
+          {{ valor|replace('_', ' ')|capitalize }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Origen
+      <select name="origen">
+        <option value="">Todos</option>
+        {% for valor in origenes %}
+        <option value="{{ valor }}" {% if filtros.origen == valor %}selected{% endif %}>
+          {{ valor|capitalize }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Modalidad
+      <select name="tipo_entrega">
+        <option value="">Todas</option>
+        {% for valor in tipos_entrega %}
+        <option value="{{ valor }}" {% if filtros.tipo_entrega == valor %}selected{% endif %}>
+          {{ valor|capitalize }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Pago
+      <select name="estado_pago">
+        <option value="">Todos</option>
+        {% for valor in estados_pago %}
+        <option value="{{ valor }}" {% if filtros.estado_pago == valor %}selected{% endif %}>
+          {{ valor|capitalize }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <button type="submit" class="pedidos-filtros-accion">
+      Aplicar filtros
+    </button>
+  </form>
+
+  <p class="pedidos-resumen">
+    {{ total_pedidos }} pedido{% if total_pedidos != 1 %}s{% endif %}
+    · Página {{ pagina }} de {{ total_paginas }}
+  </p>
+
+  {% if pedidos %}
+  <div class="pedidos-lista">
+    {% for pedido in pedidos %}
+    <section class="pedido-card">
+      <div class="pedido-cabecera">
+        <div>
+          <strong class="pedido-numero">Pedido #{{ pedido.numero_pedido }}</strong>
+          <p class="pedido-fecha">{{ pedido.created_at_mostrar }}</p>
+        </div>
+
+        <div class="pedido-dato pedido-cliente">
+          <small>Cliente</small>
+          <strong>
+            {{ pedido.nombre_cliente }}
+            {{ pedido.apellido_cliente or '' }}
+          </strong>
+        </div>
+
+        <div class="pedido-dato">
+          <small>Modalidad</small>
+          <strong>{{ pedido.tipo_entrega|capitalize }}</strong>
+        </div>
+
+        <div class="pedido-dato">
+          <small>Origen</small>
+          <strong>{{ pedido.origen|capitalize }}</strong>
+        </div>
+
+        <div class="pedido-dato">
+          <small>Total</small>
+          <strong>{{ pedido.total|precio_arg }}</strong>
+          <span class="pedido-estado">
+            {{ pedido.estado|replace('_', ' ') }}
+          </span>
+          <span class="pedido-estado">
+            Pago: {{ pedido.estado_pago|default('pendiente', true)|capitalize }}
+          </span>
+        </div>
+      </div>
+
+      <details class="pedido-detalle">
+        <summary>Ver detalle</summary>
+
+        <div class="pedido-detalle-contenido">
+          <div class="pedido-items">
+            {% if pedido.detalle_items %}
+              {% for item in pedido.detalle_items %}
+              <div class="pedido-item">
+                <strong>
+                  {{ item.cantidad or 0 }} × {{ item.nombre or 'Producto' }}
+                </strong>
+
+                {% if item.subtotal is not none %}
+                <p>{{ item.subtotal|precio_arg }}</p>
+                {% endif %}
+
+                {% if item.opciones is iterable and item.opciones is not string %}
+                  {% set opciones_validas = item.opciones %}
+                  {% if opciones_validas %}
+                  <ul>
+                    {% for opcion in opciones_validas if opcion is mapping %}
+                    <li>
+                      {{ opcion.nombre or 'Extra' }}
+                      {% if opcion.precio %}
+                        (+ {{ opcion.precio|precio_arg }})
+                      {% endif %}
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                {% endif %}
+
+                {% if item.nota %}
+                <p><strong>Nota:</strong> {{ item.nota }}</p>
+                {% endif %}
+              </div>
+              {% endfor %}
+            {% else %}
+              <p>Sin detalle de productos disponible.</p>
+            {% endif %}
+          </div>
+
+          <div class="pedido-info-grid">
+            <div class="pedido-info">
+              <small>Dirección</small>
+              {{ pedido.direccion_entrega or 'No corresponde' }}
+            </div>
+
+            <div class="pedido-info">
+              <small>Referencia de dirección</small>
+              {{ pedido.referencia_direccion or 'Sin referencia' }}
+            </div>
+
+            <div class="pedido-info">
+              <small>Forma de pago informada</small>
+              {{ pedido.forma_pago|capitalize if pedido.forma_pago else 'Sin informar' }}
+            </div>
+
+            <div class="pedido-info">
+              <small>Paga con</small>
+              {{ pedido.paga_con|precio_arg if pedido.paga_con is not none else 'No corresponde' }}
+            </div>
+
+            <div class="pedido-info">
+              <small>Teléfono informado</small>
+              {{ pedido.telefono_cliente or 'Sin informar' }}
+            </div>
+
+            <div class="pedido-info">
+              <small>Observaciones generales</small>
+              {{ pedido.observaciones or 'Sin observaciones' }}
+            </div>
+          </div>
+
+          <div class="pedido-totales">
+            <div class="pedido-total-fila">
+              <span>Subtotal</span>
+              <strong>{{ pedido.subtotal|precio_arg }}</strong>
+            </div>
+            <div class="pedido-total-fila">
+              <span>Envío</span>
+              <strong>{{ pedido.costo_envio|precio_arg }}</strong>
+            </div>
+            <div class="pedido-total-fila">
+              <span>Descuento</span>
+              <strong>{{ pedido.descuento|precio_arg }}</strong>
+            </div>
+            <div class="pedido-total-fila pedido-total-final">
+              <span>Total</span>
+              <strong>{{ pedido.total|precio_arg }}</strong>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="pedidos-vacio">
+    No hay pedidos para los filtros seleccionados.
+  </div>
+  {% endif %}
+
+  {% if total_paginas > 1 %}
+  <nav class="pedidos-paginacion" aria-label="Paginación de pedidos">
+    {% if pagina > 1 %}
+    <a href="{{ url_for(
+      'gastronomia.pedidos_gastronomia',
+      vista=filtros.vista,
+      estado=filtros.estado,
+      origen=filtros.origen,
+      tipo_entrega=filtros.tipo_entrega,
+      estado_pago=filtros.estado_pago,
+      pagina=pagina - 1
+    ) }}">← Anterior</a>
+    {% endif %}
+
+    <span>Página {{ pagina }} de {{ total_paginas }}</span>
+
+    {% if pagina < total_paginas %}
+    <a href="{{ url_for(
+      'gastronomia.pedidos_gastronomia',
+      vista=filtros.vista,
+      estado=filtros.estado,
+      origen=filtros.origen,
+      tipo_entrega=filtros.tipo_entrega,
+      estado_pago=filtros.estado_pago,
+      pagina=pagina + 1
+    ) }}">Siguiente →</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+</article>
+{% endblock %}

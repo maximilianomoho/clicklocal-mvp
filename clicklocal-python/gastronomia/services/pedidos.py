@@ -1,4 +1,37 @@
+from datetime import datetime, timezone
+
 from config.supabase_config import supabase_admin
+
+
+ESTADOS_PEDIDO = (
+    "pendiente",
+    "marchando",
+    "preparado",
+    "cerrado",
+    "cancelado",
+)
+
+ESTADOS_PAGO = (
+    "pendiente",
+    "pagado",
+)
+
+ORIGENES_PEDIDO = (
+    "clicklocal",
+    "pos",
+    "whatsapp",
+    "telefono",
+    "qr_mesa",
+)
+
+TIPOS_ENTREGA = (
+    "delivery",
+    "retiro",
+    "mesa",
+    "mostrador",
+)
+
+ORIGENES_CON_CLIENTE_OBLIGATORIO = ("clicklocal",)
 
 
 class PedidoError(Exception):
@@ -6,6 +39,50 @@ class PedidoError(Exception):
         super().__init__(mensaje)
         self.mensaje = mensaje
         self.status_code = status_code
+
+
+def validar_estado_pedido(estado):
+    valor = str(estado or "").strip().lower()
+    if valor not in ESTADOS_PEDIDO:
+        raise PedidoError("Estado de pedido inválido.")
+    return valor
+
+
+def validar_estado_pago(estado_pago):
+    valor = str(estado_pago or "").strip().lower()
+    if valor not in ESTADOS_PAGO:
+        raise PedidoError("Estado de pago inválido.")
+    return valor
+
+
+def preparar_actualizacion_estados(
+    estado=None,
+    estado_pago=None,
+    ahora=None,
+):
+    """Construye un cambio de estados y mantiene sus timestamps asociados."""
+    cambios = {}
+    instante = ahora or datetime.now(timezone.utc)
+    timestamp = (
+        instante.isoformat()
+        if isinstance(instante, datetime)
+        else str(instante)
+    )
+
+    if estado is not None:
+        estado = validar_estado_pedido(estado)
+        cambios["estado"] = estado
+        cambios["cerrado_at"] = timestamp if estado == "cerrado" else None
+
+    if estado_pago is not None:
+        estado_pago = validar_estado_pago(estado_pago)
+        cambios["estado_pago"] = estado_pago
+        cambios["pagado_at"] = timestamp if estado_pago == "pagado" else None
+
+    if not cambios:
+        raise PedidoError("No se indicó ningún estado para actualizar.")
+
+    return cambios
 
 
 def _pesos(valor):
@@ -113,9 +190,28 @@ def crear_pedido(
     visitante_id=None,
     sesion_id=None,
     cliente_supabase=None,
+    origen="clicklocal",
 ):
-    """Crea el pedido con las mismas reglas del endpoint publico actual."""
+    """Crea pedidos sobre un modelo único; ClickLocal conserva sus validaciones."""
     db = cliente_supabase or supabase_admin
+
+    origen = str(origen or "").strip().lower()
+    if origen not in ORIGENES_PEDIDO:
+        raise PedidoError("Origen de pedido inválido.")
+
+    modalidad = str(modalidad or "").strip().lower()
+    if modalidad not in TIPOS_ENTREGA:
+        raise PedidoError("Tipo de entrega inválido.")
+
+    nombre = str(nombre or "").strip()
+    apellido = str(apellido or "").strip()
+    telefono = str(telefono or "").strip()
+    telefono_normalizado = str(telefono_normalizado or "").strip()
+    if origen in ORIGENES_CON_CLIENTE_OBLIGATORIO:
+        if not nombre:
+            raise PedidoError("Ingresá tu nombre.")
+        if not telefono or not telefono_normalizado:
+            raise PedidoError("Ingresá tu WhatsApp.")
 
     comercio_res = (
         db.table("comercios")
@@ -352,6 +448,7 @@ def crear_pedido(
     datos_pedido = {
         "numero_pedido": 0,
         "comercio_id": comercio_id,
+        "origen": origen,
         "visitante_id": visitante_id,
         "sesion_id": sesion_id,
         "nombre_cliente": nombre,
@@ -369,7 +466,8 @@ def crear_pedido(
         "observaciones": observaciones or None,
         "detalle": detalle_final,
         "texto_pedido": texto_pedido,
-        "estado": "recibido",
+        "estado": "pendiente",
+        "estado_pago": "pendiente",
     }
 
     try:

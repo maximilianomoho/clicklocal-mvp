@@ -5,7 +5,15 @@ from unittest.mock import patch
 from flask import Flask, g
 
 from gastronomia import gastronomia_bp
-from gastronomia.services.pedidos import PedidoError, crear_pedido
+from gastronomia.services.pedidos import (
+    ESTADOS_PAGO,
+    ESTADOS_PEDIDO,
+    PedidoError,
+    crear_pedido,
+    preparar_actualizacion_estados,
+    validar_estado_pago,
+    validar_estado_pedido,
+)
 
 
 class ConsultaFalsa:
@@ -254,6 +262,7 @@ class PedidosServiceTest(unittest.TestCase):
             {
                 "numero_pedido": 0,
                 "comercio_id": "comercio-1",
+                "origen": "clicklocal",
                 "visitante_id": "visitante-1",
                 "sesion_id": "sesion-1",
                 "nombre_cliente": "Ana",
@@ -271,7 +280,8 @@ class PedidosServiceTest(unittest.TestCase):
                 "observaciones": "Sin cubiertos",
                 "detalle": detalle,
                 "texto_pedido": texto,
-                "estado": "recibido",
+                "estado": "pendiente",
+                "estado_pago": "pendiente",
             },
         )])
 
@@ -413,6 +423,76 @@ class PedidosServiceTest(unittest.TestCase):
         with self.assertRaises(PedidoError) as contexto:
             crear(SupabaseFalso(datos))
         self.assertEqual(contexto.exception.status_code, 404)
+
+    def test_contrato_inicial_del_pedido_publico(self):
+        db = SupabaseFalso(datos_base())
+        crear(db)
+        payload = db.insertados[0][1]
+        self.assertEqual(payload["estado"], "pendiente")
+        self.assertEqual(payload["estado_pago"], "pendiente")
+        self.assertEqual(payload["origen"], "clicklocal")
+        self.assertEqual(payload["numero_pedido"], 0)
+
+    def test_cliente_opcional_para_origen_interno(self):
+        db = SupabaseFalso(datos_base())
+        crear(
+            db,
+            origen="pos",
+            nombre=None,
+            apellido=None,
+            telefono=None,
+            telefono_normalizado=None,
+        )
+        payload = db.insertados[0][1]
+        self.assertEqual(payload["origen"], "pos")
+        self.assertEqual(payload["nombre_cliente"], "")
+        self.assertEqual(payload["telefono_cliente"], "")
+
+    def test_servicio_mantiene_cliente_obligatorio_para_clicklocal(self):
+        for campo in ("nombre", "telefono", "telefono_normalizado"):
+            with self.subTest(campo=campo):
+                with self.assertRaises(PedidoError):
+                    crear(SupabaseFalso(datos_base()), **{campo: ""})
+
+    def test_estados_validos_e_invalidos(self):
+        for estado in ESTADOS_PEDIDO:
+            self.assertEqual(validar_estado_pedido(estado), estado)
+        with self.assertRaisesRegex(PedidoError, "Estado de pedido inválido"):
+            validar_estado_pedido("en_camino")
+
+    def test_estados_pago_validos_e_invalidos(self):
+        for estado_pago in ESTADOS_PAGO:
+            self.assertEqual(validar_estado_pago(estado_pago), estado_pago)
+        with self.assertRaisesRegex(PedidoError, "Estado de pago inválido"):
+            validar_estado_pago("parcial")
+
+    def test_actualizacion_estado_pago_mantiene_pagado_at(self):
+        instante = "2026-09-07T12:00:00+00:00"
+        self.assertEqual(
+            preparar_actualizacion_estados(
+                estado_pago="pagado",
+                ahora=instante,
+            ),
+            {"estado_pago": "pagado", "pagado_at": instante},
+        )
+        self.assertEqual(
+            preparar_actualizacion_estados(estado_pago="pendiente"),
+            {"estado_pago": "pendiente", "pagado_at": None},
+        )
+
+    def test_actualizacion_estado_mantiene_cerrado_at(self):
+        instante = "2026-09-07T12:00:00+00:00"
+        self.assertEqual(
+            preparar_actualizacion_estados(
+                estado="cerrado",
+                ahora=instante,
+            ),
+            {"estado": "cerrado", "cerrado_at": instante},
+        )
+        self.assertEqual(
+            preparar_actualizacion_estados(estado="preparado"),
+            {"estado": "preparado", "cerrado_at": None},
+        )
 
 
 class PedidoPublicoTest(unittest.TestCase):
