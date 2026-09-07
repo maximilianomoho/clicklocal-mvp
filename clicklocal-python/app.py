@@ -1,4 +1,4 @@
-from flask import Flask, render_template, send_from_directory, send_file, request, redirect, url_for, session, g, has_request_context
+from flask import Flask, render_template, send_from_directory, send_file, request, redirect, url_for, session, g, has_request_context, jsonify
 from werkzeug.utils import secure_filename
 import os
 from decimal import Decimal, InvalidOperation
@@ -27,6 +27,13 @@ from modulos import (
     modulo_asignado,
     obtener_modulo,
     slug_modulo_valido,
+)
+from push_notifications import (
+    configuracion_vapid,
+    desactivar_suscripcion_admin,
+    enviar_notificacion_admin,
+    guardar_suscripcion_admin,
+    webpush_disponible,
 )
 
 
@@ -4271,7 +4278,7 @@ def solicitar_instalacion_modulo_panel(slug):
 
         if not pendiente_res.data:
             whatsapp = str(comercio.get("whatsapp") or "").strip()
-            supabase_admin.table("consultas_soporte").insert({
+            insercion_solicitud = supabase_admin.table("consultas_soporte").insert({
                 "comercio_id": comercio_id,
                 "nombre": (
                     comercio.get("nombre_negocio")
@@ -4288,6 +4295,26 @@ def solicitar_instalacion_modulo_panel(slug):
                 ),
                 "estado": "pendiente",
             }).execute()
+
+            if insercion_solicitud.data:
+                nombre_comercio = (
+                    comercio.get("nombre_negocio")
+                    or comercio.get("nombre")
+                    or "Comercio local"
+                )
+                try:
+                    enviar_notificacion_admin(
+                        supabase_admin,
+                        "Nueva solicitud de módulo",
+                        f"{nombre_comercio} pidió {datos_modulo['nombre']}",
+                    )
+                except Exception as error_push:
+                    print(
+                        "ERROR GENERAL WEB PUSH SOLICITUD MÓDULO:",
+                        type(error_push).__name__,
+                        error_push,
+                        flush=True,
+                    )
 
         return redirect(
             url_for("panel", modulo_solicitud="enviada")
@@ -8981,6 +9008,50 @@ def admin_requerido(func):
     return wrapper
 
 
+@app.post("/admin/push/suscribir")
+@admin_requerido
+def admin_push_suscribir():
+    if not webpush_disponible():
+        return jsonify({
+            "ok": False,
+            "error": "Las notificaciones no están configuradas.",
+        }), 503
+
+    datos = request.get_json(silent=True)
+    try:
+        guardar_suscripcion_admin(
+            supabase_admin,
+            session.get("admin_user"),
+            datos,
+        )
+    except ValueError:
+        return jsonify({"ok": False, "error": "Suscripción inválida."}), 400
+    except Exception as error:
+        print("ERROR GUARDANDO WEB PUSH ADMIN:", type(error).__name__, error, flush=True)
+        return jsonify({"ok": False, "error": "No se pudo guardar la suscripción."}), 500
+
+    return jsonify({"ok": True})
+
+
+@app.post("/admin/push/desuscribir")
+@admin_requerido
+def admin_push_desuscribir():
+    datos = request.get_json(silent=True) or {}
+    try:
+        desactivar_suscripcion_admin(
+            supabase_admin,
+            session.get("admin_user"),
+            datos.get("endpoint"),
+        )
+    except ValueError:
+        return jsonify({"ok": False, "error": "Endpoint inválido."}), 400
+    except Exception as error:
+        print("ERROR DESACTIVANDO WEB PUSH ADMIN:", type(error).__name__, error, flush=True)
+        return jsonify({"ok": False, "error": "No se pudo desactivar la suscripción."}), 500
+
+    return jsonify({"ok": True})
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = None
@@ -9745,7 +9816,9 @@ def admin():
         consultas_soporte=consultas_soporte,
         consultas_soporte_resueltas=consultas_soporte_resueltas,
         error=error,
-        admin_user=session.get("admin_user")
+        admin_user=session.get("admin_user"),
+        webpush_disponible=webpush_disponible(),
+        webpush_vapid_public_key=configuracion_vapid()["public_key"],
     )
 
 
