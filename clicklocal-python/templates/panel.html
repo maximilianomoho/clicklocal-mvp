@@ -1952,6 +1952,18 @@
             {% endif %}
           </article>
 
+          {% if request.args.get('modulo_solicitud') == 'enviada' %}
+            <div style="margin-top:16px; padding:14px; border-radius:12px; background:#e8f7ee; color:#166534; font-weight:700;">
+              Recibimos tu solicitud de instalación.
+            </div>
+          {% endif %}
+
+          {% if request.args.get('modulo_solicitud_error') %}
+            <div style="margin-top:16px; padding:14px; border-radius:12px; background:#ffe5e5; color:#8a0000; font-weight:700;">
+              No pudimos registrar la solicitud de instalación.
+            </div>
+          {% endif %}
+
           <section id="catalogo-herramientas" style="margin-top:28px;">
             <div style="margin-bottom:14px;">
               <p class="titulo-chico">CATÁLOGO</p>
@@ -1962,20 +1974,16 @@
             </div>
 
             <div style="display:grid; gap:16px;">
-              {% for modulo in modulos_catalogo if modulo.disponible %}
+              {% for modulo in modulos_disponibles %}
               <article class="panel-card" style="margin:0;">
                 <div class="panel-card-header">
                   <div>
                     <p class="titulo-chico">HERRAMIENTA</p>
                     <h2>{{ modulo.nombre }}</h2>
                   </div>
-                  {% if modulo.activo %}
-                    <span class="badge">Activada</span>
-                  {% else %}
-                    <span class="badge" style="background:#f3f4f6; color:#4b5563;">
-                      Inactiva
-                    </span>
-                  {% endif %}
+                  <span class="badge" style="background:#f3f4f6; color:#4b5563;">
+                    Disponible
+                  </span>
                 </div>
 
                 <p class="panel-descripcion">
@@ -1991,24 +1999,20 @@
                     Ver
                   </a>
 
-                  {% if modulo.activo %}
-                    <span class="boton-whatsapp" style="display:inline-flex; align-items:center;">
-                      Activada
-                    </span>
+                  {% if modulo.solicitud_pendiente %}
+                    <button type="button" class="boton-whatsapp" disabled>
+                      Solicitud enviada
+                    </button>
                   {% else %}
-                    <a
-                      href="{{ url_for(
-                        'contacto',
-                        motivo='Activación de ' ~ modulo.nombre,
-                        whatsapp=comercio.whatsapp or '',
-                        origen='catalogo_modulos',
-                        comercio_id=comercio.id
-                      ) }}"
-                      class="boton-whatsapp"
-                      style="text-decoration:none;"
+                    <form
+                      method="post"
+                      action="{{ url_for('solicitar_instalacion_modulo_panel', slug=modulo.slug) }}"
+                      style="margin:0;"
                     >
-                      Activar
-                    </a>
+                      <button type="submit" class="boton-whatsapp" style="border:0; cursor:pointer;">
+                        Solicitar instalación
+                      </button>
+                    </form>
                   {% endif %}
                 </div>
               </article>

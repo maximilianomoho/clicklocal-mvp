@@ -500,6 +500,52 @@
   <main class="admin-main">
 
 <section class="admin-card" style="margin-top:24px;">
+  <h2 style="margin-top:0;">Solicitudes de Módulos / Verticales</h2>
+
+  {% if solicitudes_modulos %}
+    <div class="admin-tabla-contenedor">
+      <table class="admin-tabla">
+        <thead>
+          <tr>
+            <th>Comercio</th>
+            <th>Contacto</th>
+            <th>Módulo solicitado</th>
+            <th>Estado</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for solicitud in solicitudes_modulos %}
+            <tr>
+              <td><strong>{{ solicitud.comercio_nombre }}</strong></td>
+              <td>
+                {% if solicitud.whatsapp != '-' %}WhatsApp: {{ solicitud.whatsapp }}<br>{% endif %}
+                {{ solicitud.email }}
+              </td>
+              <td>{{ solicitud.modulo_solicitado }}</td>
+              <td><strong style="color:#b45309;">Pendiente</strong></td>
+              <td>
+                <form
+                  method="POST"
+                  action="{{ url_for('admin_resolver_consulta_soporte', consulta_id=solicitud.id) }}"
+                  style="margin:0;"
+                >
+                  <button type="submit" class="admin-mini-link" style="border:0; cursor:pointer;">
+                    Resolver
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="admin-vacio">No hay solicitudes de módulos pendientes.</div>
+  {% endif %}
+</section>
+
+<section class="admin-card" style="margin-top:24px;">
   <h2 style="margin-top:0;">
     📩 Consultas de soporte
     {% if resumen.total_consultas_soporte %}

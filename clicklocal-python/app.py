@@ -24,6 +24,7 @@ from modulos import (
     CATALOGO_MODULOS,
     combinar_catalogo_con_estado,
     modulo_activo,
+    modulo_asignado,
     obtener_modulo,
     slug_modulo_valido,
 )
@@ -4200,6 +4201,111 @@ def herramienta_detalle(slug):
     )
 
 
+def _motivo_solicitud_modulo(datos_modulo):
+    nombre_modulo = " ".join(
+        str(datos_modulo.get("nombre") or "").strip().split()
+    )
+    return f"Activación de {nombre_modulo}"
+
+
+def _es_solicitud_modulo(consulta):
+    return (
+        str(consulta.get("origen") or "").strip().casefold()
+        == "catalogo_modulos"
+    )
+
+
+def _separar_solicitudes_modulos(consultas):
+    solicitudes = [consulta for consulta in consultas if _es_solicitud_modulo(consulta)]
+    soporte = [consulta for consulta in consultas if not _es_solicitud_modulo(consulta)]
+    return solicitudes, soporte
+
+
+@app.post("/panel/modulos/<slug>/solicitar-instalacion")
+def solicitar_instalacion_modulo_panel(slug):
+    user_id = _user_id_panel_efectivo()
+    if not user_id:
+        return redirect(url_for("login"))
+
+    datos_modulo = obtener_modulo(slug)
+    if not datos_modulo or not datos_modulo.get("disponible"):
+        return redirect(
+            url_for("panel", modulo_solicitud_error="modulo_invalido")
+            + "#catalogo-herramientas"
+        )
+
+    comercio = session.get("comercio") or comercio_default()
+    try:
+        comercio_res = (
+            supabase_admin.table("comercios")
+            .select("*")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if comercio_res.data:
+            comercio = comercio_res.data[0]
+            session["comercio"] = comercio
+    except Exception:
+        pass
+
+    comercio_id = comercio.get("id") or comercio.get("user_id") or user_id
+    if modulo_asignado(comercio_id, slug):
+        return redirect(
+            url_for("panel", modulo_solicitud_error="ya_instalado")
+            + "#catalogo-herramientas"
+        )
+
+    motivo = _motivo_solicitud_modulo(datos_modulo)
+    try:
+        pendiente_res = (
+            supabase_admin.table("consultas_soporte")
+            .select("id")
+            .eq("comercio_id", comercio_id)
+            .eq("origen", "catalogo_modulos")
+            .eq("motivo", motivo)
+            .eq("estado", "pendiente")
+            .limit(1)
+            .execute()
+        )
+
+        if not pendiente_res.data:
+            whatsapp = str(comercio.get("whatsapp") or "").strip()
+            supabase_admin.table("consultas_soporte").insert({
+                "comercio_id": comercio_id,
+                "nombre": (
+                    comercio.get("nombre_negocio")
+                    or comercio.get("nombre")
+                    or "Comercio local"
+                ),
+                "email": comercio.get("email") or None,
+                "whatsapp": limpiar_numero_whatsapp(whatsapp) if whatsapp else None,
+                "origen": "catalogo_modulos",
+                "motivo": motivo,
+                "mensaje": (
+                    f"El comercio solicita la instalación de "
+                    f"{datos_modulo['nombre']} desde su panel."
+                ),
+                "estado": "pendiente",
+            }).execute()
+
+        return redirect(
+            url_for("panel", modulo_solicitud="enviada")
+            + "#catalogo-herramientas"
+        )
+    except Exception as error:
+        print(
+            "ERROR SOLICITANDO INSTALACIÓN DE MÓDULO:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(
+            url_for("panel", modulo_solicitud_error="registro")
+            + "#catalogo-herramientas"
+        )
+
+
 # TÉRMINOS Y CONDICIONES
 @app.route("/terminos")
 @app.route("/terminos.html")
@@ -6379,6 +6485,39 @@ def panel():
         for modulo in modulos_catalogo
         if modulo.get("activo") and modulo.get("disponible")
     ]
+    modulos_disponibles = [
+        modulo
+        for modulo in modulos_catalogo
+        if modulo.get("disponible") and not modulo.get("asignado")
+    ]
+
+    motivos_pendientes_modulos = set()
+    if modulos_disponibles:
+        try:
+            solicitudes_modulos_res = (
+                supabase_admin.table("consultas_soporte")
+                .select("motivo")
+                .eq("comercio_id", comercio_id)
+                .eq("origen", "catalogo_modulos")
+                .eq("estado", "pendiente")
+                .execute()
+            )
+            motivos_pendientes_modulos = {
+                str(solicitud.get("motivo") or "").strip()
+                for solicitud in (solicitudes_modulos_res.data or [])
+            }
+        except Exception as error:
+            print(
+                "ERROR CARGANDO SOLICITUDES DE MÓDULOS EN PANEL:",
+                type(error),
+                error,
+                flush=True,
+            )
+
+    for modulo in modulos_disponibles:
+        modulo["solicitud_pendiente"] = (
+            _motivo_solicitud_modulo(modulo) in motivos_pendientes_modulos
+        )
 
     return render_template(
         "panel.html",
@@ -6386,6 +6525,7 @@ def panel():
         publicaciones=publicaciones,
         modulos_activos=modulos_activos,
         modulos_catalogo=modulos_catalogo,
+        modulos_disponibles=modulos_disponibles,
         listas_buscables=listas_buscables,
         es_cine_teatro=es_cine_teatro,
         es_premium=es_premium,
@@ -9270,11 +9410,19 @@ def admin():
         consultas_soporte = pendientes
         consultas_soporte_resueltas = resueltas
 
+        solicitudes_modulos_raw, consultas_soporte = (
+            _separar_solicitudes_modulos(consultas_soporte)
+        )
+        _, consultas_soporte_resueltas = _separar_solicitudes_modulos(
+            consultas_soporte_resueltas
+        )
+
     except Exception as e:
         if error:
             error += f" | No se pudieron cargar las consultas de soporte: {e}"
         else:
             error = f"No se pudieron cargar las consultas de soporte: {e}"
+        solicitudes_modulos_raw = []
 
     def es_publicacion_activa(pub):
         if "activa" in pub:
@@ -9451,6 +9599,40 @@ def admin():
         if c.get("id")
     }
 
+    solicitudes_modulos = []
+    for consulta in solicitudes_modulos_raw:
+        comercio_solicitante = comercios_por_id_admin.get(
+            str(consulta.get("comercio_id") or ""),
+            {},
+        )
+        motivo = " ".join(str(consulta.get("motivo") or "").split())
+        prefijo = "Activación de "
+        modulo_solicitado = (
+            motivo[len(prefijo):]
+            if motivo.casefold().startswith(prefijo.casefold())
+            else motivo or "Módulo no identificado"
+        )
+        solicitudes_modulos.append({
+            "id": consulta.get("id"),
+            "comercio_nombre": (
+                comercio_solicitante.get("nombre")
+                or consulta.get("nombre")
+                or "Comercio no identificado"
+            ),
+            "whatsapp": (
+                consulta.get("whatsapp")
+                or comercio_solicitante.get("whatsapp")
+                or "-"
+            ),
+            "email": (
+                consulta.get("email")
+                or comercio_solicitante.get("email")
+                or "-"
+            ),
+            "modulo_solicitado": modulo_solicitado,
+            "estado": "pendiente",
+        })
+
     ultimos_comercios = sorted(
         comercios,
         key=lambda c: str(c.get("created_at") or ""),
@@ -9555,6 +9737,7 @@ def admin():
         resumen=resumen,
         comercios=comercios,
         solicitudes_premium=solicitudes_premium,
+        solicitudes_modulos=solicitudes_modulos,
         categorias_por_revisar=categorias_por_revisar,
         categorias_reasignacion=categorias_reasignacion,
         ultimos_comercios=ultimos_comercios,

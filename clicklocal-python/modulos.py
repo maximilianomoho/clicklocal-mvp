@@ -84,6 +84,14 @@ def modulo_activo(comercio_id, slug):
     )
 
 
+def modulo_asignado(comercio_id, slug):
+    """Indica si existe la relación, aunque el módulo esté inactivo."""
+    if not comercio_id or not slug_modulo_valido(slug):
+        return False
+
+    return str(slug).strip().lower() in obtener_estados_modulos(comercio_id)
+
+
 def obtener_modulos_activos(comercio_id):
     return [
         modulo
@@ -98,6 +106,7 @@ def combinar_catalogo_con_estado(comercio_id):
 
     for slug, datos in CATALOGO_MODULOS.items():
         modulo = deepcopy(datos)
+        modulo["asignado"] = slug in estados
         modulo["activo"] = estados.get(slug, False)
         modulos.append(modulo)
 
