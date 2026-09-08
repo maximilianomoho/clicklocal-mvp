@@ -1,27 +1,75 @@
 from datetime import datetime, timedelta
+from io import BytesIO
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from flask import redirect, render_template, request, session, url_for
+import qrcode
+from flask import redirect, render_template, request, send_file, session, url_for
 
+from config.contacto import CLICKLOCAL_WHATSAPP
 from config.supabase_config import supabase_admin
-from modulos import modulo_activo, requerir_modulo
+from modulos import (
+    evaluar_vigencia_modulo,
+    modulo_activo,
+    requerir_modulo,
+)
+from whatsapp import construir_url_whatsapp
 
 from . import turnos_bp
 
 
+def _url_turnera_publica(comercio_id, externa=False):
+    """Fuente única de la URL pública usada al compartir y generar el QR."""
+    return url_for(
+        "turnos.turnera_publica",
+        comercio_id=comercio_id,
+        _external=externa,
+    )
+
+
 @turnos_bp.route("/agenda")
-@requerir_modulo("turnos")
 def agenda_turnos():
     comercio = session.get("comercio") or {}
 
     comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return redirect("/login?next=/turnos/agenda")
+
+    vigencia_modulo = evaluar_vigencia_modulo(
+        comercio_id,
+        "turnos",
+    )
+
+    if not vigencia_modulo.get("existe"):
+        return "Módulo no activo para este comercio.", 403
 
     nombre_comercio = (
         comercio.get("nombre_negocio")
         or comercio.get("nombre")
         or "Mi negocio"
     )
+    mensaje_contacto = (
+        f"Hola ClickLocal, soy {nombre_comercio}. "
+        "Quiero renovar el módulo Turnos."
+    )
+    whatsapp_clicklocal_url = construir_url_whatsapp(
+        CLICKLOCAL_WHATSAPP,
+        mensaje_contacto,
+    )
+
+    for clave_fecha in (
+        "fecha_activacion",
+        "fecha_vencimiento",
+        "inicio_aviso",
+        "fecha_fin_gracia",
+    ):
+        fecha_valor = vigencia_modulo.get(clave_fecha)
+        vigencia_modulo[f"{clave_fecha}_mostrar"] = (
+            fecha_valor.strftime("%d/%m/%Y")
+            if fecha_valor
+            else None
+        )
 
     servicios = []
     servicios_configuracion = []
@@ -335,14 +383,45 @@ def agenda_turnos():
         horarios_por_profesional=horarios_por_profesional,
         reservas=reservas,
         metricas_turnos=metricas_turnos,
-        turnera_publica_path=url_for(
-            "turnos.turnera_publica",
-            comercio_id=comercio_id,
+        vigencia_modulo=vigencia_modulo,
+        modo_limitado=not vigencia_modulo.get("acceso_operativo"),
+        whatsapp_clicklocal_url=whatsapp_clicklocal_url or None,
+        turnera_publica_url=_url_turnera_publica(
+            comercio_id,
+            externa=True,
         ),
+        turnera_qr_url=url_for("turnos.qr_turnera_publica"),
         abrir_configuracion=(
             request.args.get("configuracion") == "1"
         ),
         configuracion_error=request.args.get("error") or ""
+    )
+
+
+@turnos_bp.route("/agenda/qr.png")
+@requerir_modulo("turnos")
+def qr_turnera_publica():
+    comercio = session.get("comercio") or {}
+    comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login", next="/turnos/agenda"))
+
+    turnera_publica_url = _url_turnera_publica(
+        comercio_id,
+        externa=True,
+    )
+    imagen = qrcode.make(turnera_publica_url)
+    archivo = BytesIO()
+    imagen.save(archivo, format="PNG")
+    archivo.seek(0)
+
+    return send_file(
+        archivo,
+        mimetype="image/png",
+        as_attachment=request.args.get("descargar") == "1",
+        download_name="clicklocal-turnos-qr.png",
+        max_age=0,
     )
 
 

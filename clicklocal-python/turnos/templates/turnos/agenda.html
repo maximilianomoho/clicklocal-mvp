@@ -8,6 +8,13 @@
     content="width=device-width, initial-scale=1.0"
   >
 
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#8d1f2d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ClickLocal Turnos">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
   <title>Gestión de turnos | ClickLocal</title>
 
   <style>
@@ -573,18 +580,18 @@
     }
 
     .sidebar-atajos {
-      padding: 18px 12px 24px;
+      padding: 14px 10px 18px;
       border-left: 1px solid var(--clicklocal-borde-suave);
       background: var(--clicklocal-crema);
     }
 
     .atajos-stick {
       position: sticky;
-      top: 18px;
+      top: 14px;
     }
 
     .atajos-titulo {
-      margin: 0 0 10px;
+      margin: 0 0 7px;
       font-size: 12px;
       color: var(--clicklocal-texto-lateral);
       text-transform: uppercase;
@@ -594,7 +601,7 @@
 
     .nav-atajos {
       display: grid;
-      gap: 10px;
+      gap: 6px;
     }
 
     .nav-atajos a {
@@ -602,8 +609,8 @@
       align-items: center;
       justify-content: center;
       width: 100%;
-      min-height: 42px;
-      padding: 8px 10px;
+      min-height: 38px;
+      padding: 6px 10px;
       border: 1px solid var(--clicklocal-borde-suave);
       border-radius: 9px;
       background: var(--clicklocal-crema-claro);
@@ -617,6 +624,71 @@
 
     .nav-atajos a:hover {
       background: var(--clicklocal-hover-lateral);
+    }
+
+    .vigencia-turnos {
+      margin-top: 8px;
+      padding: 9px;
+      border: 1px solid var(--clicklocal-borde-suave);
+      border-radius: 9px;
+      background: var(--clicklocal-crema-claro);
+      color: var(--clicklocal-texto-lateral);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .vigencia-turnos h3,
+    .vigencia-turnos p {
+      margin: 0;
+    }
+
+    .vigencia-turnos h3 {
+      color: var(--clicklocal-bordo);
+      font-size: 13px;
+    }
+
+    .vigencia-turnos-estado {
+      display: inline-flex;
+      margin-top: 4px;
+      padding: 2px 7px;
+      border: 1px solid var(--clicklocal-borde-suave);
+      border-radius: 999px;
+      background: var(--clicklocal-crema);
+      color: var(--clicklocal-bordo);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .vigencia-turnos-detalle {
+      margin-top: 5px !important;
+    }
+
+    .vigencia-turnos-contacto {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 32px;
+      margin-top: 7px;
+      padding: 5px 8px;
+      border: 1px solid var(--clicklocal-borde-suave);
+      border-radius: 9px;
+      background: var(--clicklocal-crema);
+      color: var(--clicklocal-bordo);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    a.vigencia-turnos-contacto:hover {
+      background: var(--clicklocal-hover-lateral);
+    }
+
+    .modo-limitado #btnNuevoTurno,
+    .modo-limitado #btnConfiguracionTurnos {
+      display: none;
     }
 
     /* =========================================================
@@ -1522,6 +1594,72 @@
 
 .modal-turno-cerrar:hover {
   background: #f7f3ef;
+}
+
+.acciones-turnera {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.acciones-turnera .boton {
+  width: 100%;
+  min-height: 42px;
+}
+
+.qr-turnera-modal {
+  width: min(100%, 430px);
+}
+
+.qr-turnera-contenido {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.qr-turnera-imagen {
+  display: block;
+  width: min(280px, 100%);
+  height: auto;
+  padding: 10px;
+  border: 1px solid rgba(141, 31, 45, 0.18);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.qr-turnera-texto {
+  margin: 0;
+  color: #776d65;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.agregar-turnos-confirmacion {
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #e8f3ea;
+  color: #2f6b3a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.agregar-turnos-confirmacion[hidden] {
+  display: none;
+}
+
+.qr-turnera-descargar {
+  display: inline-grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: #8d1f2d;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .form-turno {
@@ -2555,7 +2693,7 @@
 
 </head>
 
-<body>
+<body{% if modo_limitado %} class="modo-limitado"{% endif %}>
 
 <div class="app">
 
@@ -2741,13 +2879,35 @@
       </section>
 
 
-      <button
-        id="btnCompartirTurnera"
-        class="boton boton-config boton-compartir-turnera"
-        type="button"
-      >
-        Compartir turnos
-      </button>
+      <div class="acciones-turnera">
+        <button
+          id="btnCompartirTurnera"
+          class="boton boton-config boton-compartir-turnera"
+          type="button"
+        >
+          Compartir turnos
+        </button>
+
+        {% if not modo_limitado %}
+          <button
+            id="btnCodigoQrTurnera"
+            class="boton boton-config"
+            type="button"
+            aria-haspopup="dialog"
+          >
+            Código QR
+          </button>
+        {% endif %}
+
+        <button
+          id="btnAgregarTurnosTelefono"
+          class="boton boton-config"
+          type="button"
+          aria-haspopup="dialog"
+        >
+          Agregar Turnos al teléfono
+        </button>
+      </div>
 
 
       <section class="grupo-filtros">
@@ -2870,6 +3030,57 @@
           <a href="/">ClickLocal</a>
           <a href="/gastronomia/">Gastronomía</a>
         </nav>
+
+        <section class="vigencia-turnos" aria-label="Vigencia del módulo Turnos">
+          <h3>Gestión de turnos</h3>
+
+          {% if not vigencia_modulo.habilitado_manual %}
+            <span class="vigencia-turnos-estado">Suspendido</span>
+          {% elif vigencia_modulo.estado_vigencia == 'vencido' %}
+            <span class="vigencia-turnos-estado">Vencido</span>
+          {% elif vigencia_modulo.estado_vigencia == 'en_gracia' %}
+            <span class="vigencia-turnos-estado">En gracia</span>
+            <p class="vigencia-turnos-detalle">
+              Venció: {{ vigencia_modulo.fecha_vencimiento_mostrar }}
+            </p>
+            <p>Quedan {{ vigencia_modulo.dias_gracia_restantes }} días</p>
+          {% elif vigencia_modulo.estado_vigencia == 'por_vencer' %}
+            <span class="vigencia-turnos-estado">Por vencer</span>
+            <p class="vigencia-turnos-detalle">
+              Hasta: {{ vigencia_modulo.fecha_vencimiento_mostrar }}
+            </p>
+            <p>Tiempo restante: {{ vigencia_modulo.dias_restantes }} días</p>
+          {% else %}
+            <span class="vigencia-turnos-estado">Activo</span>
+            {% if vigencia_modulo.fecha_vencimiento_mostrar %}
+              <p class="vigencia-turnos-detalle">
+                Desde: {{ vigencia_modulo.fecha_activacion_mostrar }}
+              </p>
+              <p>Hasta: {{ vigencia_modulo.fecha_vencimiento_mostrar }}</p>
+              <p>Tiempo restante: {{ vigencia_modulo.dias_restantes }} días</p>
+            {% endif %}
+          {% endif %}
+
+          {% if (
+            not vigencia_modulo.habilitado_manual
+            or vigencia_modulo.estado_vigencia in ['por_vencer', 'en_gracia', 'vencido']
+          ) %}
+            {% if whatsapp_clicklocal_url %}
+              <a
+                class="vigencia-turnos-contacto"
+                href="{{ whatsapp_clicklocal_url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Contactar a ClickLocal
+              </a>
+            {% else %}
+              <span class="vigencia-turnos-contacto" aria-disabled="true">
+                Contactar a ClickLocal
+              </span>
+            {% endif %}
+          {% endif %}
+        </section>
       </div>
     </aside>
 
@@ -3459,6 +3670,109 @@
 </div>
 
 
+{% if not modo_limitado %}
+  <div
+    id="modalQrTurnera"
+    class="modal-turno-fondo"
+    aria-hidden="true"
+  >
+    <section
+      class="modal-turno qr-turnera-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tituloModalQrTurnera"
+    >
+      <div class="modal-turno-cabecera">
+        <div>
+          <h2 id="tituloModalQrTurnera" class="modal-turno-titulo">
+            Código QR de tus turnos
+          </h2>
+        </div>
+
+        <button
+          id="btnCerrarQrTurnera"
+          class="modal-turno-cerrar"
+          type="button"
+          aria-label="Cerrar código QR"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="qr-turnera-contenido">
+        <img
+          class="qr-turnera-imagen"
+          src="{{ turnera_qr_url }}"
+          alt="Código QR para reservar un turno"
+          width="280"
+          height="280"
+        >
+        <p class="qr-turnera-texto">
+          Tus clientes pueden escanear este código para reservar
+          directamente, sin registrarse.
+        </p>
+        <a
+          class="qr-turnera-descargar"
+          href="{{ turnera_qr_url }}?descargar=1"
+          download="clicklocal-turnos-qr.png"
+        >
+          Descargar QR
+        </a>
+      </div>
+    </section>
+  </div>
+{% endif %}
+
+
+<div
+  id="modalAgregarTurnosTelefono"
+  class="modal-turno-fondo"
+  aria-hidden="true"
+>
+  <section
+    class="modal-turno qr-turnera-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalAgregarTurnosTelefono"
+  >
+    <div class="modal-turno-cabecera">
+      <div>
+        <h2
+          id="tituloModalAgregarTurnosTelefono"
+          class="modal-turno-titulo"
+        >
+          Agregar Turnos al teléfono
+        </h2>
+      </div>
+
+      <button
+        id="btnCerrarAgregarTurnosTelefono"
+        class="modal-turno-cerrar"
+        type="button"
+        aria-label="Cerrar"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="qr-turnera-contenido">
+      <p class="qr-turnera-texto">
+        Tené tu agenda de turnos a mano para abrirla rápidamente
+        desde el teléfono.
+      </p>
+      <p
+        id="confirmacionAgregarTurnos"
+        class="agregar-turnos-confirmacion"
+        hidden
+      >
+        ClickLocal se agregó correctamente.
+      </p>
+      <p id="instruccionesAgregarTurnos" class="qr-turnera-texto"></p>
+    </div>
+  </section>
+</div>
+
+
 <div
   id="modalMetricasTurnos"
   class="modal-turno-fondo"
@@ -4037,7 +4351,7 @@
 
 <script>
 (() => {
-  const TURNERA_PUBLICA_PATH = {{ turnera_publica_path | tojson }};
+  const TURNERA_PUBLICA_URL = {{ turnera_publica_url | tojson }};
 
   const btnCompartirTurnera =
     document.getElementById("btnCompartirTurnera");
@@ -4076,7 +4390,7 @@
   }
 
   btnCompartirTurnera.addEventListener("click", async () => {
-    const enlace = window.location.origin + TURNERA_PUBLICA_PATH;
+    const enlace = TURNERA_PUBLICA_URL;
 
     btnCompartirTurnera.disabled = true;
     btnCompartirTurnera.setAttribute("aria-busy", "true");
@@ -4105,6 +4419,131 @@
         mostrarResultadoCompartir("No se pudo compartir");
       }
     }
+  });
+
+  const modalQrTurnera = document.getElementById("modalQrTurnera");
+  const btnCodigoQrTurnera =
+    document.getElementById("btnCodigoQrTurnera");
+  const btnCerrarQrTurnera =
+    document.getElementById("btnCerrarQrTurnera");
+  if (modalQrTurnera && btnCodigoQrTurnera && btnCerrarQrTurnera) {
+    let overflowAnteriorQr = "";
+
+    function abrirQrTurnera() {
+      overflowAnteriorQr = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      modalQrTurnera.classList.add("abierto");
+      modalQrTurnera.setAttribute("aria-hidden", "false");
+      btnCerrarQrTurnera.focus();
+    }
+
+    function cerrarQrTurnera() {
+      if (!modalQrTurnera.classList.contains("abierto")) return;
+      modalQrTurnera.classList.remove("abierto");
+      modalQrTurnera.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = overflowAnteriorQr;
+      btnCodigoQrTurnera.focus();
+    }
+
+    btnCodigoQrTurnera.addEventListener("click", abrirQrTurnera);
+    btnCerrarQrTurnera.addEventListener("click", cerrarQrTurnera);
+    modalQrTurnera.addEventListener("click", (evento) => {
+      if (evento.target === modalQrTurnera) cerrarQrTurnera();
+    });
+    document.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape") cerrarQrTurnera();
+    });
+  }
+
+  const modalAgregarTurnosTelefono =
+    document.getElementById("modalAgregarTurnosTelefono");
+  const btnAgregarTurnosTelefono =
+    document.getElementById("btnAgregarTurnosTelefono");
+  const btnCerrarAgregarTurnosTelefono =
+    document.getElementById("btnCerrarAgregarTurnosTelefono");
+  const instruccionesAgregarTurnos =
+    document.getElementById("instruccionesAgregarTurnos");
+  const confirmacionAgregarTurnos =
+    document.getElementById("confirmacionAgregarTurnos");
+  let overflowAnteriorAgregarTelefono = "";
+
+  function instruccionesTurnosTelefono(estado = {}) {
+    const esIphone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const esAndroid = /Android/i.test(navigator.userAgent);
+
+    if (estado.instalado) {
+      return esAndroid
+        ? "ClickLocal ya está en tu teléfono. Mantené presionado su ícono y elegí Turnos."
+        : "ClickLocal ya está en tu teléfono. Para guardar esta agenda, abrila en Safari y usá Compartir → Agregar a pantalla de inicio.";
+    }
+
+    if (esIphone) {
+      return "En Safari, tocá Compartir y después Agregar a pantalla de inicio.";
+    }
+
+    if (esAndroid) {
+      return "En Chrome, abrí el menú y elegí Instalar app o Agregar a pantalla principal. Después, mantené presionado el ícono de ClickLocal y elegí Turnos.";
+    }
+
+    return "Abrí el menú de tu navegador y buscá Instalar app o Agregar a pantalla principal. Si esas opciones no aparecen, guardá esta página en tus favoritos.";
+  }
+
+  function abrirAgregarTurnosTelefono(texto, mostrarConfirmacion = false) {
+    instruccionesAgregarTurnos.textContent = texto;
+    confirmacionAgregarTurnos.hidden = !mostrarConfirmacion;
+    overflowAnteriorAgregarTelefono = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    modalAgregarTurnosTelefono.classList.add("abierto");
+    modalAgregarTurnosTelefono.setAttribute("aria-hidden", "false");
+    btnCerrarAgregarTurnosTelefono.focus();
+  }
+
+  function cerrarAgregarTurnosTelefono() {
+    if (!modalAgregarTurnosTelefono.classList.contains("abierto")) return;
+    modalAgregarTurnosTelefono.classList.remove("abierto");
+    modalAgregarTurnosTelefono.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = overflowAnteriorAgregarTelefono;
+    btnAgregarTurnosTelefono.focus();
+  }
+
+  btnAgregarTurnosTelefono.addEventListener("click", async () => {
+    const estado = window.clickLocalEstadoInstalacion
+      ? window.clickLocalEstadoInstalacion()
+      : {};
+
+    if (estado.instalado) {
+      abrirAgregarTurnosTelefono(instruccionesTurnosTelefono(estado));
+      return;
+    }
+
+    if (
+      estado.instalacionDirectaDisponible
+      && window.clickLocalSolicitarInstalacion
+    ) {
+      const resultado = await window.clickLocalSolicitarInstalacion();
+      if (resultado.resultado === "accepted") {
+        abrirAgregarTurnosTelefono(
+          "Mantené presionado el ícono de ClickLocal y elegí Turnos. Si esa opción no aparece, abrí ClickLocal y entrá a Turnos.",
+          true
+        );
+        return;
+      }
+    }
+
+    abrirAgregarTurnosTelefono(instruccionesTurnosTelefono(estado));
+  });
+
+  btnCerrarAgregarTurnosTelefono.addEventListener(
+    "click",
+    cerrarAgregarTurnosTelefono
+  );
+  modalAgregarTurnosTelefono.addEventListener("click", (evento) => {
+    if (evento.target === modalAgregarTurnosTelefono) {
+      cerrarAgregarTurnosTelefono();
+    }
+  });
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape") cerrarAgregarTurnosTelefono();
   });
 
   const NOMBRES_DIA = [
@@ -7372,6 +7811,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.appendChild(panel);
 });
 </script>
+
+<script src="/static/pwa.js" data-install-ui="false"></script>
 
 </body>
 </html>

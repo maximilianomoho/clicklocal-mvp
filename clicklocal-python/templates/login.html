@@ -49,6 +49,10 @@
 
       <form class="formulario" method="POST" action="/login">
 
+        {% if next_destino %}
+          <input type="hidden" name="next" value="{{ next_destino }}" />
+        {% endif %}
+
         <div class="campo">
           <label>Email</label>
           <input type="email" name="email" placeholder="tunegocio@email.com" required />

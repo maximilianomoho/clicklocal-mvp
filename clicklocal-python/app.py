@@ -4687,9 +4687,21 @@ def aceptar_terminos():
 
 
 # LOGIN COMERCIO
+def _destino_login_permitido(valor):
+    """Acepta únicamente destinos internos aprobados explícitamente."""
+    destino = str(valor or "").strip()
+    return destino if destino == "/turnos/agenda" else ""
+
+
 @app.route("/login", methods=["GET", "POST"])
 @app.route("/login.html", methods=["GET", "POST"])
 def login():
+    destino_despues_login = _destino_login_permitido(
+        request.form.get("next")
+        if request.method == "POST"
+        else request.args.get("next")
+    )
+
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
@@ -4729,6 +4741,9 @@ def login():
             session["comercio"] = comercio
             session["publicaciones"] = []
 
+            if destino_despues_login:
+                return redirect(destino_despues_login)
+
             categoria_login = str(
                 comercio.get("categoria") or ""
             ).strip().lower()
@@ -4748,7 +4763,10 @@ def login():
         except Exception as e:
             return f"Error iniciando sesión: {e}", 400
 
-    return render_template("login.html")
+    return render_template(
+        "login.html",
+        next_destino=destino_despues_login,
+    )
 
 
 # PANEL DEL COMERCIO

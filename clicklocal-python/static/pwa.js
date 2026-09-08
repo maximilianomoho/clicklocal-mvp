@@ -1,8 +1,41 @@
 let clickLocalInstallPrompt = null;
+const clickLocalPwaScript = document.currentScript;
+const clickLocalMostrarInstalacion =
+  !clickLocalPwaScript || clickLocalPwaScript.dataset.installUi !== "false";
 
 function clickLocalIsStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
+
+function clickLocalEstaInstalado() {
+  return clickLocalIsStandalone()
+    || localStorage.getItem("clicklocal_app_instalada") === "1";
+}
+
+window.clickLocalEstadoInstalacion = function () {
+  return {
+    instalado: clickLocalEstaInstalado(),
+    instalacionDirectaDisponible: Boolean(clickLocalInstallPrompt),
+  };
+};
+
+window.clickLocalSolicitarInstalacion = async function () {
+  if (!clickLocalInstallPrompt) {
+    return {
+      tipo: clickLocalEstaInstalado() ? "instalada" : "manual",
+    };
+  }
+
+  const promptInstalacion = clickLocalInstallPrompt;
+  clickLocalInstallPrompt = null;
+  await promptInstalacion.prompt();
+  const eleccion = await promptInstalacion.userChoice;
+
+  return {
+    tipo: "solicitada",
+    resultado: eleccion.outcome,
+  };
+};
 
 
 // CLICKLOCAL: MODO DE ACCESO ANALYTICS V1
@@ -28,6 +61,7 @@ async function clickLocalRegisterServiceWorker() {
 }
 
 function clickLocalMostrarBotonInstalar() {
+  if (!clickLocalMostrarInstalacion) return;
   if (clickLocalIsStandalone()) return;
   if (document.getElementById("clicklocal-install-float")) return;
 
@@ -67,6 +101,7 @@ function clickLocalMostrarBotonInstalar() {
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   clickLocalInstallPrompt = event;
+  window.dispatchEvent(new CustomEvent("clicklocalinstallavailable"));
   clickLocalMostrarBotonInstalar();
 });
 
@@ -87,7 +122,11 @@ document.addEventListener("DOMContentLoaded", () => {
     path.includes("index") ||
     path.includes("panel");
 
-  if (mostrarEnEstaPagina && !clickLocalIsStandalone()) {
+  if (
+    clickLocalMostrarInstalacion
+    && mostrarEnEstaPagina
+    && !clickLocalIsStandalone()
+  ) {
     clickLocalMostrarBotonInstalar();
   }
 });
