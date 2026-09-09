@@ -8,7 +8,11 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <link rel="manifest" href="/static/manifest.json">
+  {% if es_origen_app_turnos %}
+    <link rel="manifest" href="/static/turnos-manifest.json">
+  {% else %}
+    <link rel="manifest" href="/static/manifest.json">
+  {% endif %}
   <meta name="theme-color" content="#8d1f2d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1650,16 +1654,47 @@
   display: none;
 }
 
-.qr-turnera-descargar {
+.qr-turnera-acciones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.qr-turnera-accion {
   display: inline-grid;
   place-items: center;
   min-height: 44px;
-  padding: 0 20px;
+  padding: 10px 14px;
+  border: 1px solid #8d1f2d;
   border-radius: 10px;
   background: #8d1f2d;
   color: #fff;
+  font: inherit;
   font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
   text-decoration: none;
+  cursor: pointer;
+}
+
+.qr-turnera-accion:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
+.qr-turnera-estado {
+  min-height: 20px;
+  margin: -8px 0 0;
+  color: #776d65;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+@media (max-width: 420px) {
+  .qr-turnera-acciones {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-turno {
@@ -3711,13 +3746,28 @@
           Tus clientes pueden escanear este código para reservar
           directamente, sin registrarse.
         </p>
-        <a
-          class="qr-turnera-descargar"
-          href="{{ turnera_qr_url }}?descargar=1"
-          download="clicklocal-turnos-qr.png"
-        >
-          Descargar QR
-        </a>
+        <div class="qr-turnera-acciones">
+          <a
+            class="qr-turnera-accion qr-turnera-descargar"
+            href="{{ turnera_qr_url }}?descargar=1"
+            download="clicklocal-turnos-qr.png"
+          >
+            Descargar QR
+          </a>
+          <button
+            id="btnCompartirQrTurnera"
+            class="qr-turnera-accion"
+            type="button"
+          >
+            Compartir QR
+          </button>
+        </div>
+        <p
+          id="estadoCompartirQrTurnera"
+          class="qr-turnera-estado"
+          role="status"
+          aria-live="polite"
+        ></p>
       </div>
     </section>
   </div>
@@ -4352,6 +4402,7 @@
 <script>
 (() => {
   const TURNERA_PUBLICA_URL = {{ turnera_publica_url | tojson }};
+  const TURNERA_QR_URL = {{ turnera_qr_url | tojson }};
 
   const btnCompartirTurnera =
     document.getElementById("btnCompartirTurnera");
@@ -4426,8 +4477,85 @@
     document.getElementById("btnCodigoQrTurnera");
   const btnCerrarQrTurnera =
     document.getElementById("btnCerrarQrTurnera");
+  const btnCompartirQrTurnera =
+    document.getElementById("btnCompartirQrTurnera");
+  const estadoCompartirQrTurnera =
+    document.getElementById("estadoCompartirQrTurnera");
   if (modalQrTurnera && btnCodigoQrTurnera && btnCerrarQrTurnera) {
     let overflowAnteriorQr = "";
+
+    function descargarArchivoQr(archivo) {
+      const enlaceTemporal = document.createElement("a");
+      const urlTemporal = URL.createObjectURL(archivo);
+      enlaceTemporal.href = urlTemporal;
+      enlaceTemporal.download = archivo.name;
+      document.body.appendChild(enlaceTemporal);
+      enlaceTemporal.click();
+      enlaceTemporal.remove();
+      window.setTimeout(() => URL.revokeObjectURL(urlTemporal), 1000);
+    }
+
+    async function obtenerArchivoQr() {
+      const respuesta = await fetch(TURNERA_QR_URL, {
+        credentials: "same-origin"
+      });
+      const tipoContenido = respuesta.headers.get("content-type") || "";
+
+      if (!respuesta.ok || !tipoContenido.includes("image/png")) {
+        throw new Error("La respuesta del QR no es una imagen PNG válida.");
+      }
+
+      const blob = await respuesta.blob();
+      return new File(
+        [blob],
+        "clicklocal-turnos-qr.png",
+        { type: "image/png" }
+      );
+    }
+
+    async function compartirQrTurnera() {
+      btnCompartirQrTurnera.disabled = true;
+      estadoCompartirQrTurnera.textContent = "Preparando QR…";
+      let archivo = null;
+
+      try {
+        archivo = await obtenerArchivoQr();
+
+        if (
+          navigator.share
+          && navigator.canShare
+          && navigator.canShare({ files: [archivo] })
+        ) {
+          await navigator.share({
+            files: [archivo],
+            title: "ClickLocal Turnos"
+          });
+          estadoCompartirQrTurnera.textContent = "QR compartido.";
+          return;
+        }
+
+        descargarArchivoQr(archivo);
+        estadoCompartirQrTurnera.textContent =
+          "QR descargado. Podés compartirlo desde Fotos o Archivos.";
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          estadoCompartirQrTurnera.textContent = "";
+          return;
+        }
+
+        if (archivo) {
+          descargarArchivoQr(archivo);
+          estadoCompartirQrTurnera.textContent =
+            "QR descargado. Podés compartirlo desde Fotos o Archivos.";
+          return;
+        }
+
+        estadoCompartirQrTurnera.textContent =
+          "No se pudo preparar el QR. Intentá nuevamente.";
+      } finally {
+        btnCompartirQrTurnera.disabled = false;
+      }
+    }
 
     function abrirQrTurnera() {
       overflowAnteriorQr = document.body.style.overflow;
@@ -4447,6 +4575,7 @@
 
     btnCodigoQrTurnera.addEventListener("click", abrirQrTurnera);
     btnCerrarQrTurnera.addEventListener("click", cerrarQrTurnera);
+    btnCompartirQrTurnera.addEventListener("click", compartirQrTurnera);
     modalQrTurnera.addEventListener("click", (evento) => {
       if (evento.target === modalQrTurnera) cerrarQrTurnera();
     });
@@ -4466,15 +4595,15 @@
   const confirmacionAgregarTurnos =
     document.getElementById("confirmacionAgregarTurnos");
   let overflowAnteriorAgregarTelefono = "";
+  const TURNOS_APP_ORIGIN = {{ turnos_app_origin | tojson }};
+  const ES_ORIGEN_APP_TURNOS = {{ es_origen_app_turnos | tojson }};
 
   function instruccionesTurnosTelefono(estado = {}) {
     const esIphone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const esAndroid = /Android/i.test(navigator.userAgent);
 
-    if (estado.instalado) {
-      return esAndroid
-        ? "ClickLocal ya está en tu teléfono. Mantené presionado su ícono y elegí Turnos."
-        : "ClickLocal ya está en tu teléfono. Para guardar esta agenda, abrila en Safari y usá Compartir → Agregar a pantalla de inicio.";
+    if (estado.instalada) {
+      return "ClickLocal Turnos ya está en tu teléfono. Abrilo desde su ícono para entrar directamente a tu agenda.";
     }
 
     if (esIphone) {
@@ -4482,7 +4611,7 @@
     }
 
     if (esAndroid) {
-      return "En Chrome, abrí el menú y elegí Instalar app o Agregar a pantalla principal. Después, mantené presionado el ícono de ClickLocal y elegí Turnos.";
+      return "En Chrome, abrí el menú y elegí Instalar app o Agregar a pantalla principal.";
     }
 
     return "Abrí el menú de tu navegador y buscá Instalar app o Agregar a pantalla principal. Si esas opciones no aparecen, guardá esta página en tus favoritos.";
@@ -4507,23 +4636,28 @@
   }
 
   btnAgregarTurnosTelefono.addEventListener("click", async () => {
-    const estado = window.clickLocalEstadoInstalacion
-      ? window.clickLocalEstadoInstalacion()
+    if (!ES_ORIGEN_APP_TURNOS) {
+      window.location.assign(`${TURNOS_APP_ORIGIN}/turnos/agenda`);
+      return;
+    }
+
+    const estado = window.clickLocalTurnosEstadoInstalacion
+      ? window.clickLocalTurnosEstadoInstalacion()
       : {};
 
-    if (estado.instalado) {
+    if (estado.instalada) {
       abrirAgregarTurnosTelefono(instruccionesTurnosTelefono(estado));
       return;
     }
 
     if (
       estado.instalacionDirectaDisponible
-      && window.clickLocalSolicitarInstalacion
+      && window.clickLocalTurnosSolicitarInstalacion
     ) {
-      const resultado = await window.clickLocalSolicitarInstalacion();
+      const resultado = await window.clickLocalTurnosSolicitarInstalacion();
       if (resultado.resultado === "accepted") {
         abrirAgregarTurnosTelefono(
-          "Mantené presionado el ícono de ClickLocal y elegí Turnos. Si esa opción no aparece, abrí ClickLocal y entrá a Turnos.",
+          "ClickLocal Turnos se agregó a tu teléfono. Abrilo desde su ícono para entrar directamente a tu agenda.",
           true
         );
         return;
@@ -7812,7 +7946,11 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 
-<script src="/static/pwa.js" data-install-ui="false"></script>
+{% if es_origen_app_turnos %}
+  <script src="/static/turnos-pwa.js"></script>
+{% else %}
+  <script src="/static/pwa.js" data-install-ui="false"></script>
+{% endif %}
 
 </body>
 </html>

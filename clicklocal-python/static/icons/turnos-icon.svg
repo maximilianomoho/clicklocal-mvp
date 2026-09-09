@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Ícono de ClickLocal Turnos</title>
+  <rect width="512" height="512" fill="#fbf6ef"/>
+
+  <rect x="120" y="126" width="272" height="274" rx="40" fill="#fffdfa" stroke="#8d1f2d" stroke-width="28"/>
+  <path d="M134 190h244" stroke="#8d1f2d" stroke-width="40"/>
+  <path d="M184 104v54M328 104v54" stroke="#8d1f2d" stroke-width="28" stroke-linecap="round"/>
+
+  <rect x="170" y="242" width="48" height="48" rx="12" fill="#8d1f2d"/>
+  <rect x="250" y="242" width="48" height="48" rx="12" fill="#8d1f2d"/>
+  <rect x="170" y="322" width="48" height="48" rx="12" fill="#8d1f2d"/>
+
+  <circle cx="350" cy="350" r="70" fill="#fbf6ef"/>
+  <circle cx="350" cy="350" r="60" fill="#2f7d4a"/>
+  <path d="M350 316v38l28 18" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="350" cy="350" r="8" fill="#ffffff"/>
+</svg>

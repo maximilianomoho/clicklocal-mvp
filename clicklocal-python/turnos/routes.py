@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from io import BytesIO
+from urllib.parse import urlsplit
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -8,6 +9,7 @@ from flask import redirect, render_template, request, send_file, session, url_fo
 
 from config.contacto import CLICKLOCAL_WHATSAPP
 from config.supabase_config import supabase_admin
+from config.turnos import TURNOS_APP_ORIGIN
 from modulos import (
     evaluar_vigencia_modulo,
     modulo_activo,
@@ -27,6 +29,13 @@ def _url_turnera_publica(comercio_id, externa=False):
     )
 
 
+def _es_origen_app_turnos():
+    hostname_configurado = urlsplit(TURNOS_APP_ORIGIN).hostname or ""
+    return request.host.split(":", 1)[0].casefold() == (
+        hostname_configurado.casefold()
+    )
+
+
 @turnos_bp.route("/agenda")
 def agenda_turnos():
     comercio = session.get("comercio") or {}
@@ -35,6 +44,8 @@ def agenda_turnos():
 
     if not comercio_id:
         return redirect("/login?next=/turnos/agenda")
+
+    es_origen_app_turnos = _es_origen_app_turnos()
 
     vigencia_modulo = evaluar_vigencia_modulo(
         comercio_id,
@@ -391,6 +402,8 @@ def agenda_turnos():
             externa=True,
         ),
         turnera_qr_url=url_for("turnos.qr_turnera_publica"),
+        turnos_app_origin=TURNOS_APP_ORIGIN,
+        es_origen_app_turnos=es_origen_app_turnos,
         abrir_configuracion=(
             request.args.get("configuracion") == "1"
         ),
