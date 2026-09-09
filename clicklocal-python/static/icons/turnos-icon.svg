@@ -2,16 +2,18 @@
   <title id="title">Ícono de ClickLocal Turnos</title>
   <rect width="512" height="512" fill="#fbf6ef"/>
 
-  <rect x="120" y="126" width="272" height="274" rx="40" fill="#fffdfa" stroke="#8d1f2d" stroke-width="28"/>
-  <path d="M134 190h244" stroke="#8d1f2d" stroke-width="40"/>
-  <path d="M184 104v54M328 104v54" stroke="#8d1f2d" stroke-width="28" stroke-linecap="round"/>
+  <rect x="128" y="100" width="256" height="252" rx="38" fill="#fffdfa" stroke="#8d1f2d" stroke-width="26"/>
+  <path d="M141 160h230" stroke="#8d1f2d" stroke-width="38"/>
+  <path d="M188 76v52M324 76v52" stroke="#8d1f2d" stroke-width="26" stroke-linecap="round"/>
 
-  <rect x="170" y="242" width="48" height="48" rx="12" fill="#8d1f2d"/>
-  <rect x="250" y="242" width="48" height="48" rx="12" fill="#8d1f2d"/>
-  <rect x="170" y="322" width="48" height="48" rx="12" fill="#8d1f2d"/>
+  <rect x="174" y="210" width="44" height="44" rx="11" fill="#8d1f2d"/>
+  <rect x="246" y="210" width="44" height="44" rx="11" fill="#8d1f2d"/>
+  <rect x="174" y="282" width="44" height="44" rx="11" fill="#8d1f2d"/>
 
-  <circle cx="350" cy="350" r="70" fill="#fbf6ef"/>
-  <circle cx="350" cy="350" r="60" fill="#2f7d4a"/>
-  <path d="M350 316v38l28 18" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="350" cy="350" r="8" fill="#ffffff"/>
+  <circle cx="346" cy="312" r="70" fill="#fbf6ef"/>
+  <circle cx="346" cy="312" r="60" fill="#2f7d4a"/>
+  <path d="M346 278v38l28 18" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="346" cy="312" r="8" fill="#ffffff"/>
+
+  <text x="256" y="435" fill="#8d1f2d" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" text-anchor="middle">ClickLocal</text>
 </svg>
