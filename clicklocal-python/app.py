@@ -22,9 +22,14 @@ from gastronomia import gastronomia_bp
 from turnos import turnos_bp
 from modulos import (
     CATALOGO_MODULOS,
-    combinar_catalogo_con_estado,
+    activar_renovar_modulo,
+    cambiar_activo_modulo,
+    clasificar_modulos_panel,
+    combinar_catalogo_con_vigencia,
+    desinstalar_modulo,
+    evaluar_vigencia_modulo,
+    instalar_modulo,
     modulo_activo,
-    modulo_asignado,
     obtener_modulo,
     slug_modulo_valido,
 )
@@ -4256,17 +4261,24 @@ def solicitar_instalacion_modulo_panel(slug):
     except Exception:
         pass
 
-    comercio_id = comercio.get("id") or comercio.get("user_id") or user_id
-    if modulo_asignado(comercio_id, slug):
+    comercio_id = (
+        comercio.get("id")
+        or comercio.get("user_id")
+        or user_id
+    )
+    vigencia = evaluar_vigencia_modulo(comercio_id, slug)
+    if vigencia.get("existe"):
         return redirect(
             url_for("panel", modulo_solicitud_error="ya_instalado")
             + "#catalogo-herramientas"
         )
 
     motivo = _motivo_solicitud_modulo(datos_modulo)
+
     try:
         pendiente_res = (
-            supabase_admin.table("consultas_soporte")
+            supabase_admin
+            .table("consultas_soporte")
             .select("id")
             .eq("comercio_id", comercio_id)
             .eq("origen", "catalogo_modulos")
@@ -6524,23 +6536,19 @@ def panel():
     # CLICKLOCAL - MODULOS TRANSVERSALES DEL COMERCIO
     # ==========================================================
 
-    modulos_catalogo = combinar_catalogo_con_estado(comercio_id)
-    modulos_activos = [
-        modulo
-        for modulo in modulos_catalogo
-        if modulo.get("activo") and modulo.get("disponible")
-    ]
-    modulos_disponibles = [
-        modulo
-        for modulo in modulos_catalogo
-        if modulo.get("disponible") and not modulo.get("asignado")
-    ]
+    modulos_catalogo = combinar_catalogo_con_vigencia(comercio_id)
+    (
+        modulos_activos,
+        modulos_asignados_limitados,
+        modulos_disponibles,
+    ) = clasificar_modulos_panel(modulos_catalogo)
 
     motivos_pendientes_modulos = set()
     if modulos_disponibles:
         try:
             solicitudes_modulos_res = (
-                supabase_admin.table("consultas_soporte")
+                supabase_admin
+                .table("consultas_soporte")
                 .select("motivo")
                 .eq("comercio_id", comercio_id)
                 .eq("origen", "catalogo_modulos")
@@ -6569,6 +6577,7 @@ def panel():
         comercio=comercio,
         publicaciones=publicaciones,
         modulos_activos=modulos_activos,
+        modulos_asignados_limitados=modulos_asignados_limitados,
         modulos_catalogo=modulos_catalogo,
         modulos_disponibles=modulos_disponibles,
         listas_buscables=listas_buscables,
@@ -9070,6 +9079,29 @@ def admin_push_desuscribir():
     return jsonify({"ok": True})
 
 
+def _url_retorno_accion_modulo(**parametros):
+    endpoint = (
+        "admin_modulos"
+        if request.form.get("origen_admin") == "modulos"
+        else "admin"
+    )
+    return url_for(endpoint, **parametros)
+
+
+def _slug_solicitud_modulo(consulta):
+    origen = str(consulta.get("origen") or "").strip().casefold()
+    if origen != "catalogo_modulos":
+        return None
+
+    motivo = " ".join(
+        str(consulta.get("motivo") or "").strip().split()
+    ).casefold()
+    for slug, datos_modulo in CATALOGO_MODULOS.items():
+        if motivo == _motivo_solicitud_modulo(datos_modulo).casefold():
+            return slug
+    return None
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = None
@@ -9187,6 +9219,84 @@ def admin_toggle_gastronomia(comercio_id):
 
 
 @app.route(
+    "/admin/comercios/<comercio_id>/modulos/<slug>/instalar",
+    methods=["POST"],
+)
+@admin_requerido
+def admin_instalar_modulo(comercio_id, slug):
+    try:
+        comercio_id = str(uuid.UUID(str(comercio_id)))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(_url_retorno_accion_modulo(modulo_error="id_invalido"))
+
+    slug = str(slug or "").strip().lower()
+    if not slug_modulo_valido(slug):
+        return redirect(_url_retorno_accion_modulo(modulo_error="slug_invalido"))
+
+    duracion_raw = str(
+        request.form.get("duracion_meses") or ""
+    ).strip()
+    if duracion_raw not in ("1", "3", "6"):
+        return redirect(_url_retorno_accion_modulo(modulo_error="duracion_invalida"))
+
+    try:
+        comercio_res = (
+            supabase_admin.table("comercios")
+            .select("id")
+            .eq("id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+        if not (comercio_res.data or []):
+            return redirect(
+                _url_retorno_accion_modulo(
+                    modulo_error="comercio_no_encontrado"
+                )
+            )
+
+        creado = instalar_modulo(
+            comercio_id,
+            slug,
+            int(duracion_raw),
+        )
+        return redirect(_url_retorno_accion_modulo(
+            modulo_estado="instalado" if creado else "ya_instalado",
+        ))
+    except Exception as error:
+        print("ERROR INSTALANDO MODULO:", type(error), error, flush=True)
+        return redirect(_url_retorno_accion_modulo(modulo_error="servidor"))
+
+
+@app.route(
+    "/admin/comercios/<comercio_id>/modulos/<slug>/desinstalar",
+    methods=["POST"],
+)
+@admin_requerido
+def admin_desinstalar_modulo(comercio_id, slug):
+    try:
+        comercio_id = str(uuid.UUID(str(comercio_id)))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(_url_retorno_accion_modulo(modulo_error="id_invalido"))
+
+    slug = str(slug or "").strip().lower()
+    if not slug_modulo_valido(slug):
+        return redirect(_url_retorno_accion_modulo(modulo_error="slug_invalido"))
+
+    try:
+        eliminado = desinstalar_modulo(comercio_id, slug)
+        if not eliminado:
+            return redirect(_url_retorno_accion_modulo(
+                modulo_error="no_instalado"
+            ))
+        return redirect(_url_retorno_accion_modulo(
+            modulo_estado="desinstalado"
+        ))
+    except Exception as error:
+        print("ERROR DESINSTALANDO MODULO:", type(error), error, flush=True)
+        return redirect(_url_retorno_accion_modulo(modulo_error="servidor"))
+
+
+@app.route(
     "/admin/comercios/<comercio_id>/modulos/<slug>/toggle",
     methods=["POST"],
 )
@@ -9195,11 +9305,11 @@ def admin_toggle_modulo(comercio_id, slug):
     try:
         comercio_id = str(uuid.UUID(str(comercio_id)))
     except (ValueError, TypeError, AttributeError):
-        return redirect(url_for("admin", modulo_error="id_invalido"))
+        return redirect(_url_retorno_accion_modulo(modulo_error="id_invalido"))
 
     slug = str(slug or "").strip().lower()
     if not slug_modulo_valido(slug):
-        return redirect(url_for("admin", modulo_error="slug_invalido"))
+        return redirect(_url_retorno_accion_modulo(modulo_error="slug_invalido"))
 
     try:
         comercio_res = (
@@ -9213,7 +9323,9 @@ def admin_toggle_modulo(comercio_id, slug):
 
         if not (comercio_res.data or []):
             return redirect(
-                url_for("admin", modulo_error="comercio_no_encontrado")
+                _url_retorno_accion_modulo(
+                    modulo_error="comercio_no_encontrado"
+                )
             )
 
         relacion_res = (
@@ -9227,38 +9339,16 @@ def admin_toggle_modulo(comercio_id, slug):
         )
         relaciones = relacion_res.data or []
 
-        if relaciones:
-            nuevo_estado = not (relaciones[0].get("activo") is True)
-            (
-                supabase_admin
-                .table("comercio_modulos")
-                .update({
-                    "activo": nuevo_estado,
-                    "updated_at": datetime.datetime.now(
-                        datetime.timezone.utc
-                    ).isoformat(),
-                })
-                .eq("id", relaciones[0].get("id"))
-                .eq("comercio_id", comercio_id)
-                .eq("modulo", slug)
-                .execute()
-            )
-        else:
-            nuevo_estado = True
-            (
-                supabase_admin
-                .table("comercio_modulos")
-                .insert({
-                    "comercio_id": comercio_id,
-                    "modulo": slug,
-                    "activo": True,
-                })
-                .execute()
-            )
+        if not relaciones:
+            return redirect(_url_retorno_accion_modulo(
+                modulo_error="no_instalado"
+            ))
+
+        nuevo_estado = not (relaciones[0].get("activo") is True)
+        cambiar_activo_modulo(comercio_id, slug, nuevo_estado)
 
         return redirect(
-            url_for(
-                "admin",
+            _url_retorno_accion_modulo(
                 modulo_estado="activo" if nuevo_estado else "inactivo",
             )
         )
@@ -9270,7 +9360,62 @@ def admin_toggle_modulo(comercio_id, slug):
             error,
             flush=True,
         )
-        return redirect(url_for("admin", modulo_error="servidor"))
+        return redirect(_url_retorno_accion_modulo(modulo_error="servidor"))
+
+
+@app.route(
+    "/admin/comercios/<comercio_id>/modulos/<slug>/activar-renovar",
+    methods=["POST"],
+)
+@admin_requerido
+def admin_activar_renovar_modulo(comercio_id, slug):
+    try:
+        comercio_id = str(uuid.UUID(str(comercio_id)))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(_url_retorno_accion_modulo(modulo_error="id_invalido"))
+
+    slug = str(slug or "").strip().lower()
+    if not slug_modulo_valido(slug):
+        return redirect(_url_retorno_accion_modulo(modulo_error="slug_invalido"))
+
+    duracion_raw = str(
+        request.form.get("duracion_meses") or ""
+    ).strip()
+    if duracion_raw not in ("1", "3", "6"):
+        return redirect(_url_retorno_accion_modulo(modulo_error="duracion_invalida"))
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id")
+            .eq("id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+        if not (comercio_res.data or []):
+            return redirect(
+                _url_retorno_accion_modulo(
+                    modulo_error="comercio_no_encontrado"
+                )
+            )
+
+        activar_renovar_modulo(
+            comercio_id,
+            slug,
+            int(duracion_raw),
+        )
+        return redirect(_url_retorno_accion_modulo(modulo_renovado="1"))
+    except LookupError:
+        return redirect(_url_retorno_accion_modulo(modulo_error="no_instalado"))
+    except Exception as error:
+        print(
+            "ERROR ACTIVANDO O RENOVANDO MODULO:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(_url_retorno_accion_modulo(modulo_error="servidor"))
 
 
 @app.route(
@@ -9842,9 +9987,302 @@ def admin():
 
 
 
+@app.route("/admin/modulos")
+@admin_requerido
+def admin_modulos():
+    error = None
+    comercios_raw = []
+    relaciones_raw = []
+    solicitudes_raw = []
+
+    try:
+        respuesta = (
+            supabase_admin.table("comercios")
+            .select("id,nombre_negocio,categoria,whatsapp")
+            .execute()
+        )
+        comercios_raw = respuesta.data or []
+    except Exception as excepcion:
+        error = f"No se pudieron cargar los comercios: {excepcion}"
+
+    try:
+        respuesta = (
+            supabase_admin.table("comercio_modulos")
+            .select(
+                "comercio_id,modulo,activo,fecha_activacion,"
+                "fecha_vencimiento,aviso_dias_antes,gracia_dias"
+            )
+            .execute()
+        )
+        relaciones_raw = respuesta.data or []
+    except Exception as excepcion:
+        mensaje = f"No se pudieron cargar los módulos: {excepcion}"
+        error = f"{error} | {mensaje}" if error else mensaje
+
+    try:
+        respuesta = (
+            supabase_admin.table("consultas_soporte")
+            .select("id,estado,origen,motivo,comercio_id,nombre,email,whatsapp")
+            .eq("estado", "pendiente")
+            .eq("origen", "catalogo_modulos")
+            .execute()
+        )
+        solicitudes_raw = respuesta.data or []
+    except Exception as excepcion:
+        mensaje = f"No se pudieron cargar las solicitudes: {excepcion}"
+        error = f"{error} | {mensaje}" if error else mensaje
+
+    comercios_por_id = {
+        str(comercio.get("id")): comercio
+        for comercio in comercios_raw
+        if comercio.get("id")
+    }
+    relaciones_por_comercio = {}
+    for relacion in relaciones_raw:
+        comercio_id = str(relacion.get("comercio_id") or "")
+        slug = str(relacion.get("modulo") or "").strip().lower()
+        if comercio_id and slug:
+            relaciones_por_comercio.setdefault(comercio_id, {})[slug] = relacion
+
+    modulos_comercios = []
+    for comercio_id, comercio in comercios_por_id.items():
+        for slug, datos_catalogo in CATALOGO_MODULOS.items():
+            if not datos_catalogo.get("disponible"):
+                continue
+
+            relacion = relaciones_por_comercio.get(comercio_id, {}).get(slug)
+            vigencia = (
+                evaluar_vigencia_modulo(comercio_id, slug)
+                if relacion
+                else {"existe": False}
+            )
+            motivo_bloqueo = vigencia.get("motivo_bloqueo")
+
+            if not relacion:
+                etiqueta_estado = "No instalado"
+            elif motivo_bloqueo in ("error_consulta", "datos_invalidos"):
+                etiqueta_estado = "No disponible"
+            elif vigencia.get("estado_vigencia") == "vencido":
+                etiqueta_estado = "Vencido"
+            elif not vigencia.get("habilitado_manual"):
+                etiqueta_estado = "Inactivo"
+            elif motivo_bloqueo == "vigencia_no_iniciada":
+                etiqueta_estado = "Pendiente de inicio"
+            elif vigencia.get("estado_vigencia") == "en_gracia":
+                etiqueta_estado = "En gracia"
+            elif vigencia.get("estado_vigencia") == "por_vencer":
+                etiqueta_estado = "Por vencer"
+            elif vigencia.get("acceso_operativo"):
+                etiqueta_estado = "Activo"
+            else:
+                etiqueta_estado = "No disponible"
+
+            fecha_activacion = vigencia.get("fecha_activacion")
+            fecha_vencimiento = vigencia.get("fecha_vencimiento")
+            if vigencia.get("estado_vigencia") == "en_gracia":
+                dias_texto = "En gracia · {} días".format(
+                    vigencia.get("dias_gracia_restantes", 0)
+                )
+            elif vigencia.get("estado_vigencia") == "vencido":
+                dias_texto = "Vencido"
+            elif vigencia.get("dias_restantes") is not None:
+                dias_texto = f"{vigencia.get('dias_restantes')} días"
+            else:
+                dias_texto = "-"
+
+            modulos_comercios.append({
+                "comercio_id": comercio_id,
+                "comercio_nombre": (
+                    comercio.get("nombre_negocio") or "Comercio sin nombre"
+                ),
+                "categoria": comercio.get("categoria") or "-",
+                "whatsapp": comercio.get("whatsapp") or "-",
+                "slug": slug,
+                "nombre_modulo": datos_catalogo.get("nombre") or slug,
+                "existe": bool(relacion),
+                "activo": bool(relacion and relacion.get("activo") is True),
+                "estado_vigencia": vigencia.get("estado_vigencia"),
+                "etiqueta_estado": etiqueta_estado,
+                "fecha_activacion_mostrar": (
+                    fecha_activacion.strftime("%d/%m/%Y")
+                    if fecha_activacion else "-"
+                ),
+                "fecha_vencimiento_mostrar": (
+                    fecha_vencimiento.strftime("%d/%m/%Y")
+                    if fecha_vencimiento else "-"
+                ),
+                "dias_restantes_texto": dias_texto,
+            })
+
+    modulos_comercios.sort(key=lambda modulo: (
+        str(modulo.get("comercio_nombre") or "").lower(),
+        str(modulo.get("nombre_modulo") or "").lower(),
+    ))
+
+    solicitudes_modulos = []
+    for solicitud in solicitudes_raw:
+        slug = _slug_solicitud_modulo(solicitud)
+        comercio = comercios_por_id.get(
+            str(solicitud.get("comercio_id") or ""),
+            {},
+        )
+        datos_modulo = CATALOGO_MODULOS.get(slug) or {}
+        solicitudes_modulos.append({
+            "id": solicitud.get("id"),
+            "comercio_id": solicitud.get("comercio_id"),
+            "comercio_nombre": (
+                comercio.get("nombre_negocio")
+                or solicitud.get("nombre")
+                or "Comercio no identificado"
+            ),
+            "modulo_solicitado": (
+                datos_modulo.get("nombre")
+                or "Módulo no identificado"
+            ),
+            "slug_modulo": slug,
+        })
+
+    return render_template(
+        "admin_modulos.html",
+        modulos_comercios=modulos_comercios,
+        solicitudes_modulos=solicitudes_modulos,
+        error=error,
+        admin_user=session.get("admin_user"),
+    )
+
+
 # ============================================================
 # CLICKLOCAL — SOPORTE ADMIN
 # ============================================================
+
+@app.route(
+    "/admin/solicitudes-modulos/<consulta_id>/instalar",
+    methods=["POST"],
+)
+@admin_requerido
+def admin_instalar_modulo_solicitado(consulta_id):
+    try:
+        consulta_id = str(uuid.UUID(str(consulta_id)))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(url_for(
+            "admin_modulos",
+            modulo_solicitud_error="consulta_invalida",
+        ))
+
+    duracion_raw = str(request.form.get("duracion_meses") or "").strip()
+    if duracion_raw not in ("1", "3", "6"):
+        return redirect(url_for(
+            "admin_modulos",
+            modulo_solicitud_error="duracion_invalida",
+        ))
+
+    try:
+        respuesta = (
+            supabase_admin.table("consultas_soporte")
+            .select("id,estado,origen,motivo,comercio_id")
+            .eq("id", consulta_id)
+            .limit(1)
+            .execute()
+        )
+        consultas = respuesta.data or []
+        if not consultas:
+            return redirect(url_for(
+                "admin_modulos",
+                modulo_solicitud_error="consulta_no_encontrada",
+            ))
+
+        consulta = consultas[0]
+        if (
+            str(consulta.get("estado") or "").strip().casefold()
+            != "pendiente"
+            or str(consulta.get("origen") or "").strip().casefold()
+            != "catalogo_modulos"
+        ):
+            return redirect(url_for(
+                "admin_modulos",
+                modulo_solicitud_error="consulta_invalida",
+            ))
+
+        slug = _slug_solicitud_modulo(consulta)
+        if not slug:
+            return redirect(url_for(
+                "admin_modulos",
+                modulo_solicitud_error="modulo_invalido",
+            ))
+
+        comercio_id = consulta.get("comercio_id")
+        comercio_res = (
+            supabase_admin.table("comercios")
+            .select("id")
+            .eq("id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+        if not (comercio_res.data or []):
+            return redirect(url_for(
+                "admin_modulos",
+                modulo_solicitud_error="comercio_no_encontrado",
+            ))
+
+        vigencia_inicial = evaluar_vigencia_modulo(comercio_id, slug)
+        if not vigencia_inicial.get("existe"):
+            instalar_modulo(comercio_id, slug, int(duracion_raw))
+        else:
+            if vigencia_inicial.get("estado_vigencia") == "vencido":
+                activar_renovar_modulo(
+                    comercio_id,
+                    slug,
+                    int(duracion_raw),
+                )
+            if not vigencia_inicial.get("habilitado_manual"):
+                cambiar_activo_modulo(comercio_id, slug, True)
+
+        vigencia_final = evaluar_vigencia_modulo(comercio_id, slug)
+        if not (
+            vigencia_final.get("existe")
+            and vigencia_final.get("habilitado_manual")
+            and vigencia_final.get("acceso_operativo")
+        ):
+            return redirect(url_for(
+                "admin_modulos",
+                modulo_solicitud_error="activacion_incompleta",
+            ))
+
+        solicitud_resuelta = (
+            supabase_admin.table("consultas_soporte")
+            .update({
+                "estado": "resuelta",
+                "resuelta_at": datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat(),
+                "resuelta_por": session.get("admin_user"),
+            })
+            .eq("id", consulta_id)
+            .eq("estado", "pendiente")
+            .eq("origen", "catalogo_modulos")
+            .execute()
+        )
+        if not (solicitud_resuelta.data or []):
+            return redirect(url_for(
+                "admin_modulos",
+                modulo_solicitud_error="no_resuelta",
+            ))
+        return redirect(url_for(
+            "admin_modulos",
+            modulo_solicitud_instalada="1",
+        ))
+    except Exception as error:
+        print(
+            "ERROR INSTALANDO MODULO SOLICITADO:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(url_for(
+            "admin_modulos",
+            modulo_solicitud_error="servidor",
+        ))
+
 
 @app.route(
     "/admin/soporte/<consulta_id>/resolver",

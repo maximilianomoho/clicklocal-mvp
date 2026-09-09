@@ -57,7 +57,11 @@ class SupabaseFalso:
 def ejecutar_solicitud(monkeypatch, db, asignado=False):
     monkeypatch.setattr(app_module, "supabase_admin", db)
     monkeypatch.setattr(app_module, "_user_id_panel_efectivo", lambda: "user-1")
-    monkeypatch.setattr(app_module, "modulo_asignado", lambda *args: asignado)
+    monkeypatch.setattr(
+        app_module,
+        "evaluar_vigencia_modulo",
+        lambda *args: {"existe": asignado},
+    )
     with app_module.app.test_request_context(
         "/panel/modulos/turnos/solicitar-instalacion",
         method="POST",
@@ -90,31 +94,233 @@ def test_modulo_asignado_no_permite_solicitud(monkeypatch):
 
 
 def test_solicitudes_modulos_se_excluyen_de_soporte_general():
-    modulo = {"id": "1", "origen": "catalogo_modulos"}
-    soporte = {"id": "2", "origen": "contacto"}
-    solicitudes, consultas = app_module._separar_solicitudes_modulos([modulo, soporte])
-    assert solicitudes == [modulo]
-    assert consultas == [soporte]
+    contenido_admin = open("templates/admin.html", encoding="utf-8").read()
+    contenido_modulos = open(
+        "templates/admin_modulos.html",
+        encoding="utf-8",
+    ).read()
+    assert "admin_instalar_modulo_solicitado" not in contenido_admin
+    assert "admin_instalar_modulo_solicitado" in contenido_modulos
 
 
-def test_catalogo_distingue_modulo_asignado(monkeypatch):
-    monkeypatch.setattr(
-        modulos,
-        "obtener_estados_modulos",
-        lambda comercio_id: {"turnos": False},
-    )
-    catalogo = modulos.combinar_catalogo_con_estado("comercio-1")
-    assert catalogo[0]["asignado"] is True
-    assert catalogo[0]["activo"] is False
-
-
-def test_admin_reutiliza_accion_existente_para_resolver():
+def test_admin_usa_accion_activar_y_resolver():
     contenido = open("templates/admin.html", encoding="utf-8").read()
-    assert "Solicitudes de Módulos / Verticales" in contenido
-    assert "admin_resolver_consulta_soporte" in contenido
+    contenido_modulos = open(
+        "templates/admin_modulos.html",
+        encoding="utf-8",
+    ).read()
+    assert "Activar y resolver" in contenido_modulos
+    assert "admin_instalar_modulo_solicitado" in contenido_modulos
+    assert "<th>Módulos</th>" not in contenido
+    assert "admin_toggle_modulo" not in contenido
     assert "admin_instalar_modulo" not in contenido
 
 
 def test_templates_panel_y_admin_compilan():
     app_module.app.jinja_env.get_template("panel.html")
     app_module.app.jinja_env.get_template("admin.html")
+    app_module.app.jinja_env.get_template("admin_modulos.html")
+
+
+class ConsultaResolucionFalsa:
+    def __init__(self, db, tabla):
+        self.db = db
+        self.tabla = tabla
+        self.operacion = "select"
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def update(self, payload):
+        self.operacion = "update"
+        self.db.actualizacion = payload
+        return self
+
+    def eq(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        if self.tabla == "consultas_soporte" and self.operacion == "select":
+            return SimpleNamespace(data=[self.db.solicitud])
+        if self.tabla == "comercios":
+            return SimpleNamespace(data=[{"id": self.db.comercio_id}])
+        if self.tabla == "consultas_soporte" and self.operacion == "update":
+            self.db.resuelta = True
+            return SimpleNamespace(data=[{"id": self.db.solicitud["id"]}])
+        return SimpleNamespace(data=[])
+
+
+class SupabaseResolucionFalso:
+    def __init__(self):
+        self.comercio_id = "11111111-1111-1111-1111-111111111111"
+        self.solicitud = {
+            "id": "22222222-2222-2222-2222-222222222222",
+            "estado": "pendiente",
+            "origen": "catalogo_modulos",
+            "motivo": "Activación de Gestión de turnos",
+            "comercio_id": self.comercio_id,
+        }
+        self.resuelta = False
+        self.actualizacion = None
+
+    def table(self, tabla):
+        return ConsultaResolucionFalsa(self, tabla)
+
+
+def ejecutar_activacion_solicitada(monkeypatch, vigencias):
+    db = SupabaseResolucionFalso()
+    llamadas = {"instalar": 0, "reactivar": 0, "renovar": 0}
+    secuencia = iter(vigencias)
+    monkeypatch.setattr(app_module, "supabase_admin", db)
+    monkeypatch.setattr(
+        app_module,
+        "evaluar_vigencia_modulo",
+        lambda *args: next(secuencia),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "instalar_modulo",
+        lambda *args: llamadas.__setitem__("instalar", llamadas["instalar"] + 1),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "cambiar_activo_modulo",
+        lambda *args: llamadas.__setitem__("reactivar", llamadas["reactivar"] + 1),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "activar_renovar_modulo",
+        lambda *args: llamadas.__setitem__("renovar", llamadas["renovar"] + 1),
+    )
+    with app_module.app.test_request_context(
+        "/admin/solicitudes-modulos/22222222-2222-2222-2222-222222222222/instalar",
+        method="POST",
+        data={"duracion_meses": "1"},
+    ):
+        app_module.session["admin_logueado"] = True
+        app_module.session["admin_user"] = "admin"
+        respuesta = app_module.admin_instalar_modulo_solicitado(
+            db.solicitud["id"]
+        )
+    return db, llamadas, respuesta
+
+
+VIGENCIA_ACTIVA = {
+    "existe": True,
+    "habilitado_manual": True,
+    "acceso_operativo": True,
+    "estado_vigencia": "activo",
+}
+
+
+def test_activar_y_resolver_instala_modulo_no_instalado(monkeypatch):
+    db, llamadas, _ = ejecutar_activacion_solicitada(
+        monkeypatch,
+        [{"existe": False}, VIGENCIA_ACTIVA],
+    )
+    assert llamadas == {"instalar": 1, "reactivar": 0, "renovar": 0}
+    assert db.resuelta is True
+
+
+def test_activar_y_resolver_reactiva_modulo_inactivo(monkeypatch):
+    db, llamadas, _ = ejecutar_activacion_solicitada(
+        monkeypatch,
+        [{
+            "existe": True,
+            "habilitado_manual": False,
+            "estado_vigencia": "activo",
+        }, VIGENCIA_ACTIVA],
+    )
+    assert llamadas == {"instalar": 0, "reactivar": 1, "renovar": 0}
+    assert db.resuelta is True
+
+
+def test_activar_y_resolver_renueva_y_reactiva_modulo_vencido(monkeypatch):
+    db, llamadas, _ = ejecutar_activacion_solicitada(
+        monkeypatch,
+        [{
+            "existe": True,
+            "habilitado_manual": False,
+            "estado_vigencia": "vencido",
+        }, VIGENCIA_ACTIVA],
+    )
+    assert llamadas == {"instalar": 0, "reactivar": 1, "renovar": 1}
+    assert db.resuelta is True
+
+
+def test_activar_y_resolver_es_idempotente_si_ya_esta_activo(monkeypatch):
+    db, llamadas, _ = ejecutar_activacion_solicitada(
+        monkeypatch,
+        [VIGENCIA_ACTIVA, VIGENCIA_ACTIVA],
+    )
+    assert llamadas == {"instalar": 0, "reactivar": 0, "renovar": 0}
+    assert db.resuelta is True
+
+
+def test_activar_y_resolver_no_resuelve_si_activacion_falla(monkeypatch):
+    db, _, respuesta = ejecutar_activacion_solicitada(
+        monkeypatch,
+        [{"existe": False}, {
+            "existe": True,
+            "habilitado_manual": False,
+            "acceso_operativo": False,
+        }],
+    )
+    assert db.resuelta is False
+    assert "activacion_incompleta" in respuesta.location
+
+
+class ConsultaModulosAdminFalsa:
+    def __init__(self, tabla):
+        self.tabla = tabla
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def eq(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        if self.tabla == "comercios":
+            return SimpleNamespace(data=[{
+                "id": "comercio-sin-modulos",
+                "nombre_negocio": "Sin Turnos",
+                "categoria": "Servicios",
+                "whatsapp": "-",
+            }])
+        return SimpleNamespace(data=[])
+
+
+class SupabaseModulosAdminFalso:
+    def table(self, tabla):
+        return ConsultaModulosAdminFalsa(tabla)
+
+
+def test_admin_modulos_incluye_comercio_sin_modulos(monkeypatch):
+    contexto = {}
+    monkeypatch.setattr(
+        app_module,
+        "supabase_admin",
+        SupabaseModulosAdminFalso(),
+    )
+
+    def render_falso(template, **kwargs):
+        contexto.update(kwargs)
+        return template
+
+    monkeypatch.setattr(app_module, "render_template", render_falso)
+    with app_module.app.test_request_context("/admin/modulos"):
+        app_module.session["admin_logueado"] = True
+        respuesta = app_module.admin_modulos()
+
+    assert respuesta == "admin_modulos.html"
+    filas = contexto["modulos_comercios"]
+    assert any(
+        fila["comercio_id"] == "comercio-sin-modulos"
+        and fila["slug"] == "turnos"
+        and fila["etiqueta_estado"] == "No instalado"
+        for fila in filas
+    )

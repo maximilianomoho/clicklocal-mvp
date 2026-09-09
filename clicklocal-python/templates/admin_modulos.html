@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Módulos / Verticales · ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .modulos-main { width:min(1600px, calc(100% - 28px)); margin:32px auto; }
+    .modulos-card { padding:22px; border-radius:16px; background:#fff; box-shadow:0 8px 24px rgba(0,0,0,.08); }
+    .modulos-tabla-contenedor { width:100%; overflow-x:auto; }
+    .modulos-tabla { width:100%; min-width:1380px; border-collapse:collapse; table-layout:fixed; }
+    .modulos-tabla th, .modulos-tabla td { padding:11px 9px; border-bottom:1px solid #eee; text-align:left; vertical-align:middle; font-size:13px; }
+    .modulos-tabla th { background:#fafafa; color:#333; font-size:12px; }
+    .modulos-tabla th:nth-child(1) { width:14%; }
+    .modulos-tabla th:nth-child(2) { width:10%; }
+    .modulos-tabla th:nth-child(3) { width:10%; }
+    .modulos-tabla th:nth-child(4) { width:12%; }
+    .modulos-tabla th:nth-child(5) { width:9%; }
+    .modulos-tabla th:nth-child(6), .modulos-tabla th:nth-child(7) { width:8%; }
+    .modulos-tabla th:nth-child(8) { width:10%; }
+    .modulos-tabla th:nth-child(9) { width:8%; }
+    .modulos-tabla th:nth-child(10) { width:19%; }
+    .modulos-estado { display:inline-block; padding:4px 9px; border-radius:999px; background:#eef2ff; font-weight:700; white-space:nowrap; }
+    .modulos-acciones { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .modulos-acciones form { margin:0; }
+    .modulos-boton, .modulos-periodo { padding:7px 9px; border:0; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
+    .modulos-periodo { border:1px solid #ddd; background:#fff; }
+    .modulos-renovar { background:#dcfce7; color:#166534; }
+    .modulos-estado-boton { background:#ffedd5; color:#9a3412; }
+    .modulos-desinstalar { background:#fee2e2; color:#991b1b; }
+    .modulos-error { margin-bottom:16px; padding:14px; border-radius:12px; background:#ffe5e5; color:#8a0000; }
+    .modulos-vacio { padding:28px; text-align:center; color:#6b7280; }
+  </style>
+</head>
+<body>
+  {% include "_admin_nav.html" %}
+
+  <main class="modulos-main">
+    <h1>Módulos / Verticales</h1>
+    <p>Administración central de verticales por comercio.</p>
+
+    {% if error %}<div class="modulos-error">{{ error }}</div>{% endif %}
+
+    <section class="modulos-card" style="margin-bottom:20px;">
+      <h2>Solicitudes pendientes</h2>
+      {% if solicitudes_modulos %}
+        <div class="modulos-tabla-contenedor">
+          <table class="modulos-tabla" style="min-width:760px;">
+            <thead><tr><th>Comercio</th><th>Módulo solicitado</th><th>Período</th><th>Acción</th></tr></thead>
+            <tbody>
+              {% for solicitud in solicitudes_modulos %}
+                <tr>
+                  <td><strong>{{ solicitud.comercio_nombre }}</strong></td>
+                  <td>{{ solicitud.modulo_solicitado }}</td>
+                  <td>
+                    {% if solicitud.slug_modulo and solicitud.comercio_id and solicitud.id %}
+                      {% set formulario_solicitud = 'solicitud-' ~ solicitud.id %}
+                      <select name="duracion_meses" class="modulos-periodo" form="{{ formulario_solicitud }}">
+                        <option value="1">1 mes</option><option value="3">3 meses</option><option value="6">6 meses</option>
+                      </select>
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>
+                    {% if solicitud.slug_modulo and solicitud.comercio_id and solicitud.id %}
+                      <form id="{{ formulario_solicitud }}" method="POST" action="{{ url_for('admin_instalar_modulo_solicitado', consulta_id=solicitud.id) }}" onsubmit="return confirm('¿Activar {{ solicitud.modulo_solicitado }} para {{ solicitud.comercio_nombre }} y resolver la solicitud?');">
+                        <button type="submit" class="modulos-boton modulos-renovar">Activar y resolver</button>
+                      </form>
+                    {% else %}
+                      <span class="modulos-estado">Módulo no identificado</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="modulos-vacio">No hay solicitudes de módulos pendientes.</div>
+      {% endif %}
+    </section>
+
+    <section class="modulos-card">
+      <h2>Comercios y módulos</h2>
+      {% if modulos_comercios %}
+        <div class="modulos-tabla-contenedor">
+          <table class="modulos-tabla">
+            <thead>
+              <tr>
+                <th>Comercio</th><th>Categoría</th><th>WhatsApp</th>
+                <th>Vertical</th><th>Estado</th><th>Desde</th><th>Hasta</th>
+                <th>Días restantes</th><th>Período</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for modulo in modulos_comercios %}
+                {% set formulario_renovar = 'renovar-' ~ modulo.comercio_id ~ '-' ~ modulo.slug %}
+                <tr>
+                  <td><strong>{{ modulo.comercio_nombre }}</strong></td>
+                  <td>{{ modulo.categoria }}</td>
+                  <td>{{ modulo.whatsapp }}</td>
+                  <td><strong>{{ modulo.nombre_modulo }}</strong></td>
+                  <td><span class="modulos-estado">{{ modulo.etiqueta_estado }}</span></td>
+                  <td>{{ modulo.fecha_activacion_mostrar }}</td>
+                  <td>{{ modulo.fecha_vencimiento_mostrar }}</td>
+                  <td>{{ modulo.dias_restantes_texto }}</td>
+                  <td>
+                    <select name="duracion_meses" class="modulos-periodo" form="{{ formulario_renovar }}">
+                      <option value="1">1 mes</option>
+                      <option value="3">3 meses</option>
+                      <option value="6">6 meses</option>
+                    </select>
+                  </td>
+                  <td><div class="modulos-acciones">
+                    {% if modulo.existe %}
+                      <form id="{{ formulario_renovar }}" method="POST" action="{{ url_for('admin_activar_renovar_modulo', comercio_id=modulo.comercio_id, slug=modulo.slug) }}" onsubmit="return confirm('¿Renovar el período de {{ modulo.nombre_modulo }} para {{ modulo.comercio_nombre }}?');">
+                        <input type="hidden" name="origen_admin" value="modulos">
+                        <button type="submit" class="modulos-boton modulos-renovar">Renovar período</button>
+                      </form>
+                      <form method="POST" action="{{ url_for('admin_toggle_modulo', comercio_id=modulo.comercio_id, slug=modulo.slug) }}" onsubmit="return confirm('{{ '¿Desactivar' if modulo.activo else '¿Reactivar' }} {{ modulo.nombre_modulo }} para {{ modulo.comercio_nombre }}?');">
+                        <input type="hidden" name="origen_admin" value="modulos">
+                        <button type="submit" class="modulos-boton modulos-estado-boton">{{ 'Desactivar' if modulo.activo else 'Reactivar' }}</button>
+                      </form>
+                      <form method="POST" action="{{ url_for('admin_desinstalar_modulo', comercio_id=modulo.comercio_id, slug=modulo.slug) }}" onsubmit="return confirm('¿Desinstalar {{ modulo.nombre_modulo }} de {{ modulo.comercio_nombre }}? Los datos operativos se conservarán.');">
+                        <input type="hidden" name="origen_admin" value="modulos">
+                        <button type="submit" class="modulos-boton modulos-desinstalar">Desinstalar módulo</button>
+                      </form>
+                    {% else %}
+                      <form id="{{ formulario_renovar }}" method="POST" action="{{ url_for('admin_instalar_modulo', comercio_id=modulo.comercio_id, slug=modulo.slug) }}" onsubmit="return confirm('¿Instalar {{ modulo.nombre_modulo }} para {{ modulo.comercio_nombre }}?');">
+                        <input type="hidden" name="origen_admin" value="modulos">
+                        <button type="submit" class="modulos-boton modulos-renovar">Instalar</button>
+                      </form>
+                    {% endif %}
+                  </div></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="modulos-vacio">No hay comercios registrados.</div>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

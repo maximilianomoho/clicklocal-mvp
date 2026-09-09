@@ -532,49 +532,10 @@
 </section>
 
 <section class="admin-card" style="margin-top:24px;">
-  <h2 style="margin-top:0;">Solicitudes de Módulos / Verticales</h2>
-
-  {% if solicitudes_modulos %}
-    <div class="admin-tabla-contenedor">
-      <table class="admin-tabla">
-        <thead>
-          <tr>
-            <th>Comercio</th>
-            <th>Contacto</th>
-            <th>Módulo solicitado</th>
-            <th>Estado</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for solicitud in solicitudes_modulos %}
-            <tr>
-              <td><strong>{{ solicitud.comercio_nombre }}</strong></td>
-              <td>
-                {% if solicitud.whatsapp != '-' %}WhatsApp: {{ solicitud.whatsapp }}<br>{% endif %}
-                {{ solicitud.email }}
-              </td>
-              <td>{{ solicitud.modulo_solicitado }}</td>
-              <td><strong style="color:#b45309;">Pendiente</strong></td>
-              <td>
-                <form
-                  method="POST"
-                  action="{{ url_for('admin_resolver_consulta_soporte', consulta_id=solicitud.id) }}"
-                  style="margin:0;"
-                >
-                  <button type="submit" class="admin-mini-link" style="border:0; cursor:pointer;">
-                    Resolver
-                  </button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <div class="admin-vacio">No hay solicitudes de módulos pendientes.</div>
-  {% endif %}
+  <h2 style="margin-top:0;">Administración de módulos</h2>
+  <a class="admin-mini-link" href="{{ url_for('admin_modulos') }}">
+    Ir a Módulos / Verticales
+  </a>
 </section>
 
 <section class="admin-card" style="margin-top:24px;">
@@ -1101,7 +1062,6 @@
                   <th>Plan</th>
                   <th>Publicaciones</th>
                   <th>Activas</th>
-                  <th>Módulos</th>
                   <th>Perfil</th>
                   <th>Acciones</th>
                 </tr>
@@ -1121,38 +1081,6 @@
                     <td><span class="admin-plan">{{ c.plan }}</span></td>
                     <td>{{ c.publicaciones_total }}</td>
                     <td>{{ c.publicaciones_activas }}</td>
-                    <td class="admin-modulos-celda">
-                      {% for modulo in c.modulos %}
-                        <div class="admin-modulo-item">
-                          <span class="admin-modulo-resumen">
-                            <strong>{{ modulo.slug|capitalize }}</strong>
-                            <span class="admin-modulo-estado">
-                              · {{ 'Activo' if modulo.activo else 'Inactivo' }}
-                            </span>
-                          </span>
-
-                          <form
-                            method="POST"
-                            action="{{ url_for(
-                              'admin_toggle_modulo',
-                              comercio_id=c.id,
-                              slug=modulo.slug
-                            ) }}"
-                            class="admin-modulo-form"
-                            onsubmit="return confirm(
-                              '{{ '¿Desactivar' if modulo.activo else '¿Activar' }} {{ modulo.nombre }} para {{ c.nombre }}?'
-                            );"
-                          >
-                            <button
-                              type="submit"
-                              class="admin-mini-link admin-modulo-boton {{ 'admin-modulo-boton-activo' if modulo.activo else 'admin-modulo-boton-inactivo' }}"
-                            >
-                              {{ 'Desactivar' if modulo.activo else 'Activar' }}
-                            </button>
-                          </form>
-                        </div>
-                      {% endfor %}
-                    </td>
                     <td>
                       {% if c.perfil_url %}
                         <a class="admin-mini-link" href="{{ c.perfil_url }}" target="_blank">Ver</a>
