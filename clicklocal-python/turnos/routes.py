@@ -382,6 +382,32 @@ def agenda_turnos():
         ),
     }
 
+    configuracion_solicitada = str(
+        request.args.get("configuracion") or ""
+    ).strip()
+    secciones_configuracion = {
+        "servicios",
+        "profesionales",
+        "horarios",
+    }
+    profesional_horario_solicitado = str(
+        request.args.get("profesional") or ""
+    ).strip()
+    profesional_ids_configuracion = {
+        str(profesional.get("id"))
+        for profesional in profesionales_configuracion
+        if profesional.get("id")
+    }
+    profesional_horario_seleccionado = (
+        profesional_horario_solicitado
+        if profesional_horario_solicitado in profesional_ids_configuracion
+        else (
+            str(profesionales_configuracion[0].get("id"))
+            if profesionales_configuracion
+            else ""
+        )
+    )
+
     return render_template(
         "turnos/agenda.html",
         nombre_comercio=nombre_comercio,
@@ -404,8 +430,14 @@ def agenda_turnos():
         turnera_qr_url=url_for("turnos.qr_turnera_publica"),
         turnos_app_origin=TURNOS_APP_ORIGIN,
         es_origen_app_turnos=es_origen_app_turnos,
-        abrir_configuracion=(
-            request.args.get("configuracion") == "1"
+        abrir_configuracion=bool(configuracion_solicitada),
+        seccion_configuracion=(
+            configuracion_solicitada
+            if configuracion_solicitada in secciones_configuracion
+            else ""
+        ),
+        profesional_horario_seleccionado=(
+            profesional_horario_seleccionado
         ),
         configuracion_error=request.args.get("error") or ""
     )
@@ -1548,6 +1580,91 @@ def crear_reserva():
     )
 
 
+def _crear_reserva_cualquier_profesional(
+    comercio_id,
+    datos,
+    whatsapp_comercio="",
+):
+    servicio_id = str(datos.get("servicio_id") or "").strip()
+
+    relaciones_res = (
+        supabase_admin
+        .table("turnos_profesional_servicios")
+        .select("profesional_id")
+        .eq("servicio_id", servicio_id)
+        .execute()
+    )
+    profesional_ids = list(dict.fromkeys(
+        relacion.get("profesional_id")
+        for relacion in (relaciones_res.data or [])
+        if relacion.get("profesional_id")
+    ))
+
+    if not profesional_ids:
+        return {
+            "ok": False,
+            "error": "horario_ya_no_disponible",
+        }, 409
+
+    profesionales_res = (
+        supabase_admin
+        .table("turnos_profesionales")
+        .select("id,nombre,activo,orden")
+        .eq("comercio_id", comercio_id)
+        .eq("activo", True)
+        .in_("id", profesional_ids)
+        .order("orden")
+        .order("id")
+        .execute()
+    )
+
+    errores_disponibilidad = {
+        "capacidad_completa",
+        "horario_ocupado",
+        "fuera_horario",
+        "intervalo_inicio",
+        "profesional",
+        "profesional_inactivo",
+        "profesional_no_presta_servicio",
+    }
+
+    for profesional in (profesionales_res.data or []):
+        profesional_id = profesional.get("id")
+        if not profesional_id:
+            continue
+
+        datos_candidato = {
+            clave: datos.get(clave)
+            for clave in datos.keys()
+        }
+        datos_candidato["profesional_id"] = profesional_id
+
+        respuesta = _crear_reserva_validada(
+            comercio_id,
+            datos_candidato,
+            whatsapp_comercio,
+        )
+        if isinstance(respuesta, tuple):
+            resultado, estado = respuesta
+        else:
+            resultado, estado = respuesta, 200
+
+        if resultado.get("ok") is True:
+            resultado["profesional_asignado"] = {
+                "id": profesional_id,
+                "nombre": profesional.get("nombre") or "Profesional",
+            }
+            return resultado, estado
+
+        if resultado.get("error") not in errores_disponibilidad:
+            return resultado, estado
+
+    return {
+        "ok": False,
+        "error": "horario_ya_no_disponible",
+    }, 409
+
+
 @turnos_bp.route(
     "/comercio/<comercio_id>/reservas",
     methods=["POST"],
@@ -1564,10 +1681,14 @@ def crear_reserva_publica(comercio_id):
     profesional_id = str(
         request.form.get("profesional_id") or ""
     ).strip()
+    profesional_modo = str(
+        request.form.get("profesional_modo") or ""
+    ).strip()
 
     try:
         UUID(servicio_id)
-        UUID(profesional_id)
+        if profesional_modo != "cualquiera":
+            UUID(profesional_id)
     except (TypeError, ValueError, AttributeError):
         return {"ok": False, "error": "identificador"}, 400
 
@@ -1589,6 +1710,13 @@ def crear_reserva_publica(comercio_id):
 
         if not modulo_activo(comercio_id, "turnos"):
             return {"ok": False, "error": "no_encontrado"}, 404
+
+        if profesional_modo == "cualquiera":
+            return _crear_reserva_cualquier_profesional(
+                comercio_id,
+                request.form,
+                comercios[0].get("whatsapp") or "",
+            )
 
         return _crear_reserva_validada(
             comercio_id,
@@ -1627,16 +1755,46 @@ def crear_profesional():
         request.form.get("rol") or ""
     ).strip()
 
+    servicio_ids = list(dict.fromkeys(
+        str(servicio_id).strip()
+        for servicio_id in request.form.getlist("servicio_ids")
+        if str(servicio_id).strip()
+    ))
+
     if not nombre:
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="profesional_nombre"
+                configuracion="profesionales",
+                error="profesional_nombre",
+                _anchor="formNuevoProfesional",
             )
         )
 
     try:
+        if servicio_ids:
+            servicios_res = (
+                supabase_admin
+                .table("turnos_servicios")
+                .select("id")
+                .eq("comercio_id", comercio_id)
+                .in_("id", servicio_ids)
+                .execute()
+            )
+            servicios_validos = {
+                str(servicio.get("id"))
+                for servicio in (servicios_res.data or [])
+            }
+            if servicios_validos != set(servicio_ids):
+                return redirect(
+                    url_for(
+                        "turnos.agenda_turnos",
+                        configuracion="profesionales",
+                        error="profesional_servicio",
+                        _anchor="formNuevoProfesional",
+                    )
+                )
+
         paleta_profesionales = [
             "#1A73E8",
             "#16A34A",
@@ -1689,7 +1847,7 @@ def crear_profesional():
             ],
         )
 
-        (
+        profesional_creado = (
             supabase_admin
             .table("turnos_profesionales")
             .insert({
@@ -1702,6 +1860,32 @@ def crear_profesional():
             .execute()
         )
 
+        profesionales_creados = profesional_creado.data or []
+        profesional_id = (
+            profesionales_creados[0].get("id")
+            if profesionales_creados
+            else None
+        )
+
+        if servicio_ids:
+            if not profesional_id:
+                raise RuntimeError(
+                    "La creación no devolvió el id del profesional"
+                )
+
+            (
+                supabase_admin
+                .table("turnos_profesional_servicios")
+                .insert([
+                    {
+                        "profesional_id": profesional_id,
+                        "servicio_id": servicio_id,
+                    }
+                    for servicio_id in servicio_ids
+                ])
+                .execute()
+            )
+
     except Exception as error:
         print(
             "ERROR CREANDO PROFESIONAL TURNOS:",
@@ -1713,15 +1897,100 @@ def crear_profesional():
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="profesional_guardar"
+                configuracion="profesionales",
+                error="profesional_guardar",
+                _anchor="formNuevoProfesional",
             )
         )
 
     return redirect(
         url_for(
             "turnos.agenda_turnos",
-            configuracion="1"
+            configuracion="profesionales",
+            _anchor=(
+                f"profesional-{profesional_id}"
+                if profesional_id
+                else "formNuevoProfesional"
+            ),
+        )
+    )
+
+
+@turnos_bp.route(
+    "/agenda/profesionales/<profesional_id>/editar",
+    methods=["POST"],
+)
+@requerir_modulo("turnos")
+def editar_profesional(profesional_id):
+    comercio = session.get("comercio") or {}
+    comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login"))
+
+    nombre = str(request.form.get("nombre") or "").strip()
+    rol = str(request.form.get("rol") or "").strip()
+
+    if not nombre:
+        return redirect(
+            url_for(
+                "turnos.agenda_turnos",
+                configuracion="profesionales",
+                error="profesional_nombre",
+                _anchor=f"editarProfesional{profesional_id}",
+            )
+        )
+
+    try:
+        profesional_res = (
+            supabase_admin
+            .table("turnos_profesionales")
+            .select("id")
+            .eq("id", profesional_id)
+            .eq("comercio_id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+
+        if not (profesional_res.data or []):
+            return redirect(
+                url_for(
+                    "turnos.agenda_turnos",
+                    configuracion="profesionales",
+                    error="profesional",
+                    _anchor=f"profesional-{profesional_id}",
+                )
+            )
+
+        (
+            supabase_admin
+            .table("turnos_profesionales")
+            .update({"nombre": nombre, "rol": rol or None})
+            .eq("id", profesional_id)
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+    except Exception as error:
+        print(
+            "ERROR EDITANDO PROFESIONAL TURNOS:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(
+            url_for(
+                "turnos.agenda_turnos",
+                configuracion="profesionales",
+                error="profesional_guardar",
+                _anchor=f"editarProfesional{profesional_id}",
+            )
+        )
+
+    return redirect(
+        url_for(
+            "turnos.agenda_turnos",
+            configuracion="profesionales",
+            _anchor=f"profesional-{profesional_id}",
         )
     )
 
@@ -1755,8 +2024,9 @@ def toggle_profesional(profesional_id):
             return redirect(
                 url_for(
                     "turnos.agenda_turnos",
-                    configuracion="1",
-                    error="profesional"
+                    configuracion="profesionales",
+                    error="profesional",
+                    _anchor=f"profesional-{profesional_id}",
                 )
             )
 
@@ -1786,15 +2056,17 @@ def toggle_profesional(profesional_id):
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="profesional_guardar"
+                configuracion="profesionales",
+                error="profesional_guardar",
+                _anchor=f"profesional-{profesional_id}",
             )
         )
 
     return redirect(
         url_for(
             "turnos.agenda_turnos",
-            configuracion="1"
+            configuracion="profesionales",
+            _anchor=f"profesional-{profesional_id}",
         )
     )
 
@@ -1826,8 +2098,9 @@ def toggle_profesional_servicio(profesional_id, servicio_id):
             return redirect(
                 url_for(
                     "turnos.agenda_turnos",
-                    configuracion="1",
-                    error="profesional"
+                    configuracion="profesionales",
+                    error="profesional",
+                    _anchor=f"profesional-{profesional_id}",
                 )
             )
 
@@ -1845,8 +2118,9 @@ def toggle_profesional_servicio(profesional_id, servicio_id):
             return redirect(
                 url_for(
                     "turnos.agenda_turnos",
-                    configuracion="1",
-                    error="servicio"
+                    configuracion="profesionales",
+                    error="servicio",
+                    _anchor=f"profesional-{profesional_id}",
                 )
             )
 
@@ -1891,15 +2165,17 @@ def toggle_profesional_servicio(profesional_id, servicio_id):
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="profesional_servicio"
+                configuracion="profesionales",
+                error="profesional_servicio",
+                _anchor=f"profesional-{profesional_id}",
             )
         )
 
     return redirect(
         url_for(
             "turnos.agenda_turnos",
-            configuracion="1"
+            configuracion="profesionales",
+            _anchor=f"profesional-{profesional_id}",
         )
     )
 
@@ -1940,8 +2216,9 @@ def crear_servicio():
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="nombre"
+                configuracion="servicios",
+                error="nombre",
+                _anchor="formNuevoServicio",
             )
         )
 
@@ -1955,8 +2232,9 @@ def crear_servicio():
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="duracion"
+                configuracion="servicios",
+                error="duracion",
+                _anchor="formNuevoServicio",
             )
         )
 
@@ -1970,8 +2248,9 @@ def crear_servicio():
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="intervalo"
+                configuracion="servicios",
+                error="intervalo",
+                _anchor="formNuevoServicio",
             )
         )
 
@@ -1985,8 +2264,9 @@ def crear_servicio():
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="capacidad"
+                configuracion="servicios",
+                error="capacidad",
+                _anchor="formNuevoServicio",
             )
         )
 
@@ -2009,13 +2289,14 @@ def crear_servicio():
             return redirect(
                 url_for(
                     "turnos.agenda_turnos",
-                    configuracion="1",
-                    error="precio"
+                    configuracion="servicios",
+                    error="precio",
+                    _anchor="formNuevoServicio",
                 )
             )
 
     try:
-        (
+        servicio_creado = (
             supabase_admin
             .table("turnos_servicios")
             .insert({
@@ -2030,6 +2311,12 @@ def crear_servicio():
             })
             .execute()
         )
+        servicios_creados = servicio_creado.data or []
+        servicio_id_creado = (
+            servicios_creados[0].get("id")
+            if servicios_creados
+            else None
+        )
 
     except Exception as error:
         print(
@@ -2042,15 +2329,151 @@ def crear_servicio():
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="guardar"
+                configuracion="servicios",
+                error="guardar",
+                _anchor="formNuevoServicio",
             )
         )
 
     return redirect(
         url_for(
             "turnos.agenda_turnos",
-            configuracion="1"
+            configuracion="servicios",
+            _anchor=(
+                f"servicio-{servicio_id_creado}"
+                if servicio_id_creado
+                else "formNuevoServicio"
+            ),
+        )
+    )
+
+
+@turnos_bp.route(
+    "/agenda/servicios/<servicio_id>/editar",
+    methods=["POST"],
+)
+@requerir_modulo("turnos")
+def editar_servicio(servicio_id):
+    comercio = session.get("comercio") or {}
+    comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login"))
+
+    nombre = str(request.form.get("nombre") or "").strip()
+    duracion_raw = str(request.form.get("duracion_min") or "").strip()
+    intervalo_raw = str(
+        request.form.get("intervalo_inicio_min") or ""
+    ).strip()
+    capacidad_raw = str(request.form.get("capacidad_max") or "").strip()
+    precio_raw = str(request.form.get("precio") or "").strip()
+
+    if not nombre:
+        error_validacion = "nombre"
+    else:
+        error_validacion = None
+
+    try:
+        duracion_min = int(duracion_raw)
+        if duracion_min <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        error_validacion = error_validacion or "duracion"
+
+    try:
+        intervalo_inicio_min = int(intervalo_raw)
+        if intervalo_inicio_min <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        error_validacion = error_validacion or "intervalo"
+
+    try:
+        capacidad_max = int(capacidad_raw)
+        if capacidad_max <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        error_validacion = error_validacion or "capacidad"
+
+    precio = None
+    if precio_raw:
+        try:
+            precio = float(
+                precio_raw
+                .replace("$", "")
+                .replace(" ", "")
+                .replace(".", "")
+                .replace(",", ".")
+            )
+            if precio < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            error_validacion = error_validacion or "precio"
+
+    if error_validacion:
+        return redirect(
+            url_for(
+                "turnos.agenda_turnos",
+                configuracion="servicios",
+                error=error_validacion,
+                _anchor=f"editarServicio{servicio_id}",
+            )
+        )
+
+    try:
+        servicio_res = (
+            supabase_admin
+            .table("turnos_servicios")
+            .select("id")
+            .eq("id", servicio_id)
+            .eq("comercio_id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+        if not (servicio_res.data or []):
+            return redirect(
+                url_for(
+                    "turnos.agenda_turnos",
+                    configuracion="servicios",
+                    error="servicio",
+                    _anchor=f"servicio-{servicio_id}",
+                )
+            )
+
+        (
+            supabase_admin
+            .table("turnos_servicios")
+            .update({
+                "nombre": nombre,
+                "duracion_min": duracion_min,
+                "capacidad_max": capacidad_max,
+                "intervalo_inicio_min": intervalo_inicio_min,
+                "precio": precio,
+            })
+            .eq("id", servicio_id)
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+    except Exception as error:
+        print(
+            "ERROR EDITANDO SERVICIO TURNOS:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(
+            url_for(
+                "turnos.agenda_turnos",
+                configuracion="servicios",
+                error="guardar",
+                _anchor=f"editarServicio{servicio_id}",
+            )
+        )
+
+    return redirect(
+        url_for(
+            "turnos.agenda_turnos",
+            configuracion="servicios",
+            _anchor=f"servicio-{servicio_id}",
         )
     )
 
@@ -2084,8 +2507,9 @@ def toggle_servicio(servicio_id):
             return redirect(
                 url_for(
                     "turnos.agenda_turnos",
-                    configuracion="1",
-                    error="servicio"
+                    configuracion="servicios",
+                    error="servicio",
+                    _anchor=f"servicio-{servicio_id}",
                 )
             )
 
@@ -2115,15 +2539,17 @@ def toggle_servicio(servicio_id):
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="guardar"
+                configuracion="servicios",
+                error="guardar",
+                _anchor=f"servicio-{servicio_id}",
             )
         )
 
     return redirect(
         url_for(
             "turnos.agenda_turnos",
-            configuracion="1"
+            configuracion="servicios",
+            _anchor=f"servicio-{servicio_id}",
         )
     )
 
@@ -2162,8 +2588,10 @@ def crear_horario(profesional_id):
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="horario_dia"
+                configuracion="horarios",
+                error="horario_dia",
+                profesional=profesional_id,
+                _anchor=f"dia-{profesional_id}-{dia_raw}",
             )
         )
 
@@ -2171,8 +2599,10 @@ def crear_horario(profesional_id):
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="horario_rango"
+                configuracion="horarios",
+                error="horario_rango",
+                profesional=profesional_id,
+                _anchor=f"dia-{profesional_id}-{dia_semana}",
             )
         )
 
@@ -2191,10 +2621,47 @@ def crear_horario(profesional_id):
             return redirect(
                 url_for(
                     "turnos.agenda_turnos",
-                    configuracion="1",
-                    error="profesional"
+                    configuracion="horarios",
+                    error="profesional",
+                    profesional=profesional_id,
+                    _anchor=f"dia-{profesional_id}-{dia_semana}",
                 )
             )
+
+        horarios_existentes_res = (
+            supabase_admin
+            .table("turnos_horarios")
+            .select("id,hora_desde,hora_hasta")
+            .eq("comercio_id", comercio_id)
+            .eq("profesional_id", profesional_id)
+            .eq("dia_semana", dia_semana)
+            .eq("activo", True)
+            .execute()
+        )
+
+        for horario_existente in (horarios_existentes_res.data or []):
+            existente_desde = str(
+                horario_existente.get("hora_desde") or ""
+            )[:5]
+            existente_hasta = str(
+                horario_existente.get("hora_hasta") or ""
+            )[:5]
+
+            if (
+                existente_desde
+                and existente_hasta
+                and hora_desde < existente_hasta
+                and hora_hasta > existente_desde
+            ):
+                return redirect(
+                    url_for(
+                        "turnos.agenda_turnos",
+                        configuracion="horarios",
+                        error="horario_superpuesto",
+                        profesional=profesional_id,
+                        _anchor=f"dia-{profesional_id}-{dia_semana}",
+                    )
+                )
 
         (
             supabase_admin
@@ -2221,15 +2688,19 @@ def crear_horario(profesional_id):
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="horario_guardar"
+                configuracion="horarios",
+                error="horario_guardar",
+                profesional=profesional_id,
+                _anchor=f"dia-{profesional_id}-{dia_semana}",
             )
         )
 
     return redirect(
         url_for(
             "turnos.agenda_turnos",
-            configuracion="1"
+            configuracion="horarios",
+            profesional=profesional_id,
+            _anchor=f"dia-{profesional_id}-{dia_semana}",
         )
     )
 
@@ -2246,11 +2717,14 @@ def eliminar_horario(horario_id):
     if not comercio_id:
         return redirect(url_for("login"))
 
+    profesional_id = ""
+    dia_semana = ""
+
     try:
         horario_res = (
             supabase_admin
             .table("turnos_horarios")
-            .select("id")
+            .select("id,profesional_id,dia_semana")
             .eq("id", horario_id)
             .eq("comercio_id", comercio_id)
             .limit(1)
@@ -2261,10 +2735,13 @@ def eliminar_horario(horario_id):
             return redirect(
                 url_for(
                     "turnos.agenda_turnos",
-                    configuracion="1",
+                    configuracion="horarios",
                     error="horario"
                 )
             )
+
+        profesional_id = horario_res.data[0].get("profesional_id")
+        dia_semana = horario_res.data[0].get("dia_semana")
 
         (
             supabase_admin
@@ -2286,14 +2763,22 @@ def eliminar_horario(horario_id):
         return redirect(
             url_for(
                 "turnos.agenda_turnos",
-                configuracion="1",
-                error="horario_guardar"
+                configuracion="horarios",
+                error="horario_guardar",
+                profesional=profesional_id or None,
+                _anchor=(
+                    f"dia-{profesional_id}-{dia_semana}"
+                    if profesional_id != "" and dia_semana != ""
+                    else None
+                ),
             )
         )
 
     return redirect(
         url_for(
             "turnos.agenda_turnos",
-            configuracion="1"
+            configuracion="horarios",
+            profesional=profesional_id,
+            _anchor=f"dia-{profesional_id}-{dia_semana}",
         )
     )

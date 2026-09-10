@@ -1400,6 +1400,344 @@
   }
 }
 
+.config-shell {
+  --config-bordo: #7a2638;
+  --config-bordo-oscuro: #5c1c2a;
+  --config-crema: #fff8ed;
+  --config-crema-fuerte: #f8ead7;
+  background: var(--config-crema);
+}
+
+.config-shell .modal-config-cabecera {
+  border-color: rgba(122, 38, 56, .2);
+  background: #fffaf2;
+}
+
+.config-shell .modal-config-titulo,
+.config-panel-titulo,
+.config-card-titulo {
+  color: var(--config-bordo);
+}
+
+.config-inicio[hidden],
+.config-panel[hidden],
+.config-horario-profesional[hidden],
+.config-formulario-desplegable[hidden] {
+  display: none;
+}
+
+.config-guia {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid rgba(122, 38, 56, .2);
+  border-radius: 16px;
+  background: #fffdf9;
+}
+
+.config-guia-titulo {
+  margin: 0 0 12px;
+  color: var(--config-bordo);
+  font-size: 15px;
+}
+
+.config-pasos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.config-paso {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--texto-suave);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.config-paso-numero {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--config-crema-fuerte);
+  color: var(--config-bordo);
+}
+
+.config-paso.completo .config-paso-numero {
+  background: var(--config-bordo);
+  color: #fff;
+}
+
+.config-accesos {
+  display: grid;
+  gap: 14px;
+}
+
+.config-acceso {
+  width: 100%;
+  padding: 20px;
+  border: 2px solid rgba(122, 38, 56, .32);
+  border-radius: 18px;
+  background: #fffdf9;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.config-acceso:hover,
+.config-acceso:focus-visible {
+  border-color: var(--config-bordo);
+  box-shadow: 0 8px 22px rgba(92, 28, 42, .1);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.config-acceso-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--config-bordo);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.config-acceso p {
+  margin: 8px 0 0;
+  color: var(--texto-suave);
+  line-height: 1.5;
+}
+
+.config-panel-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.config-volver {
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid var(--config-bordo);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--config-bordo);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.config-panel-titulo {
+  margin: 0;
+  font-size: 21px;
+}
+
+.config-card {
+  padding: 16px;
+  border: 1px solid rgba(122, 38, 56, .22);
+  border-radius: 16px;
+  background: #fffdf9;
+}
+
+.config-card + .config-card {
+  margin-top: 12px;
+}
+
+.config-card-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-card-titulo {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.config-card-detalle {
+  margin-top: 5px;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.config-boton-principal {
+  width: 100%;
+  min-height: 48px;
+  margin: 16px 0;
+  border: 1px solid var(--config-bordo);
+  border-radius: 14px;
+  background: var(--config-bordo);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.config-boton-principal:hover,
+.config-guardar:hover {
+  background: var(--config-bordo-oscuro);
+}
+
+.config-shell .config-guardar {
+  border-color: var(--config-bordo);
+  border-radius: 12px;
+  background: var(--config-bordo);
+}
+
+.config-acciones-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.config-accion-secundaria {
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 1px solid rgba(122, 38, 56, .5);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--config-bordo);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.config-formulario-desplegable {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(122, 38, 56, .15);
+}
+
+.config-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.config-chip-form {
+  margin: 0;
+}
+
+.config-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid rgba(122, 38, 56, .35);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--config-bordo);
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.config-chip.seleccionado {
+  background: var(--config-bordo);
+  color: #fff;
+}
+
+.config-selector-profesionales {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.config-selector-profesional {
+  min-height: 54px;
+  padding: 11px 12px;
+  border: 1px solid rgba(122, 38, 56, .35);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--config-bordo);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.config-selector-profesional.seleccionado {
+  border-color: var(--config-bordo);
+  background: var(--config-bordo);
+  color: #fff;
+}
+
+.config-dia {
+  padding: 14px;
+  border: 1px solid rgba(122, 38, 56, .2);
+  border-radius: 14px;
+  background: #fffdf9;
+}
+
+.config-dia + .config-dia {
+  margin-top: 10px;
+}
+
+.config-dia-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.config-dia-nombre {
+  color: var(--config-bordo);
+  font-weight: 800;
+}
+
+.config-dia-estado {
+  color: var(--texto-suave);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.config-franja {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.config-horario-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+@media (max-width: 560px) {
+  .modal-config-fondo {
+    padding: 0;
+  }
+
+  .modal-config {
+    width: 100%;
+    max-height: 100vh;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+
+  .config-pasos {
+    grid-template-columns: 1fr;
+  }
+
+  .config-horario-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .config-horario-form .config-guardar {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
 
 .detalle-turno-estado {
   display: inline-flex;
@@ -3139,7 +3477,7 @@
   aria-hidden="true"
 >
   <section
-    class="modal-config"
+    class="modal-config config-shell"
     role="dialog"
     aria-modal="true"
     aria-labelledby="tituloConfiguracionTurnos"
@@ -3154,7 +3492,7 @@
         </h2>
 
         <p class="modal-config-subtitulo">
-          Servicios que ofrece {{ nombre_comercio }}.
+          Organizá cómo trabaja {{ nombre_comercio }}.
         </p>
       </div>
 
@@ -3170,535 +3508,228 @@
 
     <div class="modal-config-contenido">
 
-      <section class="config-seccion">
-        <h3>Profesionales</h3>
+      {% set configuracion_tiene_servicios = servicios_configuracion|length > 0 %}
+      {% set configuracion_tiene_profesionales = profesionales_configuracion|length > 0 %}
+      {% set configuracion_tiene_horarios = horarios_por_profesional|length > 0 %}
 
-        {% if profesionales_configuracion %}
-
-          <div class="config-servicios-lista">
-
-            {% for profesional in profesionales_configuracion %}
-            <div class="config-servicio-item">
-
-              <div class="config-servicio-info">
-                <div class="config-servicio-nombre">
-                  {{ profesional.nombre }}
-                </div>
-
-                {% if profesional.rol %}
-                <div class="config-servicio-detalle">
-                  {{ profesional.rol }}
-                </div>
-                {% endif %}
-
-                {% if servicios_configuracion %}
-                <div style="margin-top:10px;">
-                  <div
-                    class="config-servicio-detalle"
-                    style="margin-bottom:6px;"
-                  >
-                    Servicios que realiza
-                  </div>
-
-                  {% for servicio in servicios_configuracion %}
-                  <form
-                    method="post"
-                    action="{{ url_for(
-                      'turnos.toggle_profesional_servicio',
-                      profesional_id=profesional.id,
-                      servicio_id=servicio.id
-                    ) }}"
-                    style="
-                      display:inline-flex;
-                      align-items:center;
-                      margin:0 10px 6px 0;
-                    "
-                  >
-                    <label
-                      style="
-                        display:inline-flex;
-                        align-items:center;
-                        gap:6px;
-                        cursor:pointer;
-                      "
-                    >
-                      <input
-                        type="checkbox"
-                        onchange="this.form.submit()"
-                        {% if servicio.id in servicios_por_profesional.get(profesional.id, []) %}
-                        checked
-                        {% endif %}
-                      >
-
-                      <span>
-                        {{ servicio.nombre }}
-                        {% if not servicio.activo %}
-                          (inactivo)
-                        {% endif %}
-                      </span>
-                    </label>
-                  </form>
-                  {% endfor %}
-                </div>
-                {% endif %}
-
-                <div style="margin-top:14px;">
-                  <div
-                    class="config-servicio-detalle"
-                    style="margin-bottom:8px;"
-                  >
-                    Horarios habituales
-                  </div>
-
-                  {% set horarios_profesional =
-                    horarios_por_profesional.get(profesional.id, [])
-                  %}
-
-                  {% if horarios_profesional %}
-                    <div style="display:grid;gap:6px;margin-bottom:10px;">
-                      {% for horario in horarios_profesional %}
-                      <div
-                        style="
-                          display:flex;
-                          align-items:center;
-                          justify-content:space-between;
-                          gap:10px;
-                          padding:7px 9px;
-                          border:1px solid #e5e7eb;
-                          border-radius:10px;
-                          background:#fff;
-                        "
-                      >
-                        <span style="font-size:13px;">
-                          {% if horario.dia_semana == 0 %}
-                            Lunes
-                          {% elif horario.dia_semana == 1 %}
-                            Martes
-                          {% elif horario.dia_semana == 2 %}
-                            Miércoles
-                          {% elif horario.dia_semana == 3 %}
-                            Jueves
-                          {% elif horario.dia_semana == 4 %}
-                            Viernes
-                          {% elif horario.dia_semana == 5 %}
-                            Sábado
-                          {% elif horario.dia_semana == 6 %}
-                            Domingo
-                          {% endif %}
-
-                          · {{ horario.hora_desde[:5] }}
-                          a {{ horario.hora_hasta[:5] }}
-                        </span>
-
-                        <form
-                          method="post"
-                          action="{{ url_for(
-                            'turnos.eliminar_horario',
-                            horario_id=horario.id
-                          ) }}"
-                          style="margin:0;"
-                        >
-                          <button
-                            type="submit"
-                            class="config-servicio-toggle"
-                            style="
-                              padding:5px 8px;
-                              min-height:auto;
-                            "
-                          >
-                            Eliminar
-                          </button>
-                        </form>
-                      </div>
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div
-                      class="config-servicio-detalle"
-                      style="margin-bottom:10px;"
-                    >
-                      Sin horarios cargados.
-                    </div>
-                  {% endif %}
-
-                  <form
-                    method="post"
-                    action="{{ url_for(
-                      'turnos.crear_horario',
-                      profesional_id=profesional.id
-                    ) }}"
-                    style="
-                      display:grid;
-                      grid-template-columns:1fr 1fr 1fr auto;
-                      gap:8px;
-                      align-items:end;
-                    "
-                  >
-                    <div class="config-campo">
-                      <label>Día</label>
-                      <select
-                        name="dia_semana"
-                        required
-                        style="
-                          width:100%;
-                          min-height:40px;
-                          border:1px solid #d1d5db;
-                          border-radius:10px;
-                          padding:0 10px;
-                          background:#fff;
-                        "
-                      >
-                        <option value="0">Lunes</option>
-                        <option value="1">Martes</option>
-                        <option value="2">Miércoles</option>
-                        <option value="3">Jueves</option>
-                        <option value="4">Viernes</option>
-                        <option value="5">Sábado</option>
-                        <option value="6">Domingo</option>
-                      </select>
-                    </div>
-
-                    <div class="config-campo">
-                      <label>Desde</label>
-                      <input
-                        type="time"
-                        name="hora_desde"
-                        required
-                      >
-                    </div>
-
-                    <div class="config-campo">
-                      <label>Hasta</label>
-                      <input
-                        type="time"
-                        name="hora_hasta"
-                        required
-                      >
-                    </div>
-
-                    <div>
-                      <button
-                        type="submit"
-                        class="config-guardar"
-                        style="white-space:nowrap;"
-                      >
-                        + Agregar
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-
-              <span
-                class="config-servicio-estado{% if not profesional.activo %} inactivo{% endif %}"
-              >
-                {% if profesional.activo %}
-                  Activo
-                {% else %}
-                  Inactivo
-                {% endif %}
-              </span>
-
-              <form
-                method="post"
-                action="{{ url_for(
-                  'turnos.toggle_profesional',
-                  profesional_id=profesional.id
-                ) }}"
-              >
-                <button
-                  class="config-servicio-toggle"
-                  type="submit"
-                >
-                  {% if profesional.activo %}
-                    Desactivar
-                  {% else %}
-                    Activar
-                  {% endif %}
-                </button>
-              </form>
-
+      <div
+        id="configInicio"
+        class="config-inicio"
+        {% if seccion_configuracion %}hidden{% endif %}
+      >
+        {% if not configuracion_tiene_servicios or not configuracion_tiene_profesionales or not configuracion_tiene_horarios %}
+        <div class="config-guia">
+          <p class="config-guia-titulo">Orden recomendado para empezar</p>
+          <div class="config-pasos" aria-label="Pasos de configuración inicial">
+            <div class="config-paso{% if configuracion_tiene_servicios %} completo{% endif %}">
+              <span class="config-paso-numero">{% if configuracion_tiene_servicios %}✓{% else %}1{% endif %}</span>
+              <span>Servicios</span>
             </div>
-            {% endfor %}
-
-          </div>
-
-        {% else %}
-
-          <div class="config-vacio">
-            Todavía no cargaste profesionales.
-          </div>
-
-        {% endif %}
-
-
-        <form
-          class="config-form"
-          method="post"
-          action="{{ url_for('turnos.crear_profesional') }}"
-          style="margin-top: 14px;"
-        >
-          <div class="config-campo">
-            <label for="configProfesionalNombre">
-              Nombre
-            </label>
-
-            <input
-              id="configProfesionalNombre"
-              name="nombre"
-              type="text"
-              placeholder="Ej. Paola"
-              required
-            >
-          </div>
-
-          <div class="config-campo">
-            <label for="configProfesionalRol">
-              Profesión / rol
-            </label>
-
-            <input
-              id="configProfesionalRol"
-              name="rol"
-              type="text"
-              placeholder="Ej. Peluquera, Pediatra, Psicóloga"
-            >
-          </div>
-
-          <div class="config-acciones">
-            <button
-              class="config-guardar"
-              type="submit"
-            >
-              Guardar profesional
-            </button>
-          </div>
-        </form>
-      </section>
-
-
-      <section class="config-seccion">
-        <h3>Servicios</h3>
-
-        {% if servicios_configuracion %}
-
-          <div class="config-servicios-lista">
-
-            {% for servicio in servicios_configuracion %}
-            <div class="config-servicio-item">
-
-              <div class="config-servicio-info">
-                <div class="config-servicio-nombre">
-                  {{ servicio.nombre }}
-                </div>
-
-                <div class="config-servicio-detalle">
-                  {{ servicio.duracion_min }} min
-                  · inicio cada
-                  {{ servicio.intervalo_inicio_min }} min
-                  · capacidad
-                  {{ servicio.capacidad_max }}
-
-                  {% if servicio.precio is not none %}
-                    · $ {{ servicio.precio }}
-                  {% endif %}
-                </div>
-              </div>
-
-              <span
-                class="config-servicio-estado{% if not servicio.activo %} inactivo{% endif %}"
-              >
-                {% if servicio.activo %}
-                  Activo
-                {% else %}
-                  Inactivo
-                {% endif %}
-              </span>
-
-              <form
-                method="post"
-                action="{{ url_for(
-                  'turnos.toggle_servicio',
-                  servicio_id=servicio.id
-                ) }}"
-              >
-                <button
-                  class="config-servicio-toggle"
-                  type="submit"
-                >
-                  {% if servicio.activo %}
-                    Desactivar
-                  {% else %}
-                    Activar
-                  {% endif %}
-                </button>
-              </form>
-
+            <div class="config-paso{% if configuracion_tiene_profesionales %} completo{% endif %}">
+              <span class="config-paso-numero">{% if configuracion_tiene_profesionales %}✓{% else %}2{% endif %}</span>
+              <span>Profesionales</span>
             </div>
-            {% endfor %}
-
+            <div class="config-paso{% if configuracion_tiene_horarios %} completo{% endif %}">
+              <span class="config-paso-numero">{% if configuracion_tiene_horarios %}✓{% else %}3{% endif %}</span>
+              <span>Horarios</span>
+            </div>
           </div>
-
-        {% else %}
-
-          <div class="config-vacio">
-            Todavía no cargaste servicios.
-          </div>
-
-        {% endif %}
-      </section>
-
-
-      <section class="config-seccion">
-        <h3>Agregar servicio</h3>
-
-        {% if configuracion_error %}
-        <div class="config-error">
-          {% if configuracion_error == "profesional_nombre" %}
-            Ingresá el nombre del profesional.
-          {% elif configuracion_error == "profesional" %}
-            No se encontró ese profesional.
-          {% elif configuracion_error == "profesional_guardar" %}
-            No se pudo guardar el profesional.
-          {% elif configuracion_error == "profesional_servicio" %}
-            No se pudo guardar la relación entre profesional y servicio.
-          {% elif configuracion_error == "horario_dia" %}
-            Seleccioná un día válido.
-          {% elif configuracion_error == "horario_rango" %}
-            El horario hasta debe ser posterior al horario desde.
-          {% elif configuracion_error == "horario" %}
-            No se encontró ese horario.
-          {% elif configuracion_error == "horario_guardar" %}
-            No se pudo guardar el horario.
-          {% elif configuracion_error == "nombre" %}
-            Ingresá el nombre del servicio.
-          {% elif configuracion_error == "duracion" %}
-            Ingresá una duración válida.
-          {% elif configuracion_error == "intervalo" %}
-            Ingresá un intervalo de inicio válido.
-          {% elif configuracion_error == "capacidad" %}
-            Ingresá una capacidad válida.
-          {% elif configuracion_error == "precio" %}
-            Ingresá un precio válido.
-          {% elif configuracion_error == "servicio" %}
-            No se encontró ese servicio.
-          {% else %}
-            No se pudo guardar el servicio.
-          {% endif %}
         </div>
         {% endif %}
 
-        <form
-          class="config-form"
-          method="post"
-          action="{{ url_for('turnos.crear_servicio') }}"
-        >
+        <div class="config-accesos">
+          <button class="config-acceso" type="button" data-abrir-config="servicios">
+            <span class="config-acceso-cabecera"><span>Servicios</span><span aria-hidden="true">→</span></span>
+            <p>Agregá y administrá los servicios que ofrecés.</p>
+          </button>
+          <button class="config-acceso" type="button" data-abrir-config="profesionales">
+            <span class="config-acceso-cabecera"><span>Profesionales</span><span aria-hidden="true">→</span></span>
+            <p>Agregá las personas que atienden y asignales sus servicios.</p>
+          </button>
+          <button class="config-acceso" type="button" data-abrir-config="horarios">
+            <span class="config-acceso-cabecera"><span>Horarios</span><span aria-hidden="true">→</span></span>
+            <p>Definí los días y horarios de atención de cada profesional.</p>
+          </button>
+        </div>
+      </div>
 
-          <div class="config-campo">
-            <label for="configServicioNombre">
-              Nombre
-            </label>
+      <section class="config-panel" data-config-panel="servicios" {% if seccion_configuracion != 'servicios' %}hidden{% endif %}>
+        <div class="config-panel-cabecera">
+          <button class="config-volver" type="button" data-volver-config>← Volver</button>
+          <h3 class="config-panel-titulo">Servicios</h3>
+        </div>
 
-            <input
-              id="configServicioNombre"
-              name="nombre"
-              type="text"
-              placeholder="Ej. Corte de pelo"
-              required
-            >
-          </div>
+        {% if configuracion_error and seccion_configuracion == 'servicios' %}
+        <div class="config-error">
+          {% if configuracion_error == "nombre" %}Ingresá el nombre del servicio.
+          {% elif configuracion_error == "duracion" %}Ingresá una duración válida.
+          {% elif configuracion_error == "intervalo" %}Ingresá un intervalo de inicio válido.
+          {% elif configuracion_error == "capacidad" %}Ingresá una capacidad válida.
+          {% elif configuracion_error == "precio" %}Ingresá un precio válido.
+          {% elif configuracion_error == "servicio" %}No se encontró ese servicio.
+          {% else %}No se pudo guardar el servicio.{% endif %}
+        </div>
+        {% endif %}
 
-          <div class="config-form-fila">
-
-            <div class="config-campo">
-              <label for="configServicioDuracion">
-                Duración (minutos)
-              </label>
-
-              <input
-                id="configServicioDuracion"
-                name="duracion_min"
-                type="number"
-                min="1"
-                step="1"
-                placeholder="Ej. 30"
-                required
-              >
+        <button class="config-boton-principal" type="button" data-mostrar-form="formNuevoServicio">+ Agregar servicio</button>
+        <div id="formNuevoServicio" class="config-formulario-desplegable" hidden>
+          <form class="config-form config-card" method="post" action="{{ url_for('turnos.crear_servicio') }}">
+            <div class="config-campo"><label>Nombre</label><input name="nombre" type="text" placeholder="Ej. Corte de pelo" required></div>
+            <div class="config-form-fila">
+              <div class="config-campo"><label>Duración (minutos)</label><input name="duracion_min" type="number" min="1" step="1" required></div>
+              <div class="config-campo"><label>Precio</label><input name="precio" type="text" inputmode="decimal" placeholder="Opcional"></div>
             </div>
-
-            <div class="config-campo">
-              <label for="configServicioPrecio">
-                Precio
-              </label>
-
-              <input
-                id="configServicioPrecio"
-                name="precio"
-                type="text"
-                inputmode="decimal"
-                placeholder="Opcional"
-              >
+            <div class="config-form-fila">
+              <div class="config-campo"><label>Inicio cada (minutos)</label><input name="intervalo_inicio_min" type="number" min="1" step="1" value="15" required></div>
+              <div class="config-campo"><label>Capacidad máxima</label><input name="capacidad_max" type="number" min="1" step="1" value="1" required></div>
             </div>
+            <button class="config-guardar" type="submit">Guardar servicio</button>
+          </form>
+        </div>
 
-          </div>
-
-          <div class="config-form-fila">
-
-            <div class="config-campo">
-              <label for="configServicioIntervalo">
-                Inicio cada (minutos)
-              </label>
-
-              <input
-                id="configServicioIntervalo"
-                name="intervalo_inicio_min"
-                type="number"
-                min="1"
-                step="1"
-                value="15"
-                required
-              >
-
-              <div class="config-ayuda">
-                Cada cuántos minutos puede comenzar
-                un nuevo turno.
+        {% if servicios_configuracion %}
+          {% for servicio in servicios_configuracion %}
+          <article id="servicio-{{ servicio.id }}" class="config-card">
+            <div class="config-card-cabecera">
+              <div>
+                <h4 class="config-card-titulo">{{ servicio.nombre }}</h4>
+                <div class="config-card-detalle">
+                  {{ servicio.duracion_min }} min
+                  {% if servicio.precio is not none %} · $ {{ servicio.precio }}{% endif %}
+                </div>
               </div>
+              <span class="config-servicio-estado{% if not servicio.activo %} inactivo{% endif %}">{{ 'Activo' if servicio.activo else 'Inactivo' }}</span>
             </div>
-
-            <div class="config-campo">
-              <label for="configServicioCapacidad">
-                Capacidad máxima
-              </label>
-
-              <input
-                id="configServicioCapacidad"
-                name="capacidad_max"
-                type="number"
-                min="1"
-                step="1"
-                value="1"
-                required
-              >
-
-              <div class="config-ayuda">
-                Personas que pueden reservar ese
-                servicio en el mismo horario.
-              </div>
+            <div class="config-acciones-card">
+              <button class="config-accion-secundaria" type="button" data-mostrar-form="editarServicio{{ servicio.id }}">Editar</button>
+              <form method="post" action="{{ url_for('turnos.toggle_servicio', servicio_id=servicio.id) }}">
+                <button class="config-accion-secundaria" type="submit">{{ 'Desactivar' if servicio.activo else 'Activar' }}</button>
+              </form>
             </div>
-
-          </div>
-
-          <div class="config-acciones">
-            <button
-              class="config-guardar"
-              type="submit"
-            >
-              Guardar servicio
-            </button>
-          </div>
-
-        </form>
+            <div id="editarServicio{{ servicio.id }}" class="config-formulario-desplegable" hidden>
+              <form class="config-form" method="post" action="{{ url_for('turnos.editar_servicio', servicio_id=servicio.id) }}">
+                <div class="config-campo"><label>Nombre</label><input name="nombre" type="text" value="{{ servicio.nombre }}" required></div>
+                <div class="config-form-fila">
+                  <div class="config-campo"><label>Duración (minutos)</label><input name="duracion_min" type="number" min="1" value="{{ servicio.duracion_min }}" required></div>
+                  <div class="config-campo"><label>Precio</label><input name="precio" type="text" inputmode="decimal" value="{{ servicio.precio if servicio.precio is not none else '' }}"></div>
+                </div>
+                <div class="config-form-fila">
+                  <div class="config-campo"><label>Inicio cada (minutos)</label><input name="intervalo_inicio_min" type="number" min="1" value="{{ servicio.intervalo_inicio_min }}" required></div>
+                  <div class="config-campo"><label>Capacidad máxima</label><input name="capacidad_max" type="number" min="1" value="{{ servicio.capacidad_max }}" required></div>
+                </div>
+                <button class="config-guardar" type="submit">Guardar cambios</button>
+              </form>
+            </div>
+          </article>
+          {% endfor %}
+        {% else %}
+          <div class="config-vacio">Todavía no cargaste servicios. Empezá agregando el primero.</div>
+        {% endif %}
       </section>
+
+      <section class="config-panel" data-config-panel="profesionales" {% if seccion_configuracion != 'profesionales' %}hidden{% endif %}>
+        <div class="config-panel-cabecera">
+          <button class="config-volver" type="button" data-volver-config>← Volver</button>
+          <h3 class="config-panel-titulo">Profesionales</h3>
+        </div>
+
+        {% if configuracion_error and seccion_configuracion == 'profesionales' %}
+        <div class="config-error">{% if configuracion_error == 'profesional_nombre' %}Ingresá el nombre del profesional.{% elif configuracion_error == 'profesional' %}No se encontró ese profesional.{% elif configuracion_error == 'profesional_servicio' %}No se pudo guardar la asignación de servicios.{% else %}No se pudo guardar el profesional.{% endif %}</div>
+        {% endif %}
+
+        <button class="config-boton-principal" type="button" data-mostrar-form="formNuevoProfesional">+ Agregar profesional</button>
+        <div id="formNuevoProfesional" class="config-formulario-desplegable" hidden>
+          <form class="config-form config-card" method="post" action="{{ url_for('turnos.crear_profesional') }}">
+            <div class="config-campo"><label>Nombre</label><input name="nombre" type="text" placeholder="Ej. Paola" required></div>
+            <div class="config-campo"><label>Profesión / rol</label><input name="rol" type="text" placeholder="Ej. Peluquera"></div>
+            {% if servicios_configuracion %}
+            <div class="config-campo">
+              <label>Servicios que realiza</label>
+              <div class="config-chips">
+                {% for servicio in servicios_configuracion if servicio.activo %}
+                <label class="config-chip"><input name="servicio_ids" type="checkbox" value="{{ servicio.id }}">&nbsp;{{ servicio.nombre }}</label>
+                {% endfor %}
+              </div>
+            </div>
+            {% else %}<div class="config-ayuda">Primero agregá al menos un servicio para poder asignarlo.</div>{% endif %}
+            <button class="config-guardar" type="submit">Guardar profesional</button>
+          </form>
+        </div>
+
+        {% if profesionales_configuracion %}
+          {% for profesional in profesionales_configuracion %}
+          <article id="profesional-{{ profesional.id }}" class="config-card">
+            <div class="config-card-cabecera">
+              <div>
+                <h4 class="config-card-titulo">{{ profesional.nombre }}</h4>
+                {% if profesional.rol %}<div class="config-card-detalle">{{ profesional.rol }}</div>{% endif %}
+              </div>
+              <span class="config-servicio-estado{% if not profesional.activo %} inactivo{% endif %}">{{ 'Activo' if profesional.activo else 'Inactivo' }}</span>
+            </div>
+            <div class="config-card-detalle" style="margin-top:12px;">Servicios asignados</div>
+            <div class="config-chips" style="margin-top:8px;">
+              {% for servicio in servicios_configuracion %}
+              <form class="config-chip-form" method="post" action="{{ url_for('turnos.toggle_profesional_servicio', profesional_id=profesional.id, servicio_id=servicio.id) }}">
+                <button class="config-chip{% if servicio.id in servicios_por_profesional.get(profesional.id, []) %} seleccionado{% endif %}" type="submit" aria-pressed="{{ 'true' if servicio.id in servicios_por_profesional.get(profesional.id, []) else 'false' }}">{{ servicio.nombre }}{% if not servicio.activo %} · inactivo{% endif %}</button>
+              </form>
+              {% else %}<span class="config-ayuda">No hay servicios cargados.</span>{% endfor %}
+            </div>
+            <div class="config-acciones-card">
+              <button class="config-accion-secundaria" type="button" data-mostrar-form="editarProfesional{{ profesional.id }}">Editar datos</button>
+              <form method="post" action="{{ url_for('turnos.toggle_profesional', profesional_id=profesional.id) }}"><button class="config-accion-secundaria" type="submit">{{ 'Desactivar' if profesional.activo else 'Activar' }}</button></form>
+            </div>
+            <div id="editarProfesional{{ profesional.id }}" class="config-formulario-desplegable" hidden>
+              <form class="config-form" method="post" action="{{ url_for('turnos.editar_profesional', profesional_id=profesional.id) }}">
+                <div class="config-campo"><label>Nombre</label><input name="nombre" type="text" value="{{ profesional.nombre }}" required></div>
+                <div class="config-campo"><label>Profesión / rol</label><input name="rol" type="text" value="{{ profesional.rol or '' }}"></div>
+                <button class="config-guardar" type="submit">Guardar cambios</button>
+              </form>
+            </div>
+          </article>
+          {% endfor %}
+        {% else %}<div class="config-vacio">Todavía no cargaste profesionales.</div>{% endif %}
+      </section>
+
+      <section class="config-panel" data-config-panel="horarios" {% if seccion_configuracion != 'horarios' %}hidden{% endif %}>
+        <div class="config-panel-cabecera">
+          <button class="config-volver" type="button" data-volver-config>← Volver</button>
+          <h3 class="config-panel-titulo">Horarios</h3>
+        </div>
+        {% if configuracion_error and seccion_configuracion == 'horarios' %}<div class="config-error">{% if configuracion_error == 'horario_dia' %}Seleccioná un día válido.{% elif configuracion_error == 'horario_rango' %}La hora de cierre debe ser posterior a la de inicio.{% elif configuracion_error == 'horario_superpuesto' %}Ese horario se superpone con una franja que ya cargaste.{% elif configuracion_error == 'profesional' %}No se encontró ese profesional.{% else %}No se pudo guardar el horario.{% endif %}</div>{% endif %}
+
+        {% if profesionales_configuracion %}
+        <p class="config-ayuda" style="margin-bottom:10px;">Elegí una persona para ver y configurar solamente sus horarios.</p>
+        <div class="config-selector-profesionales">
+          {% for profesional in profesionales_configuracion %}
+          <button class="config-selector-profesional{% if profesional.id|string == profesional_horario_seleccionado %} seleccionado{% endif %}" type="button" data-profesional-horario="{{ profesional.id }}">{{ profesional.nombre }}</button>
+          {% endfor %}
+        </div>
+
+        {% for profesional in profesionales_configuracion %}
+        <div class="config-horario-profesional" data-horario-profesional="{{ profesional.id }}" {% if profesional.id|string != profesional_horario_seleccionado %}hidden{% endif %}>
+          {% for numero_dia, nombre_dia in [(0,'Lunes'),(1,'Martes'),(2,'Miércoles'),(3,'Jueves'),(4,'Viernes'),(5,'Sábado'),(6,'Domingo')] %}
+          {% set franjas = horarios_por_profesional.get(profesional.id, []) | selectattr('dia_semana', 'equalto', numero_dia) | list %}
+          <div id="dia-{{ profesional.id }}-{{ numero_dia }}" class="config-dia">
+            <div class="config-dia-cabecera"><span class="config-dia-nombre">{{ nombre_dia }}</span><span class="config-dia-estado">{{ 'Atiende' if franjas else 'No atiende' }}</span></div>
+            {% for horario in franjas %}
+            <div class="config-franja">
+              <span>{{ horario.hora_desde[:5] }} a {{ horario.hora_hasta[:5] }}</span>
+              <form method="post" action="{{ url_for('turnos.eliminar_horario', horario_id=horario.id) }}"><button class="config-accion-secundaria" type="submit">Eliminar</button></form>
+            </div>
+            {% endfor %}
+            <form class="config-horario-form" method="post" action="{{ url_for('turnos.crear_horario', profesional_id=profesional.id) }}">
+              <input type="hidden" name="dia_semana" value="{{ numero_dia }}">
+              <div class="config-campo"><label>Desde</label><input type="time" name="hora_desde" required></div>
+              <div class="config-campo"><label>Hasta</label><input type="time" name="hora_hasta" required></div>
+              <button class="config-guardar" type="submit">+ Agregar</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        {% else %}<div class="config-vacio">Primero agregá un profesional para definir sus horarios.</div>{% endif %}
+      </section>
+
 
     </div>
   </section>
@@ -5328,6 +5359,76 @@
     );
   }
 
+  const configInicio = document.getElementById("configInicio");
+  const configPaneles = Array.from(
+    document.querySelectorAll("[data-config-panel]")
+  );
+
+  function mostrarPanelConfiguracion(nombrePanel) {
+    if (configInicio) configInicio.hidden = Boolean(nombrePanel);
+    configPaneles.forEach((panel) => {
+      panel.hidden = panel.dataset.configPanel !== nombrePanel;
+    });
+    if (modalConfiguracionTurnos) modalConfiguracionTurnos.scrollTop = 0;
+  }
+
+  document.querySelectorAll("[data-abrir-config]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      mostrarPanelConfiguracion(boton.dataset.abrirConfig);
+    });
+  });
+
+  document.querySelectorAll("[data-volver-config]").forEach((boton) => {
+    boton.addEventListener("click", () => mostrarPanelConfiguracion(""));
+  });
+
+  document.querySelectorAll("[data-mostrar-form]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      const formulario = document.getElementById(boton.dataset.mostrarForm);
+      if (!formulario) return;
+      formulario.hidden = !formulario.hidden;
+      if (!formulario.hidden) {
+        const primerCampo = formulario.querySelector("input:not([type='hidden'])");
+        if (primerCampo) primerCampo.focus();
+      }
+    });
+  });
+
+  const botonesProfesionalHorario = Array.from(
+    document.querySelectorAll("[data-profesional-horario]")
+  );
+  const panelesHorarioProfesional = Array.from(
+    document.querySelectorAll("[data-horario-profesional]")
+  );
+
+  botonesProfesionalHorario.forEach((boton) => {
+    boton.addEventListener("click", () => {
+      const profesionalId = boton.dataset.profesionalHorario;
+      botonesProfesionalHorario.forEach((otroBoton) => {
+        otroBoton.classList.toggle(
+          "seleccionado",
+          otroBoton === boton
+        );
+      });
+      panelesHorarioProfesional.forEach((panel) => {
+        panel.hidden = panel.dataset.horarioProfesional !== profesionalId;
+      });
+    });
+  });
+
+  function restaurarEnfoqueConfiguracion() {
+    const enfoqueId = decodeURIComponent(
+      window.location.hash.replace(/^#/, "")
+    );
+    if (!enfoqueId) return;
+    const objetivo = document.getElementById(enfoqueId);
+    if (!objetivo || !modalConfiguracionTurnos.contains(objetivo)) return;
+    if (objetivo.hidden) objetivo.hidden = false;
+    window.setTimeout(() => {
+      objetivo.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 80);
+  }
+
 
   btnConfiguracionTurnos.addEventListener(
     "click",
@@ -5351,8 +5452,9 @@
   );
 
 
-  {% if abrir_configuracion %}
+    {% if abrir_configuracion %}
   abrirConfiguracionTurnos();
+  restaurarEnfoqueConfiguracion();
   {% endif %}
 
 

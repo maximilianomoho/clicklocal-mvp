@@ -103,7 +103,12 @@ def vigencia(**cambios):
     return datos
 
 
-def ejecutar_agenda(monkeypatch, estado, whatsapp=""):
+def ejecutar_agenda(
+    monkeypatch,
+    estado,
+    whatsapp="",
+    ruta="/turnos/agenda",
+):
     contexto = {}
 
     def render_falso(nombre, **datos):
@@ -121,7 +126,7 @@ def ejecutar_agenda(monkeypatch, estado, whatsapp=""):
     monkeypatch.setattr(routes, "CLICKLOCAL_WHATSAPP", whatsapp)
 
     app = aplicacion_prueba()
-    with app.test_request_context("/turnos/agenda"):
+    with app.test_request_context(ruta):
         session["comercio"] = {
             "id": "comercio-1",
             "nombre_negocio": "La casa del sombrero",
@@ -335,6 +340,46 @@ def test_reserva_publica_sigue_sin_requerir_login(monkeypatch):
     assert respuesta.get_json() == {"ok": True}
 
 
+def test_reserva_publica_cualquiera_no_exige_profesional_id(monkeypatch):
+    comercio_id = "11111111-1111-1111-1111-111111111111"
+    servicio_id = "22222222-2222-2222-2222-222222222222"
+    capturado = {}
+    monkeypatch.setattr(
+        routes,
+        "supabase_admin",
+        SupabasePorTabla({
+            "comercios": [{"id": comercio_id, "whatsapp": ""}],
+        }),
+    )
+    monkeypatch.setattr(routes, "modulo_activo", lambda *args: True)
+
+    def crear_cualquiera(comercio, datos, whatsapp):
+        capturado["comercio"] = comercio
+        capturado["modo"] = datos.get("profesional_modo")
+        return {"ok": True}, 201
+
+    monkeypatch.setattr(
+        routes,
+        "_crear_reserva_cualquier_profesional",
+        crear_cualquiera,
+    )
+    app = aplicacion_prueba()
+    respuesta = app.test_client().post(
+        f"/turnos/comercio/{comercio_id}/reservas",
+        data={
+            "servicio_id": servicio_id,
+            "profesional_id": "",
+            "profesional_modo": "cualquiera",
+        },
+    )
+
+    assert respuesta.status_code == 201
+    assert capturado == {
+        "comercio": comercio_id,
+        "modo": "cualquiera",
+    }
+
+
 def test_cta_configurado_incluye_comercio_y_modulo(monkeypatch):
     contexto = ejecutar_agenda(
         monkeypatch,
@@ -358,3 +403,429 @@ def test_sin_whatsapp_no_genera_url(monkeypatch):
     )
     assert contexto["whatsapp_clicklocal_url"] is None
     assert construir_url_whatsapp("", "mensaje") == ""
+
+
+def test_agenda_abre_subseccion_de_configuracion(monkeypatch):
+    contexto = ejecutar_agenda(
+        monkeypatch,
+        vigencia(),
+        ruta="/turnos/agenda?configuracion=horarios",
+    )
+
+    assert contexto["abrir_configuracion"] is True
+    assert contexto["seccion_configuracion"] == "horarios"
+
+    contexto_inicio = ejecutar_agenda(
+        monkeypatch,
+        vigencia(),
+        ruta="/turnos/agenda?configuracion=1",
+    )
+    assert contexto_inicio["abrir_configuracion"] is True
+    assert contexto_inicio["seccion_configuracion"] == ""
+
+
+def test_configuracion_turnos_tiene_tres_flujos_visuales():
+    raiz = Path(__file__).resolve().parents[1]
+    agenda = (
+        raiz / "turnos" / "templates" / "turnos" / "agenda.html"
+    ).read_text(encoding="utf-8")
+
+    assert 'data-abrir-config="servicios"' in agenda
+    assert 'data-abrir-config="profesionales"' in agenda
+    assert 'data-abrir-config="horarios"' in agenda
+    assert "Orden recomendado para empezar" in agenda
+    assert "Agregá y administrá los servicios que ofrecés." in agenda
+    assert "Agregá las personas que atienden" in agenda
+    assert "Definí los días y horarios de atención" in agenda
+    assert 'name="dia_semana" value="{{ numero_dia }}"' in agenda
+    assert 'id="dia-{{ profesional.id }}-{{ numero_dia }}"' in agenda
+    assert "restaurarEnfoqueConfiguracion" in agenda
+
+
+class SupabaseCandidatosTurnos:
+    def __init__(self):
+        self.tabla = ""
+        self.ordenes = []
+
+    def table(self, nombre):
+        self.tabla = nombre
+        return self
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def eq(self, *args, **kwargs):
+        return self
+
+    def in_(self, *args, **kwargs):
+        return self
+
+    def order(self, columna):
+        self.ordenes.append(columna)
+        return self
+
+    def execute(self):
+        if self.tabla == "turnos_profesional_servicios":
+            return SimpleNamespace(data=[
+                {"profesional_id": "profesional-1"},
+                {"profesional_id": "profesional-2"},
+            ])
+        if self.tabla == "turnos_profesionales":
+            return SimpleNamespace(data=[
+                {
+                    "id": "profesional-1",
+                    "nombre": "Carolina",
+                    "activo": True,
+                    "orden": 1,
+                },
+                {
+                    "id": "profesional-2",
+                    "nombre": "Andrea",
+                    "activo": True,
+                    "orden": 2,
+                },
+            ])
+        return SimpleNamespace(data=[])
+
+
+def datos_reserva_cualquiera():
+    return {
+        "cliente_nombre": "Cliente",
+        "cliente_whatsapp": "3430000000",
+        "servicio_id": "servicio-1",
+        "profesional_modo": "cualquiera",
+        "fecha": "2026-09-18",
+        "hora_inicio": "10:00",
+        "observacion": "",
+    }
+
+
+def test_cualquiera_elige_deterministicamente_el_primero(monkeypatch):
+    supabase = SupabaseCandidatosTurnos()
+    llamados = []
+    monkeypatch.setattr(routes, "supabase_admin", supabase)
+
+    def crear(comercio_id, datos, whatsapp):
+        llamados.append(datos["profesional_id"])
+        return {"ok": True, "reserva": {"id": "reserva-1"}}
+
+    monkeypatch.setattr(routes, "_crear_reserva_validada", crear)
+    resultado, estado = routes._crear_reserva_cualquier_profesional(
+        "comercio-1",
+        datos_reserva_cualquiera(),
+    )
+
+    assert estado == 200
+    assert llamados == ["profesional-1"]
+    assert supabase.ordenes == ["orden", "id"]
+    assert resultado["profesional_asignado"] == {
+        "id": "profesional-1",
+        "nombre": "Carolina",
+    }
+
+
+def test_cualquiera_prueba_segundo_si_primero_ya_no_disponible(
+    monkeypatch,
+):
+    llamados = []
+    monkeypatch.setattr(routes, "supabase_admin", SupabaseCandidatosTurnos())
+
+    def crear(comercio_id, datos, whatsapp):
+        llamados.append(datos["profesional_id"])
+        if datos["profesional_id"] == "profesional-1":
+            return {"ok": False, "error": "horario_ocupado"}, 400
+        return {"ok": True, "reserva": {"id": "reserva-2"}}
+
+    monkeypatch.setattr(routes, "_crear_reserva_validada", crear)
+    resultado, estado = routes._crear_reserva_cualquier_profesional(
+        "comercio-1",
+        datos_reserva_cualquiera(),
+    )
+
+    assert estado == 200
+    assert llamados == ["profesional-1", "profesional-2"]
+    assert resultado["profesional_asignado"]["id"] == "profesional-2"
+
+
+def test_cualquiera_rechaza_si_ninguno_sigue_disponible(monkeypatch):
+    monkeypatch.setattr(routes, "supabase_admin", SupabaseCandidatosTurnos())
+    monkeypatch.setattr(
+        routes,
+        "_crear_reserva_validada",
+        lambda *args: ({"ok": False, "error": "fuera_horario"}, 400),
+    )
+
+    resultado, estado = routes._crear_reserva_cualquier_profesional(
+        "comercio-1",
+        datos_reserva_cualquiera(),
+    )
+
+    assert estado == 409
+    assert resultado == {
+        "ok": False,
+        "error": "horario_ya_no_disponible",
+    }
+
+
+def test_turnera_publica_deduplica_hora_en_modo_cualquiera():
+    raiz = Path(__file__).resolve().parents[1]
+    publico = (
+        raiz / "turnos" / "templates" / "turnos" / "publico.html"
+    ).read_text(encoding="utf-8")
+
+    assert '"Cualquiera"' in publico
+    assert "professionalsByTime[time] ||= [];" in publico
+    assert "professionalsByTime[time].push(professional.id);" in publico
+    assert "Object.keys(professionalsByTime).sort()" in publico
+    assert 'profesional_modo: reviewData.professionalMode === "any"' in publico
+
+
+def test_configuracion_turnos_renderiza_sin_datos(monkeypatch):
+    monkeypatch.setattr(routes, "supabase_admin", SupabaseVacio())
+    monkeypatch.setattr(
+        routes,
+        "evaluar_vigencia_modulo",
+        lambda *args: vigencia(),
+    )
+    app = aplicacion_prueba()
+
+    with app.test_client() as cliente:
+        with cliente.session_transaction() as sesion:
+            sesion["comercio"] = {
+                "id": "comercio-1",
+                "nombre_negocio": "Peluquería de prueba",
+            }
+        respuesta = cliente.get("/turnos/agenda?configuracion=1")
+
+    assert respuesta.status_code == 200
+    assert b"Orden recomendado para empezar" in respuesta.data
+    assert b"config-accesos" in respuesta.data
+
+
+class SupabaseEdicionTurnos:
+    def __init__(self, existente):
+        self.existente = existente
+        self.tabla = None
+        self.accion = None
+        self.cambios = []
+
+    def table(self, nombre):
+        self.tabla = nombre
+        self.accion = None
+        return self
+
+    def select(self, *args, **kwargs):
+        self.accion = "select"
+        return self
+
+    def update(self, datos):
+        self.accion = "update"
+        self.cambios.append((self.tabla, datos))
+        return self
+
+    def eq(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        if self.accion == "select":
+            return SimpleNamespace(data=[{"id": self.existente}])
+        return SimpleNamespace(data=[])
+
+
+def test_editar_servicio_reutiliza_columnas_existentes(monkeypatch):
+    supabase = SupabaseEdicionTurnos("servicio-1")
+    monkeypatch.setattr(routes, "supabase_admin", supabase)
+    monkeypatch.setattr(modulos, "modulo_activo", lambda *args: True)
+    app = aplicacion_prueba()
+
+    with app.test_request_context(
+        "/turnos/agenda/servicios/servicio-1/editar",
+        method="POST",
+        data={
+            "nombre": "Corte",
+            "duracion_min": "30",
+            "intervalo_inicio_min": "15",
+            "capacidad_max": "1",
+            "precio": "12500,50",
+        },
+    ):
+        session["comercio"] = {"id": "comercio-1"}
+        respuesta = routes.editar_servicio("servicio-1")
+
+    assert respuesta.status_code == 302
+    assert "configuracion=servicios" in respuesta.location
+    assert supabase.cambios == [(
+        "turnos_servicios",
+        {
+            "nombre": "Corte",
+            "duracion_min": 30,
+            "capacidad_max": 1,
+            "intervalo_inicio_min": 15,
+            "precio": 12500.5,
+        },
+    )]
+
+
+def test_editar_profesional_limita_actualizacion_al_comercio(monkeypatch):
+    supabase = SupabaseEdicionTurnos("profesional-1")
+    monkeypatch.setattr(routes, "supabase_admin", supabase)
+    monkeypatch.setattr(modulos, "modulo_activo", lambda *args: True)
+    app = aplicacion_prueba()
+
+    with app.test_request_context(
+        "/turnos/agenda/profesionales/profesional-1/editar",
+        method="POST",
+        data={"nombre": "Paola", "rol": "Peluquera"},
+    ):
+        session["comercio"] = {"id": "comercio-1"}
+        respuesta = routes.editar_profesional("profesional-1")
+
+    assert respuesta.status_code == 302
+    assert "configuracion=profesionales" in respuesta.location
+    assert supabase.cambios == [(
+        "turnos_profesionales",
+        {"nombre": "Paola", "rol": "Peluquera"},
+    )]
+
+
+class SupabaseEliminarHorario:
+    def __init__(self):
+        self.accion = None
+        self.eliminado = False
+
+    def table(self, nombre):
+        assert nombre == "turnos_horarios"
+        return self
+
+    def select(self, *args, **kwargs):
+        self.accion = "select"
+        return self
+
+    def delete(self):
+        self.accion = "delete"
+        return self
+
+    def eq(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        if self.accion == "select":
+            return SimpleNamespace(data=[{
+                "id": "horario-1",
+                "profesional_id": "profesional-2",
+                "dia_semana": 4,
+            }])
+        self.eliminado = True
+        return SimpleNamespace(data=[])
+
+
+def test_eliminar_viernes_conserva_profesional_y_dia(monkeypatch):
+    supabase = SupabaseEliminarHorario()
+    monkeypatch.setattr(routes, "supabase_admin", supabase)
+    monkeypatch.setattr(modulos, "modulo_activo", lambda *args: True)
+    app = aplicacion_prueba()
+
+    with app.test_request_context(
+        "/turnos/agenda/horarios/horario-1/eliminar",
+        method="POST",
+    ):
+        session["comercio"] = {"id": "comercio-1"}
+        respuesta = routes.eliminar_horario("horario-1")
+
+    assert supabase.eliminado is True
+    assert respuesta.status_code == 302
+    assert "configuracion=horarios" in respuesta.location
+    assert "profesional=profesional-2" in respuesta.location
+    assert respuesta.location.endswith("#dia-profesional-2-4")
+
+
+class SupabaseHorarioSuperpuesto:
+    def __init__(self):
+        self.tabla = ""
+        self.intento_insert = False
+
+    def table(self, nombre):
+        self.tabla = nombre
+        return self
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def insert(self, *args, **kwargs):
+        self.intento_insert = True
+        return self
+
+    def eq(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def execute(self):
+        if self.tabla == "turnos_profesionales":
+            return SimpleNamespace(data=[{"id": "profesional-2"}])
+        if self.tabla == "turnos_horarios":
+            return SimpleNamespace(data=[{
+                "id": "horario-existente",
+                "hora_desde": "08:00:00",
+                "hora_hasta": "12:00:00",
+            }])
+        return SimpleNamespace(data=[])
+
+
+def test_crear_horario_rechaza_superposicion_y_conserva_contexto(
+    monkeypatch,
+):
+    supabase = SupabaseHorarioSuperpuesto()
+    monkeypatch.setattr(routes, "supabase_admin", supabase)
+    monkeypatch.setattr(modulos, "modulo_activo", lambda *args: True)
+    app = aplicacion_prueba()
+
+    with app.test_request_context(
+        "/turnos/agenda/profesionales/profesional-2/horarios/nuevo",
+        method="POST",
+        data={
+            "dia_semana": "4",
+            "hora_desde": "10:00",
+            "hora_hasta": "14:00",
+        },
+    ):
+        session["comercio"] = {"id": "comercio-1"}
+        respuesta = routes.crear_horario("profesional-2")
+
+    assert supabase.intento_insert is False
+    assert respuesta.status_code == 302
+    assert "configuracion=horarios" in respuesta.location
+    assert "error=horario_superpuesto" in respuesta.location
+    assert "profesional=profesional-2" in respuesta.location
+    assert respuesta.location.endswith("#dia-profesional-2-4")
+
+
+def test_crear_horario_permite_franja_contigua(monkeypatch):
+    supabase = SupabaseHorarioSuperpuesto()
+    monkeypatch.setattr(routes, "supabase_admin", supabase)
+    monkeypatch.setattr(modulos, "modulo_activo", lambda *args: True)
+    app = aplicacion_prueba()
+
+    with app.test_request_context(
+        "/turnos/agenda/profesionales/profesional-2/horarios/nuevo",
+        method="POST",
+        data={
+            "dia_semana": "4",
+            "hora_desde": "12:00",
+            "hora_hasta": "16:00",
+        },
+    ):
+        session["comercio"] = {"id": "comercio-1"}
+        respuesta = routes.crear_horario("profesional-2")
+
+    assert supabase.intento_insert is True
+    assert respuesta.status_code == 302
+    assert "error=" not in respuesta.location
+    assert respuesta.location.endswith("#dia-profesional-2-4")

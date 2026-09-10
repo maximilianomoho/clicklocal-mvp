@@ -325,7 +325,7 @@
       function renderProfessionalOptions(compatibles) {
         professionalOptions.innerHTML = "";
         professionalOptions.append(optionButton(
-          "Cualquier profesional",
+          "Cualquiera",
           CUALQUIER_PROFESIONAL,
           selectedProfessionalMode === "any",
           selectProfessional
@@ -376,7 +376,7 @@
           : "";
         professionalText.textContent = selectedProfessional
           ? selectedProfessional.nombre
-          : "Cualquier profesional";
+          : "Cualquiera";
         resetDate();
         setOpen(false);
         visibleMonth = new Date(today().getFullYear(), today().getMonth(), 1);
@@ -656,7 +656,10 @@
           serviceId: service.id,
           serviceName: service.nombre,
           professionalId: professional.id,
-          professionalName: professional.nombre,
+          professionalName: selectedProfessionalMode === "any"
+            ? "Cualquiera"
+            : professional.nombre,
+          professionalMode: selectedProfessionalMode,
           date: apiDate(selectedDate),
           dateText: natural(selectedDate),
           time: selectedTime,
@@ -702,6 +705,7 @@
           intervalo_inicio: "Ese horario acaba de dejar de estar disponible. Elegí otro.",
           capacidad_completa: "Ese horario acaba de ocuparse. Elegí otro.",
           horario_ocupado: "Ese horario acaba de ocuparse. Elegí otro.",
+          horario_ya_no_disponible: "Ese horario acaba de dejar de estar disponible. Elegí otro.",
           guardar: "No se pudo guardar el turno. Intentá nuevamente."
         };
         return messages[error] || "No se pudo guardar el turno. Intentá nuevamente.";
@@ -763,7 +767,12 @@
           cliente_nombre: reviewData.clientName,
           cliente_whatsapp: reviewData.clientWhatsapp,
           servicio_id: reviewData.serviceId,
-          profesional_id: reviewData.professionalId,
+          profesional_id: reviewData.professionalMode === "any"
+            ? ""
+            : reviewData.professionalId,
+          profesional_modo: reviewData.professionalMode === "any"
+            ? "cualquiera"
+            : "especifico",
           fecha: reviewData.date,
           hora_inicio: reviewData.time,
           observacion: reviewData.observation
@@ -787,13 +796,21 @@
           if (!response.ok || result.ok !== true) {
             whatsappWindow?.close();
             const message = reservationErrorMessage(result.error);
-            if (["capacidad_completa", "horario_ocupado", "fuera_horario", "intervalo_inicio", "horario_pasado"].includes(result.error)) {
+            if (["capacidad_completa", "horario_ocupado", "horario_ya_no_disponible", "fuera_horario", "intervalo_inicio", "horario_pasado"].includes(result.error)) {
               showBookingForm(message);
               if (selectedDate) loadAvailability();
             } else {
               reviewError.textContent = message;
             }
             return;
+          }
+
+          if (
+            reviewData.professionalMode === "any"
+            && result.profesional_asignado
+          ) {
+            reviewData.professionalId = result.profesional_asignado.id;
+            reviewData.professionalName = result.profesional_asignado.nombre;
           }
 
           const phone = String(result.whatsapp_comercio || "").replace(/\D/g, "");
