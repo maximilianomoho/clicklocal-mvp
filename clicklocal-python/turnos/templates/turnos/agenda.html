@@ -951,6 +951,78 @@
       border-radius: 50%;
     }
 
+    .agenda-scroll-contenedor {
+      position: relative;
+    }
+
+    .agenda-indicador {
+      position: absolute;
+      z-index: 24;
+      right: 12px;
+      max-width: calc(100% - 24px);
+      padding: 7px 11px;
+      border: 1px solid rgba(111, 29, 44, .24);
+      border-radius: 999px;
+      background: rgba(255, 241, 242, .95);
+      box-shadow: 0 2px 8px rgba(111, 29, 44, .12);
+      color: #6f1d2c;
+      font: 700 12px/1.2 Arial, sans-serif;
+      white-space: nowrap;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+
+    .agenda-indicador:hover {
+      border-color: rgba(111, 29, 44, .34);
+      background: rgba(255, 228, 230, .97);
+    }
+
+    .agenda-indicador[hidden] {
+      display: none;
+    }
+
+    .agenda-indicador-arriba {
+      top: calc(var(--agenda-cabecera-alto, 68px) + 10px);
+    }
+
+    .agenda-indicador-abajo {
+      bottom: 12px;
+    }
+
+    .agenda-volver-ahora {
+      right: auto;
+      bottom: 12px;
+      left: 12px;
+      color: #6f1d2c;
+    }
+
+    .agenda-indicador:focus-visible {
+      outline: 3px solid rgba(111, 29, 44, .24);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 650px) {
+      .agenda-indicador {
+        right: 8px;
+        padding: 7px 10px;
+        font-size: 11px;
+      }
+
+      .agenda-indicador-arriba {
+        top: calc(var(--agenda-cabecera-alto, 68px) + 8px);
+      }
+
+      .agenda-indicador-abajo {
+        bottom: 8px;
+      }
+
+      .agenda-volver-ahora {
+        right: auto;
+        bottom: 8px;
+        left: 8px;
+      }
+    }
+
     /* =========================================================
        MES
        ========================================================= */
@@ -5180,6 +5252,12 @@
   const selectorVista = document.getElementById("selectorVista");
   const vistaCalendario = document.getElementById("vistaCalendario");
 
+  let scrollAgendaActual = null;
+  let rafNavegacionAgenda = null;
+  let seguimientoAhoraActivo = true;
+  let centrarAhoraEnProximoRender = true;
+  let intervaloLineaAhora = null;
+
   const btnZoomMenos =
     document.getElementById("btnZoomMenos");
 
@@ -5252,6 +5330,8 @@
     .getElementById("btnHoy")
     .addEventListener("click", () => {
       fechaSeleccionada = limpiarHora(new Date());
+      seguimientoAhoraActivo = true;
+      centrarAhoraEnProximoRender = true;
 
       miniFecha = new Date(
         fechaSeleccionada.getFullYear(),
@@ -7204,6 +7284,293 @@
   }
 
 
+  function limitesVisiblesAgenda(scroll) {
+    const rectScroll = scroll.getBoundingClientRect();
+    const rectCabecera = scroll
+      .querySelector(".cabecera-dias")
+      ?.getBoundingClientRect();
+
+    return {
+      arriba: Math.max(
+        rectScroll.top,
+        rectCabecera?.bottom || rectScroll.top
+      ),
+      abajo: rectScroll.bottom
+    };
+  }
+
+
+  function lineaAhoraAgenda(scroll, crear = false) {
+    if (vista !== "dia" && vista !== "semana") {
+      return null;
+    }
+
+    const fechaHoy = limpiarHora(new Date());
+
+    if (vista === "dia" && !mismaFecha(fechaSeleccionada, fechaHoy)) {
+      return null;
+    }
+
+    const columnaHoy = scroll.querySelector(
+      `.columna-dia[data-fecha="${fechaISO(fechaHoy)}"]`
+    );
+
+    if (!columnaHoy) {
+      return null;
+    }
+
+    let linea = columnaHoy.querySelector(".linea-ahora");
+
+    if (!linea && crear) {
+      linea = document.createElement("div");
+      linea.className = "linea-ahora";
+      columnaHoy.appendChild(linea);
+    }
+
+    return linea;
+  }
+
+
+  function actualizarPosicionLineaAhora(scroll) {
+    if (scroll !== scrollAgendaActual) {
+      return null;
+    }
+
+    const ahora = new Date();
+    const minutos = ahora.getHours() * 60 + ahora.getMinutes();
+    const inicioMin = HORA_INICIO * 60;
+    const finMin = HORA_FIN * 60;
+    const dentroDeAgenda = minutos >= inicioMin && minutos <= finMin;
+    const linea = lineaAhoraAgenda(scroll, dentroDeAgenda);
+
+    if (!linea) {
+      return null;
+    }
+
+    if (!dentroDeAgenda) {
+      linea.remove();
+      return null;
+    }
+
+    linea.style.top = `${((minutos - inicioMin) / 60) * ALTO_HORA}px`;
+    return linea;
+  }
+
+
+  function desplazarAgenda(scroll, delta, comportamiento = "smooth") {
+    if (!Number.isFinite(delta) || Math.abs(delta) < 1) {
+      return;
+    }
+
+    scroll.scrollBy({
+      top: delta,
+      behavior: comportamiento
+    });
+  }
+
+
+  function centrarLineaAhora(scroll, comportamiento = "smooth") {
+    const linea = actualizarPosicionLineaAhora(scroll);
+
+    if (!linea) {
+      return;
+    }
+
+    const limites = limitesVisiblesAgenda(scroll);
+    const rectLinea = linea.getBoundingClientRect();
+
+    desplazarAgenda(
+      scroll,
+      ((rectLinea.top + rectLinea.bottom) / 2)
+        - ((limites.arriba + limites.abajo) / 2),
+      comportamiento
+    );
+  }
+
+
+  function mantenerLineaAhoraVisible(scroll, linea) {
+    if (!seguimientoAhoraActivo || !linea) {
+      return;
+    }
+
+    const limites = limitesVisiblesAgenda(scroll);
+    const rectLinea = linea.getBoundingClientRect();
+    const margen = Math.min(
+      72,
+      (limites.abajo - limites.arriba) * .2
+    );
+
+    if (rectLinea.top < limites.arriba + margen) {
+      desplazarAgenda(
+        scroll,
+        rectLinea.top - (limites.arriba + margen)
+      );
+    } else if (rectLinea.bottom > limites.abajo - margen) {
+      desplazarAgenda(
+        scroll,
+        rectLinea.bottom - (limites.abajo - margen)
+      );
+    }
+  }
+
+
+  function actualizarNavegacionAgenda(scroll, mantenerAhora = false) {
+    if (scroll !== scrollAgendaActual || !document.contains(scroll)) {
+      return;
+    }
+
+    const contenedor = scroll.closest(".agenda-scroll-contenedor");
+    const indicadorArriba = contenedor?.querySelector(
+      ".agenda-indicador-arriba"
+    );
+    const indicadorAbajo = contenedor?.querySelector(
+      ".agenda-indicador-abajo"
+    );
+    const volverAhora = contenedor?.querySelector(".agenda-volver-ahora");
+
+    if (!indicadorArriba || !indicadorAbajo || !volverAhora) {
+      return;
+    }
+
+    const linea = actualizarPosicionLineaAhora(scroll);
+
+    if (vista !== "dia") {
+      indicadorArriba.hidden = true;
+      indicadorAbajo.hidden = true;
+      volverAhora.hidden = true;
+      return;
+    }
+
+    const limites = limitesVisiblesAgenda(scroll);
+    const turnosArriba = [];
+    const turnosAbajo = [];
+
+    scroll.querySelectorAll(".turno").forEach((turno) => {
+      const rect = turno.getBoundingClientRect();
+
+      if (rect.bottom <= limites.arriba) {
+        turnosArriba.push({ turno, rect });
+      } else if (rect.top >= limites.abajo) {
+        turnosAbajo.push({ turno, rect });
+      }
+    });
+
+    turnosArriba.sort((a, b) => b.rect.bottom - a.rect.bottom);
+    turnosAbajo.sort((a, b) => a.rect.top - b.rect.top);
+
+    indicadorArriba.hidden = turnosArriba.length === 0;
+    indicadorAbajo.hidden = turnosAbajo.length === 0;
+    indicadorArriba.textContent = `↑ Hay ${turnosArriba.length} turnos más arriba`;
+    indicadorAbajo.textContent = `↓ Hay ${turnosAbajo.length} turnos más abajo`;
+    indicadorArriba.turnoObjetivo = turnosArriba[0]?.turno || null;
+    indicadorAbajo.turnoObjetivo = turnosAbajo[0]?.turno || null;
+
+    const rectLinea = linea?.getBoundingClientRect();
+    const lineaFuera = Boolean(
+      rectLinea
+      && (
+        rectLinea.bottom <= limites.arriba
+        || rectLinea.top >= limites.abajo
+      )
+    );
+
+    volverAhora.hidden = !(
+      vista === "dia"
+      && mismaFecha(fechaSeleccionada, limpiarHora(new Date()))
+      && !seguimientoAhoraActivo
+      && lineaFuera
+    );
+
+    if (mantenerAhora) {
+      mantenerLineaAhoraVisible(scroll, linea);
+    }
+  }
+
+
+  function programarActualizacionNavegacion(scroll, mantenerAhora = false) {
+    if (rafNavegacionAgenda !== null) {
+      cancelAnimationFrame(rafNavegacionAgenda);
+    }
+
+    rafNavegacionAgenda = requestAnimationFrame(() => {
+      rafNavegacionAgenda = null;
+      actualizarNavegacionAgenda(scroll, mantenerAhora);
+    });
+  }
+
+
+  function marcarScrollManual(scroll) {
+    if (scroll !== scrollAgendaActual) {
+      return;
+    }
+
+    seguimientoAhoraActivo = false;
+    programarActualizacionNavegacion(scroll);
+  }
+
+
+  function desplazarAlTurnoFueraDeVista(scroll, turno) {
+    if (!turno) {
+      return;
+    }
+
+    const limites = limitesVisiblesAgenda(scroll);
+    const rect = turno.getBoundingClientRect();
+
+    seguimientoAhoraActivo = false;
+    desplazarAgenda(
+      scroll,
+      ((rect.top + rect.bottom) / 2)
+        - ((limites.arriba + limites.abajo) / 2)
+    );
+  }
+
+
+  function crearControlesNavegacionAgenda(scroll, cabecera) {
+    const contenedor = document.createElement("div");
+    contenedor.className = "agenda-scroll-contenedor";
+    contenedor.style.setProperty(
+      "--agenda-cabecera-alto",
+      `${cabecera.getBoundingClientRect().height || 68}px`
+    );
+
+    const indicadorArriba = document.createElement("button");
+    indicadorArriba.type = "button";
+    indicadorArriba.className = "agenda-indicador agenda-indicador-arriba";
+    indicadorArriba.hidden = true;
+
+    const indicadorAbajo = document.createElement("button");
+    indicadorAbajo.type = "button";
+    indicadorAbajo.className = "agenda-indicador agenda-indicador-abajo";
+    indicadorAbajo.hidden = true;
+
+    const volverAhora = document.createElement("button");
+    volverAhora.type = "button";
+    volverAhora.className = "agenda-indicador agenda-volver-ahora";
+    volverAhora.textContent = "Volver a ahora";
+    volverAhora.hidden = true;
+
+    indicadorArriba.addEventListener("click", () => {
+      desplazarAlTurnoFueraDeVista(scroll, indicadorArriba.turnoObjetivo);
+    });
+    indicadorAbajo.addEventListener("click", () => {
+      desplazarAlTurnoFueraDeVista(scroll, indicadorAbajo.turnoObjetivo);
+    });
+    volverAhora.addEventListener("click", () => {
+      seguimientoAhoraActivo = true;
+      centrarLineaAhora(scroll);
+      programarActualizacionNavegacion(scroll);
+    });
+
+    contenedor.appendChild(scroll);
+    contenedor.appendChild(indicadorArriba);
+    contenedor.appendChild(indicadorAbajo);
+    contenedor.appendChild(volverAhora);
+
+    return contenedor;
+  }
+
+
   function renderGrillaHoraria(fechas) {
     const anchoHora = 64;
 
@@ -7212,6 +7579,8 @@
 
     const scroll = document.createElement("div");
     scroll.className = "calendario-scroll";
+    scroll.tabIndex = 0;
+    scroll.setAttribute("aria-label", "Agenda de turnos");
 
     if (
       vista === "dia"
@@ -7299,6 +7668,7 @@
     fechas.forEach((fecha) => {
       const columna = document.createElement("div");
       columna.className = "columna-dia";
+      columna.dataset.fecha = fechaISO(fecha);
 
       /*
        * La disponibilidad sigue existiendo para la lógica
@@ -7317,30 +7687,6 @@
       });
 
 
-      if (mismaFecha(fecha, hoy)) {
-        const ahora = new Date();
-
-        const minutos =
-          ahora.getHours() * 60
-          + ahora.getMinutes();
-
-        const inicioMin = HORA_INICIO * 60;
-        const finMin = HORA_FIN * 60;
-
-        if (
-          minutos >= inicioMin
-          && minutos <= finMin
-        ) {
-          const linea = document.createElement("div");
-          linea.className = "linea-ahora";
-
-          linea.style.top =
-            `${((minutos - inicioMin) / 60) * ALTO_HORA}px`;
-
-          columna.appendChild(linea);
-        }
-      }
-
       grilla.appendChild(columna);
     });
 
@@ -7349,7 +7695,58 @@
     scroll.appendChild(grilla);
 
     vistaCalendario.innerHTML = "";
-    vistaCalendario.appendChild(scroll);
+    vistaCalendario.appendChild(
+      crearControlesNavegacionAgenda(scroll, cabecera)
+    );
+    scrollAgendaActual = scroll;
+
+    scroll.addEventListener("scroll", () => {
+      programarActualizacionNavegacion(scroll);
+    }, { passive: true });
+    scroll.addEventListener("wheel", () => {
+      marcarScrollManual(scroll);
+    }, { passive: true });
+    scroll.addEventListener("touchmove", () => {
+      marcarScrollManual(scroll);
+    }, { passive: true });
+    scroll.addEventListener("keydown", (evento) => {
+      if ([
+        "ArrowUp", "ArrowDown", "PageUp", "PageDown",
+        "Home", "End", " ", "Spacebar"
+      ].includes(evento.key)) {
+        marcarScrollManual(scroll);
+      }
+    });
+
+    requestAnimationFrame(() => {
+      if (scroll !== scrollAgendaActual) {
+        return;
+      }
+
+      if (
+        centrarAhoraEnProximoRender
+        && vista === "dia"
+        && mismaFecha(fechaSeleccionada, limpiarHora(new Date()))
+      ) {
+        centrarAhoraEnProximoRender = false;
+        centrarLineaAhora(scroll, "auto");
+      }
+
+      programarActualizacionNavegacion(scroll, true);
+    });
+
+    if (intervaloLineaAhora === null) {
+      intervaloLineaAhora = window.setInterval(() => {
+        if (!scrollAgendaActual) {
+          return;
+        }
+
+        programarActualizacionNavegacion(
+          scrollAgendaActual,
+          true
+        );
+      }, 60000);
+    }
 
     if (
       vista === "dia"
@@ -7497,6 +7894,27 @@
 
     return bloque;
   }
+
+
+  window.addEventListener("resize", () => {
+    if (!scrollAgendaActual) {
+      return;
+    }
+
+    const contenedor = scrollAgendaActual.closest(
+      ".agenda-scroll-contenedor"
+    );
+    const cabecera = scrollAgendaActual.querySelector(".cabecera-dias");
+
+    if (contenedor && cabecera) {
+      contenedor.style.setProperty(
+        "--agenda-cabecera-alto",
+        `${cabecera.getBoundingClientRect().height || 68}px`
+      );
+    }
+
+    programarActualizacionNavegacion(scrollAgendaActual, true);
+  }, { passive: true });
 
 
   function horaAMinutos(hora) {
