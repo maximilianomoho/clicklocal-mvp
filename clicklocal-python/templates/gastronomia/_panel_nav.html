@@ -1,0 +1,81 @@
+{% if panel_seccion in ('productos', 'configuracion', 'plan', 'pedidos', 'ventas') %}
+<div class="mi-negocio-lateral">
+  <a href="{{ url_for('gastronomia.comercio_gastronomico', comercio_id=comercio.id) }}"
+     class="mi-negocio-lateral-link mi-negocio-lateral-link--publico"
+     target="_blank" rel="noopener noreferrer">Ver menú público ↗</a>
+
+  <details class="mi-negocio-nav pedidos-nav"{% if panel_seccion == 'pedidos' %} open{% endif %}>
+    <summary>Pedidos</summary>
+    <nav aria-label="Pedidos">
+      <a href="{{ url_for('gastronomia.pedidos_gastronomia') }}"
+         class="{% if panel_seccion == 'pedidos' and pedidos_vista != 'historial' %}activo{% endif %}"
+         {% if panel_seccion == 'pedidos' and pedidos_vista != 'historial' %}aria-current="page"{% endif %}>Pedidos de hoy</a>
+      <a href="{{ url_for('gastronomia.historial_pedidos_gastronomia') }}"
+         class="{% if panel_seccion == 'pedidos' and pedidos_vista == 'historial' %}activo{% endif %}"
+         {% if panel_seccion == 'pedidos' and pedidos_vista == 'historial' %}aria-current="page"{% endif %}>Historial de pedidos</a>
+    </nav>
+  </details>
+
+  <details class="mi-negocio-nav ventas-nav"{% if panel_seccion == 'ventas' %} open{% endif %}>
+    <summary>Ventas</summary>
+    <nav aria-label="Ventas">
+      <a href="{{ url_for('gastronomia.ventas_gastronomia') }}"
+         class="{% if ventas_vista == 'caja' %}activo{% endif %}"
+         {% if ventas_vista == 'caja' %}aria-current="page"{% endif %}>Ventas</a>
+      {% if pos_activo %}
+      <a href="{{ url_for('gastronomia.pos_gastronomia') }}"
+         class="{% if ventas_vista == 'pos' %}activo{% endif %}"
+         {% if ventas_vista == 'pos' %}aria-current="page"{% endif %}>Punto de venta</a>
+      <a href="{{ url_for('gastronomia.historial_cajas_gastronomia') }}"
+         class="{% if ventas_vista == 'historial' %}activo{% endif %}"
+         {% if ventas_vista == 'historial' %}aria-current="page"{% endif %}>Historial de cajas</a>
+      {% endif %}
+    </nav>
+  </details>
+
+  <details class="mi-negocio-nav"{% if panel_seccion in ('productos', 'configuracion', 'plan') %} open{% endif %}>
+    <summary>Mi negocio</summary>
+    <nav aria-label="Mi negocio">
+      <a href="{{ url_for('gastronomia.productos_gastronomia') }}"
+         class="{% if panel_seccion == 'productos' %}activo{% endif %}"
+         {% if panel_seccion == 'productos' %}aria-current="page"{% endif %}>Menú y productos</a>
+      <a href="{{ url_for('gastronomia.configuracion_gastronomia') }}"
+         class="{% if panel_seccion == 'configuracion' %}activo{% endif %}"
+         {% if panel_seccion == 'configuracion' %}aria-current="page"{% endif %}>Configuración del negocio</a>
+      <a href="{{ url_for('gastronomia.plan_gastronomia') }}"
+         class="{% if panel_seccion == 'plan' %}activo{% endif %}"
+         {% if panel_seccion == 'plan' %}aria-current="page"{% endif %}>Mi plan</a>
+    </nav>
+  </details>
+</div>
+{% else %}
+<div class="gastro-nav-wrap">
+  <nav class="gastro-nav" aria-label="Operación de Gastronomía">
+    <a href="{{ url_for('gastronomia.pedidos_gastronomia') }}"
+       class="panel-menu-link{% if panel_seccion == 'pedidos' %} activo{% endif %}"
+       {% if panel_seccion == 'pedidos' %}aria-current="page"{% endif %}>Pedidos</a>
+    <a href="{{ url_for('gastronomia.ventas_gastronomia') }}"
+       class="panel-menu-link{% if panel_seccion == 'ventas' %} activo{% endif %}"
+       {% if panel_seccion == 'ventas' %}aria-current="page"{% endif %}>Ventas</a>
+  </nav>
+  <a href="{{ url_for('gastronomia.comercio_gastronomico', comercio_id=comercio.id) }}"
+     class="gastro-nav-publico" target="_blank" rel="noopener noreferrer">
+    Ver menú público ↗
+  </a>
+</div>
+
+<details class="mi-negocio-nav"{% if panel_seccion in ('productos', 'configuracion', 'plan') %} open{% endif %}>
+  <summary>Mi negocio</summary>
+  <nav aria-label="Mi negocio">
+    <a href="{{ url_for('gastronomia.productos_gastronomia') }}"
+       class="{% if panel_seccion == 'productos' %}activo{% endif %}"
+       {% if panel_seccion == 'productos' %}aria-current="page"{% endif %}>Menú y productos</a>
+    <a href="{{ url_for('gastronomia.configuracion_gastronomia') }}"
+       class="{% if panel_seccion == 'configuracion' %}activo{% endif %}"
+       {% if panel_seccion == 'configuracion' %}aria-current="page"{% endif %}>Configuración del negocio</a>
+    <a href="{{ url_for('gastronomia.plan_gastronomia') }}"
+       class="{% if panel_seccion == 'plan' %}activo{% endif %}"
+       {% if panel_seccion == 'plan' %}aria-current="page"{% endif %}>Mi plan</a>
+  </nav>
+</details>
+{% endif %}

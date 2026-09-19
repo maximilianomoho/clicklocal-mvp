@@ -1,0 +1,55 @@
+.gastro-nav-wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%}
+.gastro-nav{display:flex;align-items:center;gap:8px;min-width:0}
+.gastro-nav-publico{flex:0 0 auto;color:#681823;font-size:14px;font-weight:800;text-decoration:none}
+.gastro-nav-publico:hover{text-decoration:underline}
+.mi-negocio-lateral{display:grid;gap:8px;width:100%;min-width:0}
+.mi-negocio-lateral-link{display:block;box-sizing:border-box;width:100%;padding:13px 15px;border-radius:12px;color:#374151;font-weight:800;line-height:1.25;text-decoration:none;overflow-wrap:anywhere}
+.mi-negocio-lateral-link:hover{background:#eaf6ff;color:#0369a1}
+.mi-negocio-lateral-link--publico{border-bottom:1px solid #e5e7eb;border-radius:12px 12px 4px 4px;padding-bottom:16px}
+.mi-negocio-nav{width:100%;border:1px solid #e0d7d3;border-radius:12px;background:#fff;overflow:hidden}
+.mi-negocio-nav summary{cursor:pointer;font-weight:900;padding:13px 16px;list-style:none}
+.mi-negocio-nav summary::-webkit-details-marker{display:none}
+.mi-negocio-nav summary::after{content:"+";float:right;font-size:20px;line-height:1}
+.mi-negocio-nav[open] summary::after{content:"−"}
+.mi-negocio-nav nav{display:grid;gap:6px;border-top:1px solid #eee5e1;padding:10px}
+.mi-negocio-nav nav a{border-radius:9px;color:#4f4542;font-weight:800;padding:11px 12px;text-decoration:none}
+.mi-negocio-nav nav a:hover,.mi-negocio-nav nav a.activo{background:#f4e9e5;color:#681823}
+.pedidos-nav{border-color:#cfe6f5}
+.pedidos-nav summary{color:#0369a1}
+.ventas-nav{border-color:#ead6d9}
+.ventas-nav summary{color:#681823}
+.pedidos-seccion-encabezado{margin:0 0 18px;padding:4px 2px}
+.pedidos-seccion-encabezado h2{margin:4px 0 6px}
+.pedidos-seccion-encabezado p:last-child{margin:0;color:#6b7280}
+.ventas-seccion-encabezado{margin:0 0 18px;padding:4px 2px}
+.ventas-seccion-encabezado h2{margin:4px 0 6px}
+.ventas-seccion-encabezado p:last-child{margin:0;color:#6b7280}
+.mi-negocio-encabezado{margin:0 0 20px;padding:4px 2px}
+.mi-negocio-encabezado h2{margin:4px 0 6px}
+.mi-negocio-encabezado p:last-child{margin:0;color:#6b6461}
+.mi-negocio-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-height:42px;margin:0;padding:10px 16px;border:1px solid transparent;border-radius:10px;font:inherit;font-size:14px;font-weight:800;line-height:1.2;text-align:center;text-decoration:none;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}
+.mi-negocio-btn:hover:not(:disabled){transform:translateY(-1px)}
+.mi-negocio-btn:focus-visible{outline:3px solid rgba(3,105,161,.22);outline-offset:2px}
+.mi-negocio-btn--primario{background:#681823;color:#fff;border-color:#681823}
+.mi-negocio-btn--primario:hover:not(:disabled){background:#53131c;border-color:#53131c}
+.mi-negocio-btn--secundario,.mi-negocio-btn--chico{background:#fff;color:#202020;border-color:#d1d5db}
+.mi-negocio-btn--secundario:hover:not(:disabled),.mi-negocio-btn--chico:hover:not(:disabled){background:#f8f5f4;border-color:#a99994}
+.mi-negocio-btn--chico{min-height:34px;padding:6px 11px;border-radius:9px;font-size:12px}
+.mi-negocio-btn:disabled{cursor:not-allowed;opacity:.55}
+.gastro-subnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.gastro-subnav a{border:1px solid #681823;border-radius:9px;color:#681823;font-weight:800;padding:9px 14px;text-decoration:none}
+.gastro-subnav a.activo{background:#681823;color:#fff}
+.gastro-config-grupo{border:1px solid #e5e0de;border-radius:12px;padding:16px;margin-top:16px}
+.gastro-config-grupo>h3{margin-top:0}
+.gastro-productos .acciones-publicacion{align-items:flex-start}
+.gastro-productos .acciones-publicacion form:last-child button{color:#9b1c2c;border-color:#d9a8ae}
+@media(max-width:760px){
+  .panel-menu>.mi-negocio-lateral{flex:0 0 100%;width:100%}
+  .mi-negocio-lateral{gap:6px}
+  .mi-negocio-lateral-link{padding:12px 14px}
+  .mi-negocio-btn--primario,.mi-negocio-btn--secundario{width:100%}
+  .gastro-nav-wrap{align-items:stretch;flex-direction:column;gap:10px}
+  .gastro-nav{overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+  .gastro-nav .panel-menu-link{flex:0 0 auto;white-space:nowrap}
+  .gastro-nav-publico{align-self:flex-start;padding-left:2px}
+}

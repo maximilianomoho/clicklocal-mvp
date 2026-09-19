@@ -24,6 +24,7 @@
     gap: 2px;
     color: #2f241f;
     line-height: 1.15;
+    text-decoration: none;
   }
 
   .admin-nav-uniforme__marca span {
@@ -131,35 +132,29 @@
   class="admin-nav-uniforme"
   aria-label="Navegación de administración"
 >
-  <div class="admin-nav-uniforme__marca">
+  <a
+    href="/admin"
+    class="admin-nav-uniforme__marca"
+    aria-label="Ir a ClickLocal Administración"
+  >
     <span>CLICKLOCAL</span>
     <strong>Administración</strong>
-  </div>
+  </a>
 
   <div class="admin-nav-uniforme__enlaces">
-    <a
-      href="{{ url_for('admin') }}"
-      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin' %} is-active{% endif %}"
-      {% if endpoint_admin == 'admin' %}aria-current="page"{% endif %}
-    >
-      Resumen
-    </a>
-
-    <a
-      href="{{ url_for('admin_analytics') }}"
-      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin_analytics' %} is-active{% endif %}"
-      {% if endpoint_admin == 'admin_analytics' %}aria-current="page"{% endif %}
-    >
-      Analítica
-    </a>
-
     <a
       href="{{ url_for('admin_moderacion') }}"
       class="admin-nav-uniforme__enlace{% if endpoint_admin.startswith('admin_moderacion') %} is-active{% endif %}"
       {% if endpoint_admin.startswith('admin_moderacion') %}aria-current="page"{% endif %}
     >
       Moderación
-      {% if resumen is defined %}
+      {% if conteos is defined %}
+        {% set pendientes_moderacion = conteos.pendiente|default(0)|int %}
+        <span class="admin-nav-uniforme__contador">
+          {{ pendientes_moderacion }}
+          {% if pendientes_moderacion == 1 %}pendiente{% else %}pendientes{% endif %}
+        </span>
+      {% elif resumen is defined %}
         {% set pendientes_moderacion = resumen.total_moderacion_pendiente|default(0)|int %}
         <span class="admin-nav-uniforme__contador">
           {{ pendientes_moderacion }}
@@ -174,6 +169,30 @@
       {% if endpoint_admin == 'admin_modulos' %}aria-current="page"{% endif %}
     >
       Módulos / Verticales
+    </a>
+
+    <a
+      href="{{ url_for('admin_comercios') }}"
+      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin_comercios' %} is-active{% endif %}"
+      {% if endpoint_admin == 'admin_comercios' %}aria-current="page"{% endif %}
+    >
+      Comercios
+    </a>
+
+    <a
+      href="{{ url_for('admin_nueva_gastronomia') }}"
+      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin_nueva_gastronomia' %} is-active{% endif %}"
+      {% if endpoint_admin == 'admin_nueva_gastronomia' %}aria-current="page"{% endif %}
+    >
+      Nueva Gastronomía
+    </a>
+
+    <a
+      href="{{ url_for('admin_analytics') }}"
+      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin_analytics' %} is-active{% endif %}"
+      {% if endpoint_admin == 'admin_analytics' %}aria-current="page"{% endif %}
+    >
+      Analítica
     </a>
 
     <a

@@ -1,5 +1,6 @@
 from copy import deepcopy
 import calendar
+import unicodedata
 from datetime import date, datetime, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -10,6 +11,28 @@ from config.supabase_config import supabase_admin
 
 
 CATALOGO_MODULOS = {
+    "pos": {
+        "slug": "pos",
+        "nombre": "Gastronomía POS",
+        "categoria_requerida": "gastronomia",
+        "descripcion_corta": (
+            "Operación completa de pedidos, ventas y caja para Gastronomía."
+        ),
+        "descripcion_detalle": (
+            "Amplía las pantallas de Pedidos y Ventas con comandas, "
+            "preparación, venta en el local, cobros y cierres de caja."
+        ),
+        "beneficios": [
+            "Punto de venta integrado al menú gastronómico.",
+            "Comandas y seguimiento operativo de preparación.",
+            "Caja, cobros e historial de cierres.",
+            "Una sola activación para toda la operación POS.",
+        ],
+        "precio": "Consultá el precio y las condiciones de activación.",
+        "endpoint_operativo": "gastronomia.ventas_gastronomia",
+        "disponible": True,
+        "imagenes": [],
+    },
     "turnos": {
         "slug": "turnos",
         "nombre": "Gestión de turnos",
@@ -430,6 +453,35 @@ def slug_modulo_valido(slug):
     return obtener_modulo(slug) is not None
 
 
+def _normalizar_categoria_modulo(valor):
+    texto = unicodedata.normalize(
+        "NFKD",
+        str(valor or "").strip().casefold(),
+    )
+    return " ".join(
+        "".join(
+            caracter
+            for caracter in texto
+            if not unicodedata.combining(caracter)
+        ).split()
+    )
+
+
+def modulo_disponible_para_comercio(slug, comercio):
+    """Aplica las restricciones comerciales del catálogo por comercio."""
+    modulo = obtener_modulo(slug)
+    if not modulo or not modulo.get("disponible"):
+        return False
+
+    categoria_requerida = modulo.get("categoria_requerida")
+    if not categoria_requerida:
+        return True
+
+    return _normalizar_categoria_modulo(
+        (comercio or {}).get("categoria")
+    ) == _normalizar_categoria_modulo(categoria_requerida)
+
+
 def obtener_estados_modulos(comercio_id):
     """Devuelve {slug: activo}. Ante un error, falla cerrado."""
     if not comercio_id:
@@ -466,6 +518,11 @@ def modulo_activo(comercio_id, slug):
         comercio_id,
         slug,
     )["acceso_operativo"]
+
+
+def pos_activo_para_comercio(comercio_id):
+    """Punto único para consultar la activación comercial del POS."""
+    return modulo_activo(comercio_id, "pos")
 
 
 def obtener_modulos_activos(comercio_id):

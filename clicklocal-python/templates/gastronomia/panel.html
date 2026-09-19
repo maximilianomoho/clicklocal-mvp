@@ -6,84 +6,189 @@
 
 {% block panel_hero_texto %}
 <div>
-  <p class="titulo-chico">MI COMERCIO</p>
+  <p class="titulo-chico">GASTRONOMÍA</p>
 
   <h1>
-    Hola, {{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}
+    {{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}
   </h1>
 
-  <p>
-    Administrá tus productos, listas buscables y datos del comercio.
-  </p>
-
-  <p style="margin-top:8px; font-size:14px; opacity:.95;">
-    <strong>Categoría:</strong>
-    Gastronomía
-  </p>
 </div>
 {% endblock %}
 
 
 {% block panel_menu_principal %}
-<a
-  href="#producto"
-  class="panel-menu-link activo"
->
-  Cargar producto
-</a>
-
-<a
-  href="#mis-productos"
-  class="panel-menu-link"
->
-  Mis productos
-</a>
-
-<a
-  href="#configuracion-negocio"
-  class="panel-menu-link"
->
-  Entrega y pedidos
-</a>
-
-<a
-  href="#listas"
-  class="panel-menu-link"
->
-  Listas buscables
-</a>
-
-<a
-  href="#datos"
-  class="panel-menu-link"
->
-  Mis datos
-</a>
-
-<a
-  href="#"
-  class="panel-menu-link abrir-premium-modal"
-  data-premium-origen="plan"
->
-  Mi plan
-</a>
-
-<a
-  href="{{ url_for(
-    'contacto',
-    motivo='Consulta desde mi comercio',
-    whatsapp=comercio.whatsapp or '',
-    origen='panel',
-    comercio_id=comercio.id
-  ) }}"
-  class="panel-menu-link"
->
-  Ayuda / Contactar a ClickLocal
-</a>
+{% include "gastronomia/_panel_nav.html" %}
 {% endblock %}
+
+{% block panel_contenido_general %}{% endblock %}
 
 
 {% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/panel.css') }}">
+
+<header class="mi-negocio-encabezado">
+  <p class="titulo-chico">MI NEGOCIO</p>
+  <h2>{% if panel_seccion == 'configuracion' %}Configuración del negocio{% else %}Menú y productos{% endif %}</h2>
+  <p>{% if panel_seccion == 'configuracion' %}Definí los datos, modalidades y condiciones de tu comercio.{% else %}Administrá el catálogo que ven tus clientes.{% endif %}</p>
+</header>
+
+{% if panel_seccion == 'configuracion' %}
+
+<article
+  id="datos-comercio"
+  class="panel-card"
+>
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">
+        COMERCIO
+      </p>
+
+      <h2>
+        Datos del comercio
+      </h2>
+
+      <p class="panel-descripcion">
+        Actualizá los datos básicos que identifican tu comercio.
+      </p>
+    </div>
+  </div>
+
+  {% if request.args.get("datos_comercio_ok") == "1" %}
+    <div
+      style="margin-bottom:16px;padding:14px;border-radius:12px;background:#e8f7ee;color:#166534;font-weight:700;"
+    >
+      Datos del comercio actualizados correctamente.
+    </div>
+  {% endif %}
+
+  {% if request.args.get("datos_comercio_error") %}
+    <div
+      style="margin-bottom:16px;padding:14px;border-radius:12px;background:#fff1f1;color:#991b1b;font-weight:700;"
+    >
+      {% if request.args.get("datos_comercio_error") == "campos" %}
+        Completá el nombre, la dirección, la ciudad y un WhatsApp válido.
+      {% else %}
+        No se pudieron guardar los datos del comercio. Intentá nuevamente.
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <form
+    method="post"
+    action="{{ url_for('gastronomia.guardar_datos_comercio') }}"
+  >
+    <div
+      style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;"
+    >
+      <label>
+        <strong>Nombre del negocio</strong>
+        <input
+          type="text"
+          name="nombre_negocio"
+          value="{{ comercio.nombre_negocio or comercio.nombre or '' }}"
+          required
+          style="width:100%;margin-top:7px;padding:11px 12px;border:1px solid #ccc;border-radius:10px;font-size:16px;"
+        >
+      </label>
+
+      <label>
+        <strong>Dirección</strong>
+        <input
+          type="text"
+          name="direccion"
+          value="{{ comercio.direccion or comercio.direccion_mostrar or '' }}"
+          required
+          style="width:100%;margin-top:7px;padding:11px 12px;border:1px solid #ccc;border-radius:10px;font-size:16px;"
+        >
+      </label>
+
+      <label>
+        <strong>Ciudad</strong>
+        <input
+          type="text"
+          name="ciudad"
+          value="{{ comercio.ciudad or '' }}"
+          required
+          style="width:100%;margin-top:7px;padding:11px 12px;border:1px solid #ccc;border-radius:10px;font-size:16px;"
+        >
+      </label>
+
+      <label>
+        <strong>WhatsApp</strong>
+        <input
+          type="tel"
+          name="whatsapp"
+          value="{{ comercio.whatsapp or '' }}"
+          required
+          style="width:100%;margin-top:7px;padding:11px 12px;border:1px solid #ccc;border-radius:10px;font-size:16px;"
+        >
+      </label>
+    </div>
+
+    <label style="display:block;margin-top:16px;">
+      <strong>Descripción</strong>
+      <textarea
+        name="descripcion"
+        rows="4"
+        placeholder="Contá brevemente qué ofrece tu negocio."
+        style="width:100%;margin-top:7px;padding:11px 12px;border:1px solid #ccc;border-radius:10px;font-size:16px;resize:vertical;"
+      >{{ comercio.descripcion or '' }}</textarea>
+    </label>
+
+    <div style="margin-top:20px;">
+      <button
+        type="submit"
+        class="btn-principal mi-negocio-btn mi-negocio-btn--primario"
+      >
+        Guardar datos del comercio
+      </button>
+    </div>
+  </form>
+
+  <section style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb;">
+    <p class="titulo-chico">LOGO DEL NEGOCIO</p>
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <div style="width:120px;height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #d8dee7;border-radius:18px;background:#fff;">
+        {% if comercio.logo_url %}
+          <img src="{{ comercio.logo_url }}" alt="Logo actual de {{ comercio.nombre_negocio or 'tu negocio' }}" style="width:100%;height:100%;object-fit:contain;">
+        {% else %}
+          <strong style="font-size:2rem;color:#681823;" aria-label="Sin logo">{{ (comercio.nombre_negocio or 'C')[:1]|upper }}</strong>
+        {% endif %}
+      </div>
+      <div style="flex:1;min-width:220px;">
+        <h3 style="margin:0 0 6px;">Tu imagen en ClickLocal</h3>
+        <p class="panel-descripcion">Subí una imagen cuadrada. Si no tenés logo, se mostrará la inicial del negocio.</p>
+      </div>
+    </div>
+
+    {% if request.args.get('logo_ok') %}
+      <div style="margin-top:14px;padding:12px;border-radius:10px;background:#e8f7ee;color:#166534;font-weight:700;">
+        {% if request.args.get('logo_ok') == 'quitado' %}Logo quitado correctamente.{% else %}Logo guardado correctamente.{% endif %}
+      </div>
+    {% elif request.args.get('logo_error') %}
+      <div style="margin-top:14px;padding:12px;border-radius:10px;background:#fff1f1;color:#991b1b;font-weight:700;">
+        No se pudo actualizar el logo. Revisá la imagen e intentá nuevamente.
+      </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('subir_logo_negocio') }}" enctype="multipart/form-data" style="margin-top:16px;">
+      <input type="hidden" name="retorno" value="gastronomia">
+      <label>
+        <strong>Elegir imagen</strong>
+        <input type="file" name="logo" accept="image/*,.heic,.heif" required style="display:block;margin-top:7px;">
+      </label>
+      <button type="submit" class="btn-principal mi-negocio-btn mi-negocio-btn--primario" style="margin-top:12px;">Guardar logo</button>
+    </form>
+
+    {% if comercio.logo_url %}
+      <form method="post" action="{{ url_for('quitar_logo_negocio') }}" style="margin-top:10px;" onsubmit="return confirm('¿Querés quitar el logo del negocio?');">
+        <input type="hidden" name="retorno" value="gastronomia">
+        <button type="submit" class="mi-negocio-btn mi-negocio-btn--secundario">Quitar logo</button>
+      </form>
+    {% endif %}
+  </section>
+</article>
 
 
 
@@ -148,6 +253,10 @@
         El pedido mínimo ingresado no es válido.
       {% elif error_config == "costo_envio" %}
         El costo de envío ingresado no es válido.
+      {% elif error_config == "delivery_distancia" %}
+        Revisá la dirección de salida y las franjas de distancia.
+      {% elif error_config == "delivery_ubicacion" %}
+        Ingresá una latitud y longitud válidas para el origen del delivery.
       {% elif error_config == "tiempo" %}
         Ingresá un tiempo estimado válido en minutos.
       {% else %}
@@ -242,7 +351,7 @@
           name="pedido_minimo"
           inputmode="decimal"
           placeholder="Sin mínimo"
-          value="{{ configuracion.pedido_minimo|int if configuracion.pedido_minimo is not none else 0 }}"
+          value="{{ configuracion.pedido_minimo_input }}"
           style="
             width:100%;
             margin-top:7px;
@@ -265,6 +374,86 @@
       </label>
 
 
+      <section
+        id="delivery-distancia"
+        style="grid-column:1/-1;border:1px solid #ddd;border-radius:12px;padding:16px;"
+      >
+        <h3 style="margin:0 0 14px;">Delivery por distancia</h3>
+
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <input
+            type="checkbox"
+            name="delivery_distancia_activo"
+            id="deliveryDistanciaActivo"
+            {% if configuracion.delivery_distancia_activo %}checked{% endif %}
+          >
+          <strong>Calcular envío por distancia</strong>
+        </label>
+
+        <div id="deliveryDistanciaCampos">
+          {% if request.args.get("ubicacion_delivery_ok") == "1" %}
+            <div style="margin-bottom:14px;padding:12px;border-radius:10px;background:#e8f7ee;color:#166534;font-weight:700;">
+              Ubicación de salida guardada correctamente.
+            </div>
+          {% endif %}
+
+          {% if request.args.get("ubicacion_delivery_error") == "1" %}
+            <div style="margin-bottom:14px;padding:12px;border-radius:10px;background:#fff1f1;color:#991b1b;font-weight:700;">
+              No pudimos ubicar ese número. Revisá la calle y la altura.
+            </div>
+          {% endif %}
+
+          <label style="display:block;margin-bottom:14px;">
+            <strong>Dirección de salida del delivery</strong>
+            <input
+              type="text"
+              name="delivery_origen_direccion"
+              maxlength="300"
+              value="{{ configuracion.delivery_origen_direccion or '' }}"
+              placeholder="San Martín 1234, Paraná, Entre Ríos"
+              style="width:100%;margin-top:7px;padding:11px 12px;border:1px solid #ccc;border-radius:10px;font-size:16px;"
+            >
+          </label>
+
+          <div style="margin-bottom:14px;">
+            <button
+              type="submit"
+              class="mi-negocio-btn mi-negocio-btn--secundario"
+              formaction="{{ url_for('gastronomia.guardar_ubicacion_delivery') }}"
+              formmethod="post"
+              formnovalidate
+            >
+              Guardar ubicación de salida del delivery
+            </button>
+          </div>
+
+          <div id="deliveryFranjas">
+            {% set franjas = configuracion.delivery_franjas_input %}
+            {% if not franjas %}
+              {% set franjas = [{'hasta_km': '', 'precio': ''}] %}
+            {% endif %}
+            {% for franja in franjas %}
+              <div class="delivery-franja" style="display:flex;align-items:end;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+                <label>
+                  Hasta
+                  <input type="text" inputmode="decimal" name="delivery_hasta_km" value="{{ franja.hasta_km }}" style="width:90px;padding:9px;">
+                  km
+                </label>
+                <label>
+                  $
+                  <input type="text" inputmode="decimal" name="delivery_precio" value="{{ franja.precio }}" style="width:120px;padding:9px;">
+                </label>
+                <button type="button" class="quitar-franja mi-negocio-btn mi-negocio-btn--chico">Quitar</button>
+              </div>
+            {% endfor %}
+          </div>
+
+          <button type="button" id="agregarFranjaDelivery" class="mi-negocio-btn mi-negocio-btn--chico">+ Agregar franja</button>
+          <small style="display:block;margin-top:8px;color:#666;">Máximo 5 franjas. Fuera del límite máximo, el delivery no estará disponible.</small>
+        </div>
+      </section>
+
+
       <label>
         <strong>
           Costo de envío
@@ -275,7 +464,7 @@
           name="costo_envio"
           inputmode="decimal"
           placeholder="Ej.: 1500"
-          value="{{ configuracion.costo_envio|int if configuracion.costo_envio is not none else 0 }}"
+          value="{{ configuracion.costo_envio_input }}"
           style="
             width:100%;
             margin-top:7px;
@@ -342,7 +531,7 @@
           min="0"
           max="100"
           step="0.01"
-          value="{{ configuracion.descuento_efectivo_pct or 0 }}"
+          value="{{ configuracion.descuento_efectivo_pct_input }}"
           style="
             width:100%;
             margin-top:7px;
@@ -376,7 +565,7 @@
           min="0"
           max="100"
           step="0.01"
-          value="{{ configuracion.descuento_transferencia_pct or 0 }}"
+          value="{{ configuracion.descuento_transferencia_pct_input }}"
           style="
             width:100%;
             margin-top:7px;
@@ -405,7 +594,7 @@
     <div style="margin-top:20px;">
       <button
         type="submit"
-        class="btn-principal"
+        class="btn-principal mi-negocio-btn mi-negocio-btn--primario"
       >
         Guardar configuración
       </button>
@@ -415,7 +604,9 @@
 
 </article>
 
+{% endif %}
 
+{% if panel_seccion == 'productos' %}
 <article
   id="metricas-gastronomia"
   class="panel-card gastronomia-metricas-card"
@@ -427,19 +618,14 @@
       </p>
 
       <h2>
-        Resumen del negocio
+        Rendimiento por producto
       </h2>
 
       <p class="panel-descripcion">
-        Pedidos y ventas registrados por ClickLocal.
+        Elegí el período que se aplica a las métricas de cada producto.
       </p>
     </div>
 
-    {% if es_premium %}
-      <span class="badge">Premium</span>
-    {% else %}
-      <span class="badge">🔒 Premium</span>
-    {% endif %}
   </div>
 
 
@@ -454,7 +640,7 @@
 
       <a
         href="{{ url_for(
-          'gastronomia.panel_gastronomia',
+          'gastronomia.productos_gastronomia',
           periodo_metricas=valor
         ) }}#metricas-gastronomia"
         class="gastronomia-periodo {% if periodo_metricas == valor %}activo{% endif %}"
@@ -466,72 +652,6 @@
 
   </div>
 
-
-  <div class="gastronomia-metricas-grid">
-
-    <button
-      type="button"
-      class="gastronomia-metrica {% if not es_premium %}abrir-premium-modal metrica-bloqueada{% endif %}"
-      {% if not es_premium %}
-      data-premium-origen="metricas"
-      {% endif %}
-    >
-      <span class="gastronomia-metrica-label">
-        Pedidos
-      </span>
-
-      <strong>
-        {% if es_premium %}
-          {{ metricas_gastronomia.pedidos }}
-        {% else %}
-          🔒
-        {% endif %}
-      </strong>
-    </button>
-
-
-    <button
-      type="button"
-      class="gastronomia-metrica {% if not es_premium %}abrir-premium-modal metrica-bloqueada{% endif %}"
-      {% if not es_premium %}
-      data-premium-origen="metricas"
-      {% endif %}
-    >
-      <span class="gastronomia-metrica-label">
-        Ventas
-      </span>
-
-      <strong>
-        {% if es_premium %}
-          {{ metricas_gastronomia.ventas | precio_arg }}
-        {% else %}
-          🔒
-        {% endif %}
-      </strong>
-    </button>
-
-
-    <button
-      type="button"
-      class="gastronomia-metrica {% if not es_premium %}abrir-premium-modal metrica-bloqueada{% endif %}"
-      {% if not es_premium %}
-      data-premium-origen="metricas"
-      {% endif %}
-    >
-      <span class="gastronomia-metrica-label">
-        Ticket promedio
-      </span>
-
-      <strong>
-        {% if es_premium %}
-          {{ metricas_gastronomia.ticket_promedio | precio_arg }}
-        {% else %}
-          🔒
-        {% endif %}
-      </strong>
-    </button>
-
-  </div>
 </article>
 
 
@@ -724,6 +844,34 @@
 
 
     <div class="campo">
+      <label for="gastronomia-categoria-selector">
+        Categoría
+      </label>
+
+      <select id="gastronomia-categoria-selector">
+        <option value="">Sin categoría</option>
+        {% for categoria in categorias %}
+          <option value="{{ categoria | e }}">{{ categoria }}</option>
+        {% endfor %}
+        <option value="__nueva__">+ Nueva categoría</option>
+      </select>
+
+      <div id="gastronomia-categoria-nueva-contenedor" hidden>
+        <label for="gastronomia-categoria-nueva">
+          Nueva categoría
+        </label>
+        <input
+          type="text"
+          id="gastronomia-categoria-nueva"
+          placeholder="Ej: Hamburguesas"
+        >
+      </div>
+
+      <input type="hidden" name="categoria" id="gastronomia-categoria">
+    </div>
+
+
+    <div class="campo">
       <label>
         Descripción
       </label>
@@ -740,7 +888,7 @@
     <button
       type="submit"
       id="guardar-producto"
-      class="boton-principal-form"
+      class="boton-principal-form mi-negocio-btn mi-negocio-btn--primario"
     >
       Cargar producto
     </button>
@@ -748,7 +896,7 @@
     <button
       type="button"
       id="cancelar-edicion-producto"
-      class="boton-secundario"
+      class="boton-secundario mi-negocio-btn mi-negocio-btn--secundario"
       style="
         display:none;
         margin-top:10px;
@@ -914,8 +1062,6 @@
 
 
 
-          {% if es_premium %}
-
           {% set rendimiento = metricas_por_producto.get(
             producto.id|string,
             {}
@@ -956,25 +1102,6 @@
 
           </div>
 
-          {% else %}
-
-          <button
-            type="button"
-            class="rendimiento-producto-gastronomia rendimiento-producto-bloqueado abrir-premium-modal"
-            data-premium-origen="metricas"
-          >
-            <strong>
-              Rendimiento 🔒
-            </strong>
-
-            <span>
-              Disponible en Gastronomía Premium
-            </span>
-          </button>
-
-          {% endif %}
-
-
           </div>
 
 
@@ -989,7 +1116,8 @@
                 producto_id=producto.id
               ) }}"
               data-nombre="{{ producto.nombre | default('', true) | e }}"
-              data-precio="{{ producto.precio or '' }}"
+              data-precio="{{ producto.precio_input }}"
+              data-categoria="{{ producto.categoria | default('', true) | e }}"
               data-descripcion="{{ producto.descripcion | default('', true) | e }}"
               data-imagen="{{ producto.imagen_url or '' }}"
             >
@@ -997,28 +1125,14 @@
             </button>
 
 
-            {% if es_premium %}
-
             <a
               href="{{ url_for(
                 'gastronomia.extras_producto',
                 producto_id=producto.id
               ) }}"
             >
-              Extras
+              Opciones y extras
             </a>
-
-            {% else %}
-
-            <button
-              type="button"
-              class="abrir-premium-modal premium-bloqueado-btn"
-              data-premium-origen="extras"
-            >
-              Extras 🔒
-            </button>
-
-            {% endif %}
 
 
             <form
@@ -1057,9 +1171,6 @@
 
 
           <div class="acciones-visibilidad">
-
-            {% if es_premium %}
-
 
             {% if producto.activo %}
 
@@ -1141,7 +1252,7 @@
                   type="text"
                   name="precio_promocional"
                   inputmode="decimal"
-                  value="{{ producto.precio_promocional or '' }}"
+                  value="{{ producto.precio_promocional_input }}"
                   placeholder="Ej: 12000"
                   required
                 >
@@ -1233,26 +1344,6 @@
 
             {% endif %}
 
-          
-            {% else %}
-
-            <button
-              type="button"
-              class="abrir-premium-modal premium-bloqueado-btn"
-              data-premium-origen="destacados"
-            >
-              Destacar 🔒
-            </button>
-
-            <button
-              type="button"
-              class="abrir-premium-modal premium-bloqueado-btn"
-              data-premium-origen="promociones"
-            >
-              Promociones 🔒
-            </button>
-
-            {% endif %}
 
 </div>
 
@@ -1322,6 +1413,26 @@
       "gastronomia-precio"
     );
 
+  const categoria =
+    document.getElementById(
+      "gastronomia-categoria"
+    );
+
+  const categoriaSelector =
+    document.getElementById(
+      "gastronomia-categoria-selector"
+    );
+
+  const categoriaNueva =
+    document.getElementById(
+      "gastronomia-categoria-nueva"
+    );
+
+  const categoriaNuevaContenedor =
+    document.getElementById(
+      "gastronomia-categoria-nueva-contenedor"
+    );
+
   const descripcion =
     document.getElementById(
       "gastronomia-descripcion"
@@ -1343,11 +1454,63 @@
   }
 
 
+  function normalizarCategoria(valor) {
+    return String(valor || "")
+      .trim()
+      .toLocaleLowerCase("es");
+  }
+
+
+  function sincronizarCategoria() {
+    const esNueva =
+      categoriaSelector.value === "__nueva__";
+
+    categoriaNuevaContenedor.hidden =
+      !esNueva;
+
+    categoria.value = esNueva
+      ? categoriaNueva.value.trim()
+      : categoriaSelector.value;
+  }
+
+
+  function seleccionarCategoriaActual(valor) {
+    const categoriaActual =
+      String(valor || "").trim();
+
+    const claveActual =
+      normalizarCategoria(categoriaActual);
+
+    const opcionExistente =
+      Array.from(categoriaSelector.options)
+      .find(function (opcion) {
+        return opcion.value !== "__nueva__" &&
+          normalizarCategoria(opcion.value) === claveActual;
+      });
+
+    if (opcionExistente) {
+      categoriaSelector.value =
+        opcionExistente.value;
+      categoriaNueva.value = "";
+    } else if (categoriaActual) {
+      categoriaSelector.value = "__nueva__";
+      categoriaNueva.value = categoriaActual;
+    } else {
+      categoriaSelector.value = "";
+      categoriaNueva.value = "";
+    }
+
+    sincronizarCategoria();
+  }
+
+
   function volverCrear() {
     form.action =
       form.dataset.createAction;
 
     form.reset();
+
+    sincronizarCategoria();
 
     imagenUrl.value = "";
 
@@ -1423,6 +1586,10 @@
           precio.value =
             editar.dataset.precio || "";
 
+          seleccionarCategoriaActual(
+            editar.dataset.categoria
+          );
+
           descripcion.value =
             editar.dataset.descripcion || "";
 
@@ -1470,9 +1637,23 @@
   );
 
 
+  categoriaSelector.addEventListener(
+    "change",
+    sincronizarCategoria
+  );
+
+
+  categoriaNueva.addEventListener(
+    "input",
+    sincronizarCategoria
+  );
+
+
   form.addEventListener(
     "submit",
     async function (evento) {
+
+      sincronizarCategoria();
 
       if (imagenUrl.value) {
         return;
@@ -1713,15 +1894,6 @@
   line-height:1.15;
 }
 
-.metrica-bloqueada,
-.premium-bloqueado-btn{
-  cursor:pointer;
-}
-
-.metrica-bloqueada{
-  background:#fafafa;
-}
-
 .rendimiento-producto-gastronomia{
   width:100%;
   box-sizing:border-box;
@@ -1755,345 +1927,49 @@
   font-weight:700;
 }
 
-.rendimiento-producto-bloqueado{
-  cursor:pointer;
-  font:inherit;
-}
-
-.rendimiento-producto-bloqueado strong,
-.rendimiento-producto-bloqueado span{
-  display:block;
-}
-
-.rendimiento-producto-bloqueado span{
-  margin-top:4px;
-  color:#6b7280;
-  font-size:12px;
-}
-
-.premium-modal-fondo{
-  position:fixed;
-  inset:0;
-  z-index:9999;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-  background:rgba(0,0,0,.48);
-}
-
-.premium-modal-fondo.visible{
-  display:flex;
-}
-
-.premium-modal{
-  width:min(560px,100%);
-  max-height:90vh;
-  overflow:auto;
-  background:#fff;
-  border-radius:20px;
-  padding:24px;
-  box-shadow:0 24px 80px rgba(0,0,0,.22);
-}
-
-.premium-modal-cabecera{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:16px;
-}
-
-.premium-modal-cerrar{
-  border:0;
-  background:#f3f3f3;
-  width:38px;
-  height:38px;
-  border-radius:50%;
-  cursor:pointer;
-  font-size:20px;
-}
-
-.premium-modal-estado{
-  margin:16px 0;
-  padding:12px 14px;
-  border-radius:12px;
-  background:#f7f7f7;
-  font-weight:700;
-}
-
-.premium-comparacion{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:12px;
-  margin:18px 0;
-}
-
-.premium-plan-box{
-  border:1px solid #e5e5e5;
-  border-radius:14px;
-  padding:16px;
-}
-
-.premium-plan-box h3{
-  margin:0 0 10px;
-}
-
-.premium-plan-box ul{
-  margin:0;
-  padding-left:19px;
-}
-
-.premium-plan-box li{
-  margin:7px 0;
-}
-
-.premium-plan-destacado{
-  border-color:#681823;
-}
-
-.premium-modal-cta{
-  width:100%;
-  border:0;
-  border-radius:999px;
-  padding:13px 18px;
-  background:#681823;
-  color:#fff;
-  font-weight:800;
-  cursor:pointer;
-}
-
 @media (max-width:700px){
   .gastronomia-metricas-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
-
-  .premium-comparacion{
-    grid-template-columns:1fr;
-  }
 }
 </style>
 
-
-<div
-  id="premium-gastronomia-modal"
-  class="premium-modal-fondo"
-  aria-hidden="true"
->
-  <div
-    class="premium-modal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="premium-modal-titulo"
-  >
-    <div class="premium-modal-cabecera">
-      <div>
-        <p class="titulo-chico">
-          GASTRONOMÍA
-        </p>
-
-        <h2 id="premium-modal-titulo">
-          Gastronomía Premium
-        </h2>
-      </div>
-
-      <button
-        type="button"
-        class="premium-modal-cerrar"
-        aria-label="Cerrar"
-      >
-        ×
-      </button>
-    </div>
-
-    <p
-      id="premium-modal-mensaje"
-      class="panel-descripcion"
-    >
-      Compará las funciones disponibles en cada plan.
-    </p>
-
-    {% if not es_premium %}
-    <div class="premium-modal-estado">
-      Tu plan actual: Gratis ·
-      {{ cantidad_productos_activos }}
-      de
-      {{ limite_productos_gratis }}
-      productos activos
-    </div>
-    {% else %}
-    <div class="premium-modal-estado">
-      Tu plan actual: Premium
-    </div>
-    {% endif %}
-
-
-    <div class="premium-comparacion">
-
-      <div class="premium-plan-box">
-        <h3>Gratis</h3>
-
-        <ul>
-          <li>Hasta 10 productos activos</li>
-          <li>1 foto por producto</li>
-          <li>Crear y editar productos</li>
-          <li>Pausar y reactivar</li>
-          <li>Eliminar productos</li>
-        </ul>
-      </div>
-
-
-      <div class="premium-plan-box premium-plan-destacado">
-        <h3>Premium</h3>
-
-        <ul>
-          <li>Más capacidad de productos</li>
-          <li>Extras y modificadores</li>
-          <li>Promociones</li>
-          <li>Productos destacados</li>
-          <li>Métricas de pedidos y ventas</li>
-          <li>Rendimiento detallado por producto</li>
-        </ul>
-      </div>
-
-    </div>
-
-
-    {% if not es_premium %}
-    <form
-      method="POST"
-      action="{{ url_for('solicitar_premium') }}"
-    >
-      <button
-        type="submit"
-        class="premium-modal-cta"
-      >
-        Pasar a Gastronomía Premium
-      </button>
-    </form>
-    {% endif %}
-
-  </div>
-</div>
-
+{% endif %}
 
 <script>
 (function(){
+  const activo = document.getElementById("deliveryDistanciaActivo");
+  const campos = document.getElementById("deliveryDistanciaCampos");
+  const franjas = document.getElementById("deliveryFranjas");
+  const agregar = document.getElementById("agregarFranjaDelivery");
+  if(!activo || !campos || !franjas || !agregar){ return; }
 
-  const fondo =
-    document.getElementById(
-      "premium-gastronomia-modal"
-    );
-
-  if(!fondo){
-    return;
-  }
-
-  const mensaje =
-    document.getElementById(
-      "premium-modal-mensaje"
-    );
-
-  const textos = {
-    plan:
-      "Compará las funciones disponibles en cada plan.",
-
-    extras:
-      "Los extras y modificadores están disponibles en Gastronomía Premium.",
-
-    promociones:
-      "Las promociones están disponibles en Gastronomía Premium.",
-
-    destacados:
-      "Destacar productos está disponible en Gastronomía Premium.",
-
-    metricas:
-      "Las métricas de pedidos, ventas y rendimiento por producto están disponibles en Gastronomía Premium."
-  };
-
-
-  function abrir(origen){
-    if(mensaje){
-      mensaje.textContent =
-        textos[origen] || textos.plan;
-    }
-
-    fondo.classList.add("visible");
-    fondo.setAttribute(
-      "aria-hidden",
-      "false"
-    );
-  }
-
-
-  function cerrar(){
-    fondo.classList.remove("visible");
-    fondo.setAttribute(
-      "aria-hidden",
-      "true"
-    );
-  }
-
-
-  document
-    .querySelectorAll(
-      ".abrir-premium-modal"
-    )
-    .forEach(function(elemento){
-
-      elemento.addEventListener(
-        "click",
-        function(evento){
-          evento.preventDefault();
-
-          abrir(
-            elemento.dataset.premiumOrigen
-            || "plan"
-          );
-        }
-      );
+  function actualizar(){
+    campos.hidden = !activo.checked;
+    franjas.querySelectorAll(".quitar-franja").forEach(function(boton){
+      boton.disabled = franjas.children.length <= 1;
     });
-
-
-  const cerrarBoton =
-    fondo.querySelector(
-      ".premium-modal-cerrar"
-    );
-
-  if(cerrarBoton){
-    cerrarBoton.addEventListener(
-      "click",
-      cerrar
-    );
+    agregar.disabled = franjas.children.length >= 5;
   }
 
-
-  fondo.addEventListener(
-    "click",
-    function(evento){
-      if(evento.target === fondo){
-        cerrar();
-      }
-    }
-  );
-
-
-  document.addEventListener(
-    "keydown",
-    function(evento){
-      if(evento.key === "Escape"){
-        cerrar();
-      }
-    }
-  );
-
-
-  const origenBackend =
-    {{ (request.args.get("premium_bloqueado") or "") | tojson }};
-
-  if(origenBackend){
-    abrir(origenBackend);
-  }
-
+  activo.addEventListener("change", actualizar);
+  agregar.addEventListener("click", function(){
+    if(franjas.children.length >= 5){ return; }
+    const fila = document.createElement("div");
+    fila.className = "delivery-franja";
+    fila.style.cssText = "display:flex;align-items:end;gap:10px;margin-bottom:10px;flex-wrap:wrap;";
+    fila.innerHTML = '<label>Hasta <input type="text" inputmode="decimal" name="delivery_hasta_km" style="width:90px;padding:9px;"> km</label>' +
+      '<label>$ <input type="text" inputmode="decimal" name="delivery_precio" style="width:120px;padding:9px;"></label>' +
+      '<button type="button" class="quitar-franja mi-negocio-btn mi-negocio-btn--chico">Quitar</button>';
+    franjas.appendChild(fila);
+    actualizar();
+  });
+  franjas.addEventListener("click", function(evento){
+    if(!evento.target.classList.contains("quitar-franja") || franjas.children.length <= 1){ return; }
+    evento.target.closest(".delivery-franja").remove();
+    actualizar();
+  });
+  actualizar();
 })();
 </script>
 

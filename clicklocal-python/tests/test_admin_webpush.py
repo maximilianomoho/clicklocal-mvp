@@ -121,7 +121,11 @@ def test_no_admin_no_puede_suscribirse(monkeypatch):
 def _ejecutar_solicitud(monkeypatch, db, push_mock):
     monkeypatch.setattr(app_module, "supabase_admin", db)
     monkeypatch.setattr(app_module, "_user_id_panel_efectivo", lambda: "user-1")
-    monkeypatch.setattr(app_module, "modulo_asignado", lambda *args: False)
+    monkeypatch.setattr(
+        app_module,
+        "evaluar_vigencia_modulo",
+        lambda *args: {"existe": False},
+    )
     monkeypatch.setattr(app_module, "enviar_notificacion_admin", push_mock)
     with app_module.app.test_request_context(
         "/panel/modulos/turnos/solicitar-instalacion", method="POST"

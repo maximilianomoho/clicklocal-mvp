@@ -3239,6 +3239,203 @@ input{
 
 const carrito = {};
 
+const estadoCheckout = {
+  nombre:"",
+  apellido:"",
+  whatsapp:"",
+  modalidad:"",
+  direccion:"",
+  formaPago:"",
+  pagaCon:"",
+  notaGeneral:"",
+  cotizacion:{
+    costo:null,
+    distancia:null,
+    direccion:"",
+    telefono:"",
+    token:"",
+    resultadoTexto:""
+  }
+};
+
+
+function limpiarCotizacionEstadoCheckout(){
+  estadoCheckout.cotizacion = {
+    costo:null,
+    distancia:null,
+    direccion:"",
+    telefono:"",
+    token:"",
+    resultadoTexto:""
+  };
+}
+
+
+function capturarEstadoCheckout(contenedor){
+  if(!contenedor){ return; }
+
+  const bloque = contenedor.querySelector(".cart-delivery-step");
+  const nombre = contenedor.querySelector(".cart-customer-first-name");
+  const apellido = contenedor.querySelector(".cart-customer-last-name");
+  const whatsapp = contenedor.querySelector(".cart-customer-phone");
+  const direccion = contenedor.querySelector(".cart-delivery-address-input");
+  const pagaCon = contenedor.querySelector(".cart-cash-input");
+  const notaGeneral = contenedor.querySelector(".cart-general-note-input");
+
+  if(nombre){ estadoCheckout.nombre = nombre.value; }
+  if(apellido){ estadoCheckout.apellido = apellido.value; }
+  if(whatsapp){ estadoCheckout.whatsapp = whatsapp.value; }
+  if(direccion){ estadoCheckout.direccion = direccion.value; }
+  if(pagaCon){ estadoCheckout.pagaCon = pagaCon.value; }
+  if(notaGeneral){ estadoCheckout.notaGeneral = notaGeneral.value; }
+
+  if(bloque){
+    estadoCheckout.modalidad = obtenerRadioSeleccionado(
+      bloque,
+      'input[name^="modalidad-pedido"]'
+    );
+    estadoCheckout.formaPago = obtenerRadioSeleccionado(
+      bloque,
+      'input[name^="forma-pago-"]'
+    );
+
+    if(bloque.dataset.deliveryToken){
+      const resultado = bloque.querySelector(".delivery-quote-result");
+      estadoCheckout.cotizacion = {
+        costo:bloque.dataset.deliveryCosto || null,
+        distancia:bloque.dataset.deliveryDistancia || null,
+        direccion:bloque.dataset.deliveryDireccion || "",
+        telefono:bloque.dataset.deliveryTelefono || estadoCheckout.whatsapp,
+        token:bloque.dataset.deliveryToken,
+        resultadoTexto:resultado ? resultado.textContent : ""
+      };
+    }
+  }
+}
+
+
+function capturarEstadoCheckoutActivo(contenedorProximoRender){
+  const backdrop = document.getElementById("mobileCartBackdrop");
+  const mobile = document.getElementById("mobileCartContent");
+  const desktop = document.querySelector(".cart");
+
+  if(
+    backdrop &&
+    backdrop.classList.contains("open") &&
+    mobile &&
+    mobile.querySelector(".cart-delivery-step")
+  ){
+    capturarEstadoCheckout(mobile);
+    return;
+  }
+
+  if(
+    desktop &&
+    desktop !== contenedorProximoRender &&
+    desktop.querySelector(".cart-delivery-step")
+  ){
+    capturarEstadoCheckout(desktop);
+    return;
+  }
+
+  capturarEstadoCheckout(contenedorProximoRender);
+}
+
+
+function restaurarEstadoCheckout(contenedor){
+  if(!contenedor){ return; }
+
+  const asignarValor = function(selector, valor){
+    const campo = contenedor.querySelector(selector);
+    if(campo){ campo.value = valor || ""; }
+    return campo;
+  };
+
+  asignarValor(".cart-customer-first-name", estadoCheckout.nombre);
+  asignarValor(".cart-customer-last-name", estadoCheckout.apellido);
+  asignarValor(".cart-customer-phone", estadoCheckout.whatsapp);
+  const direccion = asignarValor(
+    ".cart-delivery-address-input",
+    estadoCheckout.direccion
+  );
+  const pagaCon = asignarValor(".cart-cash-input", estadoCheckout.pagaCon);
+  asignarValor(".cart-general-note-input", estadoCheckout.notaGeneral);
+
+  const bloque = contenedor.querySelector(".cart-delivery-step");
+  if(!bloque){ return; }
+
+  delete bloque.dataset.deliveryCosto;
+  delete bloque.dataset.deliveryDistancia;
+  delete bloque.dataset.deliveryDireccion;
+  delete bloque.dataset.deliveryTelefono;
+  delete bloque.dataset.deliveryToken;
+  const resultadoCotizacion = bloque.querySelector(".delivery-quote-result");
+  if(resultadoCotizacion){
+    resultadoCotizacion.hidden = true;
+    resultadoCotizacion.textContent = "";
+    resultadoCotizacion.classList.remove("error");
+  }
+
+  const modalidad = Array.from(
+    bloque.querySelectorAll('input[name^="modalidad-pedido"]')
+  ).find(function(input){
+    return input.value === estadoCheckout.modalidad;
+  });
+  if(modalidad){
+    modalidad.checked = true;
+    actualizarCompactChoice(modalidad);
+  }
+
+  const formaPago = Array.from(
+    bloque.querySelectorAll('input[name^="forma-pago-"]')
+  ).find(function(input){
+    return input.value === estadoCheckout.formaPago;
+  });
+  if(formaPago){
+    formaPago.checked = true;
+    actualizarCompactChoice(formaPago);
+  }
+
+  const esDelivery = estadoCheckout.modalidad === "Delivery";
+  const direccionWrap = bloque.querySelector(".cart-delivery-address");
+  if(direccionWrap){ direccionWrap.classList.toggle("visible", esDelivery); }
+
+  actualizarEstadoFormaPago(bloque);
+
+  const cashWrap = bloque.querySelector(".cart-cash-wrap");
+  if(cashWrap){
+    cashWrap.classList.toggle(
+      "visible",
+      estadoCheckout.formaPago === "Efectivo"
+    );
+  }
+
+  const cotizacion = estadoCheckout.cotizacion;
+  const cotizacionValida = Boolean(
+    esDelivery &&
+    cotizacion.token &&
+    direccion &&
+    direccion.value.trim() === cotizacion.direccion &&
+    estadoCheckout.whatsapp.trim() === cotizacion.telefono
+  );
+
+  if(cotizacionValida){
+    bloque.dataset.deliveryCosto = String(cotizacion.costo ?? "");
+    bloque.dataset.deliveryDistancia = String(cotizacion.distancia ?? "");
+    bloque.dataset.deliveryDireccion = cotizacion.direccion;
+    bloque.dataset.deliveryTelefono = cotizacion.telefono;
+    bloque.dataset.deliveryToken = cotizacion.token;
+    if(resultadoCotizacion){
+      resultadoCotizacion.hidden = false;
+      resultadoCotizacion.textContent = cotizacion.resultadoTexto;
+    }
+  }
+
+  actualizarResumenDescuentoPago(bloque);
+  actualizarResumenCostoEnvio(bloque);
+  if(pagaCon){ actualizarCambioPedido(pagaCon); }
+}
+
 
 function autoAjustarAclaracionProducto(campo){
 
@@ -3482,8 +3679,13 @@ function cerrarCarritoMobile(){
     return;
   }
 
+  const mobile = document.getElementById("mobileCartContent");
+  capturarEstadoCheckout(mobile);
+
   backdrop.classList.remove("open");
   document.body.style.overflow = "";
+
+  restaurarEstadoCheckout(document.querySelector(".cart"));
 }
 
 
@@ -3522,6 +3724,8 @@ function actualizarDireccionEntrega(input){
   const esDelivery =
     input.value === "Delivery" &&
     input.checked;
+
+  invalidarCotizacionDelivery(bloque);
 
   direccion.classList.toggle(
     "visible",
@@ -3761,6 +3965,18 @@ function obtenerCostoEnvioPedido(bloque){
     return 0;
   }
 
+  const deliveryPorDistancia =
+    {{ configuracion.delivery_distancia_activo | default(false) | tojson }};
+
+  if(deliveryPorDistancia){
+    const costoCotizado = Number(
+      bloque.dataset.deliveryCosto
+    );
+    return Number.isFinite(costoCotizado) && costoCotizado >= 0
+      ? costoCotizado
+      : 0;
+  }
+
   const costo =
     Number("{{ configuracion.costo_envio or 0 }}");
 
@@ -3769,6 +3985,101 @@ function obtenerCostoEnvioPedido(bloque){
   }
 
   return costo;
+}
+
+
+function invalidarCotizacionDelivery(bloque){
+  if(!bloque){ return; }
+  limpiarCotizacionEstadoCheckout();
+  delete bloque.dataset.deliveryCosto;
+  delete bloque.dataset.deliveryDistancia;
+  delete bloque.dataset.deliveryDireccion;
+  delete bloque.dataset.deliveryTelefono;
+  delete bloque.dataset.deliveryToken;
+  const resultado = bloque.querySelector(".delivery-quote-result");
+  if(resultado){
+    resultado.hidden = true;
+    resultado.textContent = "";
+    resultado.classList.remove("error");
+  }
+  actualizarResumenCostoEnvio(bloque);
+}
+
+
+function invalidarCotizacionPorTelefono(input){
+  const contenedor = input.closest("#mobileCartContent, .cart");
+  if(!contenedor){ return; }
+  invalidarCotizacionDelivery(
+    contenedor.querySelector(".cart-delivery-step")
+  );
+}
+
+
+async function cotizarDelivery(boton){
+  const bloque = boton.closest(".cart-delivery-step");
+  const direccion = bloque && bloque.querySelector(".cart-delivery-address-input");
+  const telefono = bloque && (bloque.parentElement || bloque).querySelector(
+    ".cart-customer-phone"
+  );
+  const resultado = bloque && bloque.querySelector(".delivery-quote-result");
+  if(!bloque || !direccion || !direccion.value.trim() || !resultado){
+    alert("Ingresá la dirección de entrega.");
+    if(direccion){ direccion.focus(); }
+    return;
+  }
+  if(!telefono || !telefono.value.trim()){
+    alert("Ingresá tu WhatsApp antes de calcular el envío.");
+    if(telefono){ telefono.focus(); }
+    return;
+  }
+
+  invalidarCotizacionDelivery(bloque);
+  boton.disabled = true;
+  boton.textContent = "Calculando...";
+  try{
+    const respuesta = await fetch(
+      {{ url_for("gastronomia.cotizar_delivery", comercio_id=comercio.id) | tojson }},
+      {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          telefono_cliente: telefono.value.trim(),
+          direccion_entrega: direccion.value.trim()
+        })
+      }
+    );
+    const datos = await respuesta.json();
+    if(!respuesta.ok || !datos.ok){
+      throw new Error(datos.error || "No pudimos calcular el envío.");
+    }
+    bloque.dataset.deliveryCosto = String(datos.costo_envio);
+    bloque.dataset.deliveryDistancia = String(datos.distancia_m);
+    bloque.dataset.deliveryDireccion = direccion.value.trim();
+    bloque.dataset.deliveryTelefono = telefono.value.trim();
+    bloque.dataset.deliveryToken = datos.cotizacion_token;
+    resultado.hidden = false;
+    resultado.textContent = "";
+    [
+      ["Dirección: ", direccion.value.trim()],
+      ["Distancia: ", datos.distancia_mostrar],
+      ["Envío: ", formatearPesos(datos.costo_envio)]
+    ].forEach(function(fila, indice){
+      if(indice){ resultado.appendChild(document.createElement("br")); }
+      resultado.appendChild(document.createTextNode(fila[0]));
+      const valor = document.createElement("strong");
+      valor.textContent = fila[1];
+      resultado.appendChild(valor);
+    });
+    actualizarResumenCostoEnvio(bloque);
+    capturarEstadoCheckout(bloque.parentElement || bloque);
+  }catch(error){
+    resultado.hidden = false;
+    resultado.classList.add("error");
+    resultado.textContent = error.message;
+  }finally{
+    boton.disabled = false;
+    boton.textContent = "Calcular envío";
+  }
 }
 
 
@@ -3955,10 +4266,18 @@ function actualizarResumenCostoEnvio(bloque){
     );
 
   if(costoTexto){
-    costoTexto.textContent =
-      costo > 0
-        ? formatearPesos(costo)
-        : "Gratis";
+    {% if configuracion.delivery_distancia_activo %}
+    if(esDelivery && !bloque.dataset.deliveryToken){
+      costoTexto.textContent = "Calculá el envío";
+    }else{
+    {% endif %}
+      costoTexto.textContent =
+        costo > 0
+          ? formatearPesos(costo)
+          : "Gratis";
+    {% if configuracion.delivery_distancia_activo %}
+    }
+    {% endif %}
   }
 
   if(totalTexto){
@@ -4718,6 +5037,100 @@ function construirDetallePedidoParaRegistro(){
 }
 
 
+const claveIntencionPedido =
+  "clicklocal:gastro:pedido:{{ comercio.id }}";
+
+let intencionPedidoMemoria = null;
+
+
+function firmaIntencionPedido(payload){
+  const detalle = (payload.detalle || []).map(function(item){
+    return {
+      id:String(item.id || ""),
+      cantidad:Number(item.cantidad || 0),
+      nota:String(item.nota || "").trim(),
+      opciones:(item.opciones || []).map(function(opcion){
+        return String(opcion.id || "");
+      }).sort()
+    };
+  }).sort(function(a, b){
+    return JSON.stringify(a).localeCompare(JSON.stringify(b));
+  });
+
+  return JSON.stringify({
+    nombre:String(payload.nombre || "").trim(),
+    apellido:String(payload.apellido || "").trim(),
+    whatsapp:String(payload.whatsapp || "").trim(),
+    modalidad:String(payload.modalidad || "").toLowerCase(),
+    direccion:String(payload.direccion || "").trim(),
+    cotizacion_delivery:String(payload.cotizacion_delivery || "").trim(),
+    forma_pago:String(payload.forma_pago || "").toLowerCase(),
+    paga_con:payload.paga_con === null ? null : Number(payload.paga_con),
+    observaciones:String(payload.observaciones || "").trim(),
+    detalle:detalle
+  });
+}
+
+
+function leerIntencionPedido(){
+  try{
+    const guardada = sessionStorage.getItem(claveIntencionPedido);
+    return guardada ? JSON.parse(guardada) : intencionPedidoMemoria;
+  }catch(error){
+    return intencionPedidoMemoria;
+  }
+}
+
+
+function guardarIntencionPedido(intencion){
+  intencionPedidoMemoria = intencion;
+  try{
+    sessionStorage.setItem(
+      claveIntencionPedido,
+      JSON.stringify(intencion)
+    );
+  }catch(error){
+    // La memoria conserva los retries dentro de la página actual.
+  }
+}
+
+
+function obtenerIdempotencyKey(payload){
+  const firma = firmaIntencionPedido(payload);
+  const existente = leerIntencionPedido();
+
+  if(
+    existente &&
+    existente.firma === firma &&
+    existente.key
+  ){
+    return existente.key;
+  }
+
+  const intencion = {
+    key:crypto.randomUUID(),
+    firma:firma
+  };
+  guardarIntencionPedido(intencion);
+  return intencion.key;
+}
+
+
+function limpiarIntencionPedido(idempotencyKey){
+  const existente = leerIntencionPedido();
+  if(existente && existente.key !== idempotencyKey){
+    return;
+  }
+
+  intencionPedidoMemoria = null;
+  try{
+    sessionStorage.removeItem(claveIntencionPedido);
+  }catch(error){
+    // No hay nada más que limpiar fuera de la memoria de esta página.
+  }
+}
+
+
 async function prepararPedido(boton){
 
   const bloque =
@@ -4785,6 +5198,19 @@ async function prepararPedido(boton){
 
     return;
   }
+
+  {% if configuracion.delivery_distancia_activo %}
+  if(
+    modalidad === "Delivery" &&
+    (
+      !bloque.dataset.deliveryToken ||
+      bloque.dataset.deliveryDireccion !== direccion.value.trim()
+    )
+  ){
+    alert("Calculá el envío para esa dirección antes de continuar.");
+    return;
+  }
+  {% endif %}
 
   const formaPago =
     obtenerRadioSeleccionado(
@@ -4863,6 +5289,55 @@ async function prepararPedido(boton){
   boton.textContent =
     "Registrando pedido...";
 
+  const pedidoPayload = {
+    nombre:
+      campoNombre
+        ? campoNombre.value.trim()
+        : "",
+
+    apellido:
+      campoApellido
+        ? campoApellido.value.trim()
+        : "",
+
+    whatsapp:
+      campoWhatsapp
+        ? campoWhatsapp.value.trim()
+        : "",
+
+    modalidad:modalidad,
+
+    direccion:
+      (
+        modalidad === "Delivery" &&
+        direccion
+      )
+        ? direccion.value.trim()
+        : "",
+
+    cotizacion_delivery:
+      modalidad === "Delivery"
+        ? (bloque.dataset.deliveryToken || "")
+        : "",
+
+    forma_pago:formaPago,
+
+    paga_con:pagaCon,
+
+    observaciones:
+      notaGeneral
+        ? notaGeneral.value.trim()
+        : "",
+
+    detalle:construirDetallePedidoParaRegistro()
+  };
+
+  const idempotencyKey =
+    obtenerIdempotencyKey(pedidoPayload);
+
+  pedidoPayload.idempotency_key =
+    idempotencyKey;
+
   try{
 
     const respuesta = await fetch(
@@ -4872,44 +5347,7 @@ async function prepararPedido(boton){
         headers:{
           "Content-Type":"application/json"
         },
-        body:JSON.stringify({
-          nombre:
-            campoNombre
-              ? campoNombre.value.trim()
-              : "",
-
-          apellido:
-            campoApellido
-              ? campoApellido.value.trim()
-              : "",
-
-          whatsapp:
-            campoWhatsapp
-              ? campoWhatsapp.value.trim()
-              : "",
-
-          modalidad:modalidad,
-
-          direccion:
-            (
-              modalidad === "Delivery" &&
-              direccion
-            )
-              ? direccion.value.trim()
-              : "",
-
-          forma_pago:formaPago,
-
-          paga_con:pagaCon,
-
-          observaciones:
-            notaGeneral
-              ? notaGeneral.value.trim()
-              : "",
-
-          detalle:
-            construirDetallePedidoParaRegistro()
-        })
+        body:JSON.stringify(pedidoPayload)
       }
     );
 
@@ -5030,6 +5468,8 @@ async function prepararPedido(boton){
     boton.dataset.pedidoRegistrado =
       "1";
 
+    limpiarIntencionPedido(idempotencyKey);
+
   }catch(error){
 
     console.error(
@@ -5059,6 +5499,8 @@ function renderizarCarritoMobile(){
   if(!contenedor){
     return;
   }
+
+  capturarEstadoCheckoutActivo(contenedor);
 
   const items = Object.values(carrito);
 
@@ -5240,6 +5682,7 @@ function renderizarCarritoMobile(){
           'type="tel" ' +
           'inputmode="tel" ' +
           'class="cart-customer-input cart-customer-phone" ' +
+          'oninput="invalidarCotizacionPorTelefono(this)" ' +
           'maxlength="30" ' +
           'autocomplete="tel" ' +
           'placeholder="Ej: 343 6123456">' +
@@ -5292,11 +5735,16 @@ function renderizarCarritoMobile(){
           'type="text" ' +
           'class="cart-delivery-address-input" ' +
           'maxlength="160" ' +
+          'oninput="invalidarCotizacionDelivery(this.closest(\'.cart-delivery-step\'))" ' +
           'placeholder="Ej: Perú 50, piso 2 B">' +
 
         '<div class="cart-delivery-address-help">' +
           'Ingresá calle, número y cualquier indicación necesaria.' +
         '</div>' +
+        {% if configuracion.delivery_distancia_activo %}
+        '<button type="button" class="delivery-quote-button" onclick="cotizarDelivery(this)">Calcular envío</button>' +
+        '<div class="delivery-quote-result" hidden></div>' +
+        {% endif %}
       '</div>' +
 
       '<div class="cart-payment-step is-disabled" ' +
@@ -5402,6 +5850,7 @@ function renderizarCarritoMobile(){
   contenedor.innerHTML = html;
 
   inicializarSelectoresCompactos();
+  restaurarEstadoCheckout(contenedor);
 }
 
 
@@ -5460,6 +5909,8 @@ function actualizarContadoresMenu(){
 
 
 function actualizarCarrito(){
+  capturarEstadoCheckoutActivo();
+
   let cantidadTotal = 0;
   let importeTotal = 0;
 
@@ -5676,6 +6127,7 @@ function actualizarCarrito(){
           'type="tel" ' +
           'inputmode="tel" ' +
           'class="cart-customer-input cart-customer-phone" ' +
+          'oninput="invalidarCotizacionPorTelefono(this)" ' +
           'maxlength="30" ' +
           'autocomplete="tel" ' +
           'placeholder="Ej: 343 6123456">' +
@@ -5728,11 +6180,16 @@ function actualizarCarrito(){
           'type="text" ' +
           'class="cart-delivery-address-input" ' +
           'maxlength="160" ' +
+          'oninput="invalidarCotizacionDelivery(this.closest(\'.cart-delivery-step\'))" ' +
           'placeholder="Ej: Perú 50, piso 2 B">' +
 
         '<div class="cart-delivery-address-help">' +
           'Ingresá calle, número y cualquier indicación necesaria.' +
         '</div>' +
+        {% if configuracion.delivery_distancia_activo %}
+        '<button type="button" class="delivery-quote-button" onclick="cotizarDelivery(this)">Calcular envío</button>' +
+        '<div class="delivery-quote-result" hidden></div>' +
+        {% endif %}
       '</div>' +
 
       '<div class="cart-payment-step is-disabled" ' +
@@ -5838,6 +6295,7 @@ function actualizarCarrito(){
   carritoVacio.innerHTML = html;
 
   inicializarSelectoresCompactos();
+  restaurarEstadoCheckout(cart);
 }
 
 

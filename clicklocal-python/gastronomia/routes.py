@@ -1,19 +1,95 @@
 from datetime import date, datetime, timedelta, timezone
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from flask import abort, g, jsonify, redirect, render_template, request, session, url_for
+from flask import abort, current_app, g, jsonify, redirect, render_template, request, session, url_for
 
 from config.supabase_config import supabase_admin
+from modulos import obtener_modulo, pos_activo_para_comercio
+from whatsapp import limpiar_numero_whatsapp
 
 from . import gastronomia_bp
+from .services.delivery import (
+    DeliveryError,
+    clave_cache_delivery,
+    clave_origen_coordenadas,
+    completar_direccion_destino,
+    consultar_distancia_osm,
+    firmar_cotizacion,
+    geocodificar_direccion_nominatim,
+    normalizar_direccion,
+    seleccionar_franja,
+    validar_configuracion_delivery,
+    validar_coordenadas,
+    validar_cotizacion,
+)
 from .services.pedidos import (
     ESTADOS_PAGO,
     ESTADOS_PEDIDO,
     ORIGENES_PEDIDO,
     TIPOS_ENTREGA,
     PedidoError,
+    buscar_pedido_idempotente,
+    construir_idempotency_fingerprint,
     crear_pedido,
+    pedido_es_venta,
+    preparar_actualizacion_estados,
+    preparar_transicion_pedido,
 )
+
+
+LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA = 30
+
+
+def _limite_productos_gastronomia_alcanzado(cantidad_activos):
+    return cantidad_activos >= LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA
+
+
+def _modo_gestor_gastronomia_activo():
+    return bool(
+        session.get("admin_logueado")
+        and session.get("gestor_comercio_id")
+    )
+
+
+def _pos_activo_gastronomia(comercio_id):
+    """Consulta una sola vez por request el POS del comercio resuelto."""
+    cache = g.setdefault("pos_activo_gastronomia", {})
+    clave = str(comercio_id or "")
+    if clave not in cache:
+        cache[clave] = bool(pos_activo_para_comercio(comercio_id))
+    return cache[clave]
+
+
+def _respuesta_pos_requerido(json_api=False):
+    if json_api:
+        return jsonify({
+            "ok": False,
+            "error": "Esta función requiere tener POS activo.",
+        }), 403
+    return redirect(url_for(
+        "gastronomia.ventas_gastronomia",
+        pos_requerido="1",
+    ))
+
+
+@gastronomia_bp.context_processor
+def contexto_modo_gestor_gastronomia():
+    """Evita exigir al admin los términos pendientes del propietario."""
+    comercio_id = (session.get("comercio") or {}).get("id")
+    pos_activo = (
+        _pos_activo_gastronomia(comercio_id)
+        if comercio_id else False
+    )
+    return {
+        "modo_gestor": _modo_gestor_gastronomia_activo(),
+        "pos_activo": pos_activo,
+        "plan_nombre_panel": (
+            "Gastronomía POS"
+            if pos_activo
+            else "Gastronomía Base"
+        ),
+    }
 
 
 def _fecha_desde_iso(valor):
@@ -39,15 +115,6 @@ def _esta_vigente(desde=None, hasta=None):
         return False
 
     return True
-
-
-def _es_premium_gastronomia(comercio):
-    return (
-        str((comercio or {}).get("plan") or "gratis")
-        .strip()
-        .lower()
-        == "premium"
-    )
 
 
 def _parsear_importe_config(valor):
@@ -100,6 +167,152 @@ def _formatear_precio(valor):
     return f"$ {entero},{decimal}"
 
 
+def _precio_producto_input(valor):
+    if valor is None:
+        return ""
+
+    numero = float(valor)
+
+    if numero.is_integer():
+        return str(int(numero))
+
+    return str(numero)
+
+
+def _parsear_precio_producto(valor):
+    if not str(valor or "").strip():
+        raise ValueError
+
+    importe = _parsear_importe_config(valor)
+    return int(importe) if importe.is_integer() else importe
+
+
+def _cargar_catalogo_gastronomico(comercio_id):
+    """Carga el catalogo activo con sus grupos y opciones activas."""
+
+    productos_res = (
+        supabase_admin
+        .table("gastronomia_productos")
+        .select(
+            "id,nombre,descripcion,categoria,precio,"
+            "precio_promocional,imagen_url,disponible,"
+            "activo,destacado,destacado_hasta,"
+            "promocion_desde,promocion_hasta,orden"
+        )
+        .eq("comercio_id", comercio_id)
+        .eq("activo", True)
+        .order("orden")
+        .execute()
+    )
+
+    productos = productos_res.data or []
+    producto_ids = [
+        producto.get("id")
+        for producto in productos
+        if producto.get("id")
+    ]
+    grupos = []
+    opciones = []
+
+    if producto_ids:
+        grupos_res = (
+            supabase_admin
+            .table("gastronomia_grupos_opciones")
+            .select(
+                "id,producto_id,nombre,minimo,maximo,"
+                "orden,activo"
+            )
+            .in_("producto_id", producto_ids)
+            .eq("activo", True)
+            .order("orden")
+            .execute()
+        )
+        grupos = grupos_res.data or []
+        grupo_ids = [
+            grupo.get("id")
+            for grupo in grupos
+            if grupo.get("id")
+        ]
+
+        if grupo_ids:
+            opciones_res = (
+                supabase_admin
+                .table("gastronomia_opciones")
+                .select(
+                    "id,grupo_id,nombre,precio_extra,"
+                    "disponible,activo,orden"
+                )
+                .in_("grupo_id", grupo_ids)
+                .eq("activo", True)
+                .order("orden")
+                .execute()
+            )
+            opciones = opciones_res.data or []
+
+    opciones_por_grupo = {}
+
+    for opcion in opciones:
+        grupo_id = opcion.get("grupo_id")
+        opcion["precio_extra_mostrar"] = _formatear_precio(
+            opcion.get("precio_extra")
+        )
+        opciones_por_grupo.setdefault(grupo_id, []).append(opcion)
+
+    grupos_por_producto = {}
+
+    for grupo in grupos:
+        grupo["opciones"] = opciones_por_grupo.get(
+            grupo.get("id"),
+            [],
+        )
+        grupos_por_producto.setdefault(
+            grupo.get("producto_id"),
+            [],
+        ).append(grupo)
+
+    for producto in productos:
+        precio = producto.get("precio")
+        precio_promocional = producto.get("precio_promocional")
+        producto["precio_mostrar"] = _formatear_precio(precio)
+        producto["precio_promocional_mostrar"] = (
+            _formatear_precio(precio_promocional)
+            if precio_promocional is not None
+            else ""
+        )
+        producto["precio_venta"] = (
+            precio_promocional
+            if precio_promocional is not None
+            else precio
+        )
+        producto["grupos_opciones"] = grupos_por_producto.get(
+            producto.get("id"),
+            [],
+        )
+
+    return productos
+
+
+def _categorias_catalogo(productos):
+    categorias = []
+    claves_vistas = set()
+
+    for producto in productos:
+        categoria = str(producto.get("categoria") or "").strip()
+        clave = categoria.lower()
+
+        if not categoria or clave in claves_vistas:
+            continue
+
+        claves_vistas.add(clave)
+        categorias.append(categoria)
+
+    return categorias
+
+
+def _limpiar_categoria_producto(valor):
+    return str(valor or "").strip() or None
+
+
 @gastronomia_bp.route("")
 @gastronomia_bp.route("/")
 def inicio():
@@ -136,7 +349,7 @@ def inicio():
             .table("comercios")
             .select(
                 "id,nombre_negocio,categoria,descripcion,"
-                "logo_url,direccion,whatsapp,plan"
+                "logo_url,direccion,whatsapp"
             )
             .in_("id", comercio_ids)
             .execute()
@@ -248,14 +461,6 @@ def inicio():
         for comercio in comercios_gastronomicos
     }
 
-    comercios_premium_ids = {
-        str(comercio.get("id"))
-        for comercio in comercios_gastronomicos
-        if str(
-            comercio.get("plan") or "gratis"
-        ).strip().lower() == "premium"
-    }
-
     destacados_gastronomicos = []
     promos_gastronomicas = []
 
@@ -276,8 +481,7 @@ def inicio():
         # ------------------------------------------------------
 
         if (
-            comercio_id in comercios_premium_ids
-            and producto.get("destacado")
+            producto.get("destacado")
             and _esta_vigente(
                 hasta=producto.get("destacado_hasta")
             )
@@ -319,8 +523,7 @@ def inicio():
         )
 
         if (
-            comercio_id in comercios_premium_ids
-            and precio_promocional is not None
+            precio_promocional is not None
             and _esta_vigente(
                 desde=producto.get("promocion_desde"),
                 hasta=producto.get("promocion_hasta"),
@@ -374,7 +577,7 @@ def comercio_gastronomico(comercio_id):
         supabase_admin
         .table("comercios")
         .select(
-            "id,nombre_negocio,whatsapp,direccion,"
+            "id,nombre_negocio,whatsapp,direccion,ciudad,"
             "categoria,descripcion,logo_url"
         )
         .eq("id", comercio_id)
@@ -396,7 +599,8 @@ def comercio_gastronomico(comercio_id):
             "comercio_id,activo,acepta_delivery,"
             "acepta_retiro,pedido_minimo,costo_envio,"
             "tiempo_estimado_min,descuento_efectivo_pct,"
-            "descuento_transferencia_pct"
+            "descuento_transferencia_pct,delivery_distancia_activo,"
+            "delivery_franjas,delivery_origen_direccion"
         )
         .eq("comercio_id", comercio_id)
         .eq("activo", True)
@@ -415,121 +619,7 @@ def comercio_gastronomico(comercio_id):
 
     configuracion = configuraciones[0]
 
-    productos_res = (
-        supabase_admin
-        .table("gastronomia_productos")
-        .select(
-            "id,nombre,descripcion,precio,"
-            "precio_promocional,imagen_url,disponible,"
-            "activo,destacado,destacado_hasta,"
-            "promocion_desde,promocion_hasta,orden"
-        )
-        .eq("comercio_id", comercio_id)
-        .eq("activo", True)
-        .order("orden")
-        .execute()
-    )
-
-    productos = productos_res.data or []
-
-    producto_ids = [
-        producto.get("id")
-        for producto in productos
-        if producto.get("id")
-    ]
-
-    grupos = []
-    opciones = []
-
-    if producto_ids:
-        grupos_res = (
-            supabase_admin
-            .table("gastronomia_grupos_opciones")
-            .select(
-                "id,producto_id,nombre,minimo,maximo,"
-                "orden,activo"
-            )
-            .in_("producto_id", producto_ids)
-            .eq("activo", True)
-            .order("orden")
-            .execute()
-        )
-
-        grupos = grupos_res.data or []
-
-        grupo_ids = [
-            grupo.get("id")
-            for grupo in grupos
-            if grupo.get("id")
-        ]
-
-        if grupo_ids:
-            opciones_res = (
-                supabase_admin
-                .table("gastronomia_opciones")
-                .select(
-                    "id,grupo_id,nombre,precio_extra,"
-                    "disponible,activo,orden"
-                )
-                .in_("grupo_id", grupo_ids)
-                .eq("activo", True)
-                .order("orden")
-                .execute()
-            )
-
-            opciones = opciones_res.data or []
-
-    opciones_por_grupo = {}
-
-    for opcion in opciones:
-        grupo_id = opcion.get("grupo_id")
-
-        opcion["precio_extra_mostrar"] = _formatear_precio(
-            opcion.get("precio_extra")
-        )
-
-        opciones_por_grupo.setdefault(
-            grupo_id,
-            []
-        ).append(opcion)
-
-    grupos_por_producto = {}
-
-    for grupo in grupos:
-        grupo_id = grupo.get("id")
-
-        grupo["opciones"] = opciones_por_grupo.get(
-            grupo_id,
-            []
-        )
-
-        grupos_por_producto.setdefault(
-            grupo.get("producto_id"),
-            []
-        ).append(grupo)
-
-    for producto in productos:
-        precio = producto.get("precio")
-        precio_promocional = producto.get(
-            "precio_promocional"
-        )
-
-        producto["precio_mostrar"] = _formatear_precio(
-            precio
-        )
-
-        producto["precio_promocional_mostrar"] = (
-            _formatear_precio(precio_promocional)
-            if precio_promocional is not None
-            else ""
-        )
-
-        producto["grupos_opciones"] = (
-            grupos_por_producto.get(
-                producto.get("id"),
-                []
-            )
-        )
+    productos = _cargar_catalogo_gastronomico(comercio_id)
 
     configuracion["pedido_minimo_mostrar"] = (
         _formatear_precio(
@@ -588,10 +678,8 @@ def _comercio_panel_gastronomia():
             .table("comercios")
             .select(
                 "id,user_id,nombre_negocio,whatsapp,"
-                "direccion,categoria,descripcion,"
-                "logo_url,activo,plan,estado_plan,"
-                "fecha_inicio_plan,fecha_vencimiento_plan,"
-                "solicitud_premium,"
+                "direccion,direccion_mostrar,ciudad,categoria,descripcion,"
+                "logo_url,activo,"
                 "terminos_version,terminos_aceptados_at"
             )
             .eq("id", comercio_id)
@@ -610,10 +698,8 @@ def _comercio_panel_gastronomia():
             .table("comercios")
             .select(
                 "id,user_id,nombre_negocio,whatsapp,"
-                "direccion,categoria,descripcion,"
-                "logo_url,activo,plan,estado_plan,"
-                "fecha_inicio_plan,fecha_vencimiento_plan,"
-                "solicitud_premium,"
+                "direccion,direccion_mostrar,ciudad,categoria,descripcion,"
+                "logo_url,activo,"
                 "terminos_version,terminos_aceptados_at"
             )
             .eq("id", comercio_id)
@@ -650,6 +736,221 @@ ESTADOS_PEDIDO_VALIDOS = ESTADOS_PEDIDO
 ORIGENES_PEDIDO_VALIDOS = ORIGENES_PEDIDO
 TIPOS_ENTREGA_VALIDOS = TIPOS_ENTREGA
 ESTADOS_PAGO_VALIDOS = ESTADOS_PAGO
+ESTADOS_KANBAN = (
+    "pendiente",
+    "marchando",
+    "preparado",
+    "cerrado",
+)
+
+COLUMNAS_PEDIDO_PANEL = (
+    "id,numero_pedido,caja_id,created_at,updated_at,estado,estado_pago,"
+    "pagado_at,cerrado_at,entregado_at,cancelado_at,motivo_cancelacion,"
+    "origen,tipo_entrega,nombre_cliente,"
+    "apellido_cliente,telefono_cliente,direccion_entrega,"
+    "referencia_direccion,forma_pago,paga_con,subtotal,costo_envio,"
+    "descuento,total,observaciones,detalle,enviado_whatsapp_at"
+)
+
+
+def pedido_visible_tablero(pedido):
+    return not (
+        str(pedido.get("estado_pago") or "").strip().lower() == "pagado"
+        and pedido.get("entregado_at") is not None
+    )
+
+FORMAS_PAGO_VENTAS = (
+    "efectivo",
+    "transferencia",
+    "qr",
+    "debito",
+    "credito",
+)
+
+ETIQUETAS_FORMA_PAGO_VENTAS = {
+    "efectivo": "Efectivo",
+    "transferencia": "Transferencia",
+    "qr": "QR",
+    "debito": "Débito",
+    "credito": "Crédito",
+}
+
+ZONA_HORARIA_GASTRONOMIA = ZoneInfo("America/Argentina/Cordoba")
+COLUMNAS_CAJA = (
+    "id,comercio_id,numero,abierto_at,cerrado_at,total_vendido,"
+    "cantidad_ventas,ticket_promedio,efectivo,transferencia,qr,debito,credito"
+)
+
+
+def _etiqueta_operacion_venta(pedido):
+    origen = str(pedido.get("origen") or "").strip().lower()
+    estado = str(pedido.get("estado") or "").strip().lower()
+    if origen == "pos":
+        return "Preparación" if estado in ESTADOS_PEDIDO_ACTIVOS else "Venta POS"
+    return {
+        "clicklocal": "Pedido online",
+        "whatsapp": "Pedido por WhatsApp",
+        "telefono": "Pedido telefónico",
+        "qr_mesa": "Pedido de mesa",
+    }.get(origen, "Venta")
+
+
+def _resumir_ventas(operaciones):
+    ventas = [pedido for pedido in operaciones if pedido_es_venta(pedido)]
+    total_vendido = 0.0
+    totales_forma_pago = {forma: 0.0 for forma in FORMAS_PAGO_VENTAS}
+
+    for venta in ventas:
+        try:
+            total = float(venta.get("total") or 0)
+        except (TypeError, ValueError):
+            total = 0.0
+        total_vendido += total
+        forma_pago = str(venta.get("forma_pago") or "").strip().lower()
+        if forma_pago in totales_forma_pago:
+            totales_forma_pago[forma_pago] += total
+
+    cantidad_ventas = len(ventas)
+    return {
+        "ventas": ventas,
+        "total_vendido": round(total_vendido, 2),
+        "cantidad_ventas": cantidad_ventas,
+        "ticket_promedio": round(total_vendido / cantidad_ventas, 2)
+        if cantidad_ventas else 0.0,
+        "totales_forma_pago": {
+            forma: round(total, 2)
+            for forma, total in totales_forma_pago.items()
+        },
+    }
+
+
+def _consultar_caja_abierta(comercio_id):
+    respuesta = (
+        supabase_admin
+        .table("gastronomia_cajas")
+        .select(COLUMNAS_CAJA)
+        .eq("comercio_id", comercio_id)
+        .is_("cerrado_at", "null")
+        .limit(1)
+        .execute()
+    )
+    return (respuesta.data or [None])[0]
+
+
+def _consultar_ultima_caja(comercio_id):
+    respuesta = (
+        supabase_admin
+        .table("gastronomia_cajas")
+        .select(COLUMNAS_CAJA)
+        .eq("comercio_id", comercio_id)
+        .order("numero", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return (respuesta.data or [None])[0]
+
+
+def _consultar_ventas_caja(comercio_id, caja_id):
+    respuesta = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select(COLUMNAS_PEDIDO_PANEL)
+        .eq("comercio_id", comercio_id)
+        .eq("caja_id", caja_id)
+        .eq("estado_pago", "pagado")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return _preparar_pedidos_panel(respuesta.data or [])
+
+
+def _preparar_caja(caja):
+    caja = dict(caja)
+    caja["abierto_at_mostrar"] = _fecha_hora_pedido_mostrar(
+        caja.get("abierto_at")
+    )
+    caja["cerrado_at_mostrar"] = (
+        _fecha_hora_pedido_mostrar(caja.get("cerrado_at"))
+        if caja.get("cerrado_at") else ""
+    )
+    return caja
+
+
+@gastronomia_bp.route("/panel/pos", methods=["GET"])
+def pos_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido()
+
+    productos = _cargar_catalogo_gastronomico(
+        comercio.get("id")
+    )
+    categorias = _categorias_catalogo(productos)
+
+    return render_template(
+        "gastronomia/pos.html",
+        comercio=comercio,
+        productos=productos,
+        categorias=categorias,
+    )
+
+
+@gastronomia_bp.route("/panel/pos/confirmar", methods=["POST"])
+def confirmar_venta_pos_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido(json_api=True)
+
+    payload = request.get_json(silent=True) or {}
+    detalle = payload.get("detalle")
+    if not isinstance(detalle, list) or not detalle:
+        return jsonify({"ok": False, "error": "El carrito está vacío."}), 400
+
+    forma_pago = str(payload.get("forma_pago") or "").strip().lower()
+    if forma_pago not in {"efectivo", "transferencia", "qr", "debito", "credito"}:
+        return jsonify({"ok": False, "error": "Elegí una forma de pago válida."}), 400
+
+    tipo_venta = str(payload.get("tipo_venta") or "").strip().lower()
+    estados_por_tipo_venta = {
+        "rapida": ("cerrado", "pagado"),
+        "preparacion": ("pendiente", "pagado"),
+    }
+    if tipo_venta not in estados_por_tipo_venta:
+        return jsonify({"ok": False, "error": "Elegí un tipo de venta válido."}), 400
+    estado_inicial, estado_pago_inicial = estados_por_tipo_venta[tipo_venta]
+
+    try:
+        resultado = crear_pedido(
+            comercio_id=comercio.get("id"),
+            nombre="",
+            apellido="",
+            telefono="",
+            telefono_normalizado="",
+            modalidad="mostrador",
+            direccion="",
+            forma_pago=forma_pago,
+            paga_con=None,
+            observaciones="",
+            items=detalle,
+            origen="pos",
+            aplicar_condiciones_comerciales=False,
+            estado_inicial=estado_inicial,
+            estado_pago_inicial=estado_pago_inicial,
+        )
+    except PedidoError as error:
+        return jsonify({"ok": False, "error": error.mensaje}), error.status_code
+
+    return jsonify({
+        "ok": True,
+        "pedido_id": resultado.get("id"),
+        "numero_pedido": resultado.get("numero_pedido"),
+        "total": resultado.get("total"),
+    })
 
 
 def _fecha_hora_pedido_mostrar(valor):
@@ -670,14 +971,441 @@ def _fecha_hora_pedido_mostrar(valor):
         return "Fecha no disponible"
 
 
+def _preparar_pedidos_panel(pedidos):
+    for pedido in pedidos:
+        pedido["created_at_mostrar"] = _fecha_hora_pedido_mostrar(
+            pedido.get("created_at")
+        )
+        pedido["cancelado_at_mostrar"] = (
+            _fecha_hora_pedido_mostrar(pedido.get("cancelado_at"))
+            if pedido.get("cancelado_at")
+            else ""
+        )
+        detalle = pedido.get("detalle")
+        pedido["detalle_items"] = (
+            [item for item in detalle if isinstance(item, dict)]
+            if isinstance(detalle, list)
+            else []
+        )
+    return pedidos
+
+
 @gastronomia_bp.route("/panel/pedidos", methods=["GET"])
 def pedidos_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return redirect(url_for("login"))
+    pos_activo = _pos_activo_gastronomia(comercio.get("id"))
+
+    zona_local = ZoneInfo("America/Argentina/Cordoba")
+    hoy_local = datetime.now(zona_local).date()
+    desde = datetime.combine(
+        hoy_local,
+        datetime.min.time(),
+        tzinfo=zona_local,
+    ).astimezone(timezone.utc)
+    hasta = desde + timedelta(days=1)
+
+    consulta = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select(COLUMNAS_PEDIDO_PANEL)
+        .eq("comercio_id", comercio.get("id"))
+        .in_("estado", list(ESTADOS_KANBAN))
+        .gte("created_at", desde.isoformat())
+        .lt("created_at", hasta.isoformat())
+    )
+    if not pos_activo:
+        consulta = consulta.eq("origen", "clicklocal")
+    respuesta = consulta.order("created_at").execute()
+    pedidos = _preparar_pedidos_panel([
+        pedido
+        for pedido in (respuesta.data or [])
+        if pedido_visible_tablero(pedido)
+    ])
+    columnas = {
+        estado: [p for p in pedidos if p.get("estado") == estado]
+        for estado in ESTADOS_KANBAN
+    }
+    return render_template(
+        "gastronomia/pedidos.html",
+        comercio=comercio,
+        columnas=columnas,
+        estados_kanban=ESTADOS_KANBAN,
+        fecha_tablero=hoy_local.strftime("%d/%m/%Y"),
+        pos_activo=pos_activo,
+    )
+
+
+def _consultar_ventas_clicklocal(comercio_id):
+    respuesta = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select(COLUMNAS_PEDIDO_PANEL)
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .order("created_at", desc=True)
+        .limit(100)
+        .execute()
+    )
+    return _preparar_pedidos_panel(respuesta.data or [])
+
+
+@gastronomia_bp.route("/panel/ventas", methods=["GET"])
+def ventas_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+    pos_activo = _pos_activo_gastronomia(comercio_id)
+    caja_abierta = None
+    ultima_caja = None
+    if pos_activo:
+        caja_abierta = _consultar_caja_abierta(comercio_id)
+        if caja_abierta:
+            caja_abierta = _preparar_caja(caja_abierta)
+            operaciones = _consultar_ventas_caja(
+                comercio_id,
+                caja_abierta.get("id"),
+            )
+        else:
+            ultima_caja = _consultar_ultima_caja(comercio_id)
+            if ultima_caja:
+                ultima_caja = _preparar_caja(ultima_caja)
+            operaciones = []
+    else:
+        operaciones = _consultar_ventas_clicklocal(comercio_id)
+
+    resumen = _resumir_ventas(operaciones)
+    for venta in operaciones:
+        venta["hora_mostrar"] = _fecha_hora_pedido_mostrar(
+            venta.get("created_at")
+        ).split(" ")[-1]
+        venta["operacion_mostrar"] = _etiqueta_operacion_venta(venta)
+        venta["forma_pago_mostrar"] = ETIQUETAS_FORMA_PAGO_VENTAS.get(
+            str(venta.get("forma_pago") or "").strip().lower(),
+            "Sin informar",
+        )
+
+    return render_template(
+        "gastronomia/ventas.html",
+        comercio=comercio,
+        formas_pago=FORMAS_PAGO_VENTAS,
+        etiquetas_forma_pago=ETIQUETAS_FORMA_PAGO_VENTAS,
+        operaciones=operaciones,
+        caja_abierta=caja_abierta,
+        ultima_caja=ultima_caja,
+        proximo_numero=(int(ultima_caja.get("numero") or 0) + 1 if ultima_caja else 1),
+        pos_activo=pos_activo,
+        **resumen,
+    )
+
+
+@gastronomia_bp.route("/panel/ventas/cerrar-caja", methods=["POST"])
+def cerrar_caja_ventas_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido(json_api=True)
+
+    try:
+        resultado = (
+            supabase_admin
+            .rpc(
+                "cerrar_gastronomia_caja",
+                {"p_comercio_id": comercio.get("id")},
+            )
+            .execute()
+        )
+    except Exception as error:
+        mensaje = str(error)
+        if "No hay una caja abierta" in mensaje or "ya fue cerrada" in mensaje:
+            return jsonify({"ok": False, "error": "No hay una caja abierta."}), 409
+        return jsonify({"ok": False, "error": "No se pudo cerrar la caja."}), 500
+
+    if not resultado.data:
+        return jsonify({
+            "ok": False,
+            "error": "No se pudo cerrar la caja.",
+        }), 500
+
+    return jsonify({
+        "ok": True,
+        "caja_id": resultado.data,
+        "mensaje": "Caja cerrada correctamente.",
+    })
+
+
+@gastronomia_bp.route(
+    "/panel/ventas/<pedido_id>/anular",
+    methods=["POST"],
+)
+def anular_venta_gastronomia(pedido_id):
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido(json_api=True)
+
+    datos = request.get_json(silent=True) or {}
+    if datos.get("confirmado") is not True:
+        return jsonify({
+            "ok": False,
+            "error": "La anulación requiere confirmación.",
+        }), 400
+
+    motivo = str(datos.get("motivo") or "").strip()
+    if not motivo:
+        return jsonify({"ok": False, "error": "Ingresá el motivo de anulación."}), 400
+    if len(motivo) > 200:
+        return jsonify({
+            "ok": False,
+            "error": "El motivo puede tener hasta 200 caracteres.",
+        }), 400
+
+    comercio_id = comercio.get("id")
+    existente = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select("id,estado,estado_pago")
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    if not (existente.data or []):
+        return jsonify({"ok": False, "error": "Venta no encontrada."}), 404
+
+    venta = existente.data[0]
+    if venta.get("estado") == "cancelado":
+        return jsonify({"ok": False, "error": "La venta ya está anulada."}), 400
+    if venta.get("estado_pago") != "pagado":
+        return jsonify({"ok": False, "error": "La operación no es una venta pagada."}), 400
+
+    cancelado_at = datetime.now(timezone.utc).isoformat()
+    actualizado = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .update({
+            "estado": "cancelado",
+            "cancelado_at": cancelado_at,
+            "motivo_cancelacion": motivo,
+        })
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("estado", venta.get("estado"))
+        .eq("estado_pago", "pagado")
+        .execute()
+    )
+    if not (actualizado.data or []):
+        return jsonify({
+            "ok": False,
+            "error": "La venta cambió; actualizá la pantalla.",
+        }), 409
+
+    return jsonify({
+        "ok": True,
+        "pedido_id": pedido_id,
+        "estado": "cancelado",
+        "cancelado_at": cancelado_at,
+        "motivo_cancelacion": motivo,
+    })
+
+
+@gastronomia_bp.route(
+    "/panel/pedidos/<pedido_id>/estado",
+    methods=["POST"],
+)
+def actualizar_estado_pedido_gastronomia(pedido_id):
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido(json_api=True)
+
+    datos = request.get_json(silent=True) or {}
+    comercio_id = comercio.get("id")
+    existente = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select("id,estado,estado_pago,entregado_at")
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    if not (existente.data or []):
+        return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
+
+    pedido = existente.data[0]
+    if (
+        datos.get("accion") == "cancelar"
+        and datos.get("confirmado") is not True
+    ):
+        return jsonify({
+            "ok": False,
+            "error": "La cancelación requiere confirmación.",
+        }), 400
+    try:
+        cambios = preparar_transicion_pedido(
+            estado_actual=pedido.get("estado"),
+            accion=datos.get("accion"),
+        )
+    except PedidoError as error:
+        return jsonify({"ok": False, "error": error.mensaje}), 400
+    if pedido.get("estado") == "cerrado" and cambios.get("estado") == "preparado":
+        cambios["entregado_at"] = None
+
+    actualizado = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .update(cambios)
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("estado", pedido.get("estado"))
+        .execute()
+    )
+    filas = actualizado.data or []
+    if not filas:
+        return jsonify({"ok": False, "error": "No se pudo actualizar el pedido."}), 409
+
+    return jsonify({
+        "ok": True,
+        "pedido_id": pedido_id,
+        "estado": cambios["estado"],
+        "cerrado_at": cambios["cerrado_at"],
+        "entregado_at": cambios.get("entregado_at", pedido.get("entregado_at")),
+    })
+
+
+@gastronomia_bp.route(
+    "/panel/pedidos/<pedido_id>/entrega",
+    methods=["POST"],
+)
+def marcar_entregado_pedido_gastronomia(pedido_id):
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido(json_api=True)
+
+    comercio_id = comercio.get("id")
+    existente = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select("id,estado,estado_pago,entregado_at")
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    if not (existente.data or []):
+        return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
+
+    pedido = existente.data[0]
+    if pedido.get("estado") != "cerrado":
+        return jsonify({
+            "ok": False,
+            "error": "Solo se puede entregar un pedido cerrado.",
+        }), 400
+
+    entregado_at = datetime.now(timezone.utc).isoformat()
+    actualizado = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .update({"entregado_at": entregado_at})
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("estado", "cerrado")
+        .execute()
+    )
+    if not (actualizado.data or []):
+        return jsonify({"ok": False, "error": "No se pudo entregar el pedido."}), 409
+
+    pedido_actualizado = dict(pedido, entregado_at=entregado_at)
+    return jsonify({
+        "ok": True,
+        "pedido_id": pedido_id,
+        "entregado_at": entregado_at,
+        "ocultar_tablero": not pedido_visible_tablero(pedido_actualizado),
+    })
+
+
+@gastronomia_bp.route(
+    "/panel/pedidos/<pedido_id>/pago",
+    methods=["POST"],
+)
+def actualizar_pago_pedido_gastronomia(pedido_id):
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido(json_api=True)
+
+    datos = request.get_json(silent=True) or {}
+    comercio_id = comercio.get("id")
+    existente = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select("id,estado,estado_pago,entregado_at")
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    if not (existente.data or []):
+        return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
+
+    pedido = existente.data[0]
+    if pedido.get("estado") == "cancelado":
+        return jsonify({
+            "ok": False,
+            "error": "No se puede cambiar el pago de un pedido cancelado.",
+        }), 400
+
+    try:
+        cambios = preparar_actualizacion_estados(
+            estado_pago=datos.get("estado_pago")
+        )
+    except PedidoError as error:
+        return jsonify({"ok": False, "error": error.mensaje}), 400
+
+    actualizado = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .update(cambios)
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("estado_pago", pedido.get("estado_pago") or "pendiente")
+        .execute()
+    )
+    filas = actualizado.data or []
+    if not filas:
+        return jsonify({"ok": False, "error": "El pedido cambió; actualizá la bandeja."}), 409
+
+    return jsonify({
+        "ok": True,
+        "pedido_id": pedido_id,
+        "estado_pago": cambios["estado_pago"],
+        "pagado_at": cambios["pagado_at"],
+        "ocultar_tablero": not pedido_visible_tablero({
+            **pedido,
+            "estado_pago": cambios["estado_pago"],
+        }),
+    })
+
+
+@gastronomia_bp.route("/panel/pedidos/historial", methods=["GET"])
+def historial_pedidos_gastronomia():
     comercio = _comercio_panel_gastronomia()
 
     if not comercio:
         return redirect(url_for("login"))
 
     comercio_id = comercio.get("id")
+    pos_activo = _pos_activo_gastronomia(comercio_id)
 
     vista = str(
         request.args.get("vista") or "activos"
@@ -691,11 +1419,14 @@ def pedidos_gastronomia():
     if estado not in ESTADOS_PEDIDO_VALIDOS:
         estado = ""
 
-    origen = str(
-        request.args.get("origen") or ""
-    ).strip().lower()
-    if origen not in ORIGENES_PEDIDO_VALIDOS:
-        origen = ""
+    if pos_activo:
+        origen = str(
+            request.args.get("origen") or ""
+        ).strip().lower()
+        if origen not in ORIGENES_PEDIDO_VALIDOS:
+            origen = ""
+    else:
+        origen = "clicklocal"
 
     tipo_entrega = str(
         request.args.get("tipo_entrega") or ""
@@ -725,12 +1456,7 @@ def pedidos_gastronomia():
         supabase_admin
         .table("gastronomia_pedidos")
         .select(
-            "id,numero_pedido,created_at,updated_at,estado,estado_pago,"
-            "pagado_at,cerrado_at,origen,"
-            "tipo_entrega,nombre_cliente,apellido_cliente,"
-            "telefono_cliente,direccion_entrega,referencia_direccion,"
-            "forma_pago,paga_con,subtotal,costo_envio,descuento,total,"
-            "observaciones,detalle,enviado_whatsapp_at",
+            COLUMNAS_PEDIDO_PANEL,
             count="exact",
         )
         .eq("comercio_id", comercio_id)
@@ -769,25 +1495,7 @@ def pedidos_gastronomia():
         .execute()
     )
 
-    pedidos = pedidos_res.data or []
-
-    for pedido in pedidos:
-        pedido["created_at_mostrar"] = (
-            _fecha_hora_pedido_mostrar(
-                pedido.get("created_at")
-            )
-        )
-
-        detalle = pedido.get("detalle")
-        pedido["detalle_items"] = (
-            [
-                item
-                for item in detalle
-                if isinstance(item, dict)
-            ]
-            if isinstance(detalle, list)
-            else []
-        )
+    pedidos = _preparar_pedidos_panel(pedidos_res.data or [])
 
     total_pedidos = (
         pedidos_res.count
@@ -800,7 +1508,7 @@ def pedidos_gastronomia():
     )
 
     return render_template(
-        "gastronomia/pedidos.html",
+        "gastronomia/pedidos_historial.html",
         comercio=comercio,
         pedidos=pedidos,
         filtros={
@@ -817,6 +1525,86 @@ def pedidos_gastronomia():
         pagina=pagina,
         total_paginas=total_paginas,
         total_pedidos=total_pedidos,
+        pos_activo=pos_activo,
+    )
+
+
+@gastronomia_bp.route("/panel/pedidos/historial/cajas", methods=["GET"])
+def historial_cajas_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return redirect(url_for("login"))
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido()
+
+    respuesta = (
+        supabase_admin
+        .table("gastronomia_cajas")
+        .select(COLUMNAS_CAJA)
+        .eq("comercio_id", comercio.get("id"))
+        .order("numero", desc=True)
+        .execute()
+    )
+    cajas = [
+        _preparar_caja(caja)
+        for caja in (respuesta.data or [])
+        if caja.get("cerrado_at")
+    ]
+    return render_template(
+        "gastronomia/cierres_historial.html",
+        comercio=comercio,
+        cajas=cajas,
+        caja_seleccionada=None,
+        operaciones=[],
+    )
+
+
+@gastronomia_bp.route(
+    "/panel/pedidos/historial/cajas/<caja_id>",
+    methods=["GET"],
+)
+def detalle_caja_gastronomia(caja_id):
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return redirect(url_for("login"))
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return _respuesta_pos_requerido()
+
+    comercio_id = comercio.get("id")
+    respuesta = (
+        supabase_admin
+        .table("gastronomia_cajas")
+        .select(COLUMNAS_CAJA)
+        .eq("id", caja_id)
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    if not (respuesta.data or []):
+        abort(404)
+
+    caja = respuesta.data[0]
+    if not caja.get("cerrado_at"):
+        abort(404)
+    caja = _preparar_caja(caja)
+
+    operaciones = _consultar_ventas_caja(comercio_id, caja_id)
+    for venta in operaciones:
+        venta["hora_mostrar"] = _fecha_hora_pedido_mostrar(
+            venta.get("created_at")
+        ).split(" ")[-1]
+        venta["operacion_mostrar"] = _etiqueta_operacion_venta(venta)
+        venta["forma_pago_mostrar"] = ETIQUETAS_FORMA_PAGO_VENTAS.get(
+            str(venta.get("forma_pago") or "").strip().lower(),
+            "Sin informar",
+        )
+
+    return render_template(
+        "gastronomia/cierres_historial.html",
+        comercio=comercio,
+        cajas=[],
+        caja_seleccionada=caja,
+        operaciones=operaciones,
     )
 
 
@@ -850,32 +1638,27 @@ def toggle_producto_activo(producto_id):
     producto = productos[0]
     nuevo_estado = not bool(producto.get("activo"))
 
-    # Si se intenta ACTIVAR un producto, respetar el límite Gratis.
+    # Al activar, respetar la capacidad comercial de Gastronomía.
     if nuevo_estado:
-        plan_actual = str(
-            comercio.get("plan") or "gratis"
-        ).strip().lower()
+        activos_res = (
+            supabase_admin
+            .table("gastronomia_productos")
+            .select("id")
+            .eq("comercio_id", comercio_id)
+            .eq("activo", True)
+            .execute()
+        )
 
-        if plan_actual != "premium":
-            activos_res = (
-                supabase_admin
-                .table("gastronomia_productos")
-                .select("id")
-                .eq("comercio_id", comercio_id)
-                .eq("activo", True)
-                .execute()
-            )
+        cantidad_activos = len(activos_res.data or [])
 
-            cantidad_activos = len(activos_res.data or [])
-
-            if cantidad_activos >= 10:
-                return redirect(
-                    url_for(
-                        "gastronomia.panel_gastronomia",
-                        limite_productos="1"
-                    )
-                    + "#mis-productos"
+        if _limite_productos_gastronomia_alcanzado(cantidad_activos):
+            return redirect(
+                url_for(
+                    "gastronomia.panel_gastronomia",
+                    limite_productos="1"
                 )
+                + "#mis-productos"
+            )
 
     (
         supabase_admin
@@ -902,15 +1685,6 @@ def destacar_producto(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
-
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="destacados"
-            )
-            + "#mis-productos"
-        )
 
     comercio_id = comercio.get("id")
 
@@ -1026,15 +1800,6 @@ def quitar_destacado_producto(producto_id):
     if not comercio:
         return redirect(url_for("login"))
 
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="destacados"
-            )
-            + "#mis-productos"
-        )
-
     comercio_id = comercio.get("id")
 
     (
@@ -1078,6 +1843,10 @@ def editar_producto(producto_id):
         request.form.get("descripcion") or ""
     ).strip()
 
+    categoria = _limpiar_categoria_producto(
+        request.form.get("categoria")
+    )
+
     precio_raw = str(
         request.form.get("precio") or ""
     ).strip()
@@ -1096,17 +1865,7 @@ def editar_producto(producto_id):
         )
 
     try:
-        precio = float(
-            precio_raw
-            .replace("$", "")
-            .replace(" ", "")
-            .replace(".", "")
-            .replace(",", ".")
-        )
-
-        if precio < 0:
-            raise ValueError
-
+        precio = _parsear_precio_producto(precio_raw)
     except (TypeError, ValueError):
         return redirect(
             url_for(
@@ -1152,6 +1911,7 @@ def editar_producto(producto_id):
         .update({
             "nombre": nombre,
             "descripcion": descripcion,
+            "categoria": categoria,
             "precio": precio,
             "imagen_url": imagen_final,
         })
@@ -1178,15 +1938,6 @@ def guardar_promocion_producto(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
-
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="promociones"
-            )
-            + "#mis-productos"
-        )
 
     comercio_id = comercio.get("id")
 
@@ -1221,13 +1972,7 @@ def guardar_promocion_producto(producto_id):
     ).strip()
 
     try:
-        precio_promocional = float(
-            precio_raw
-            .replace("$", "")
-            .replace(" ", "")
-            .replace(".", "")
-            .replace(",", ".")
-        )
+        precio_promocional = _parsear_precio_producto(precio_raw)
     except (TypeError, ValueError):
         precio_promocional = 0
 
@@ -1319,15 +2064,6 @@ def quitar_promocion_producto(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
-
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="promociones"
-            )
-            + "#mis-productos"
-        )
 
     comercio_id = comercio.get("id")
 
@@ -1591,6 +2327,156 @@ def configuracion_inicial():
 
 
 @gastronomia_bp.route(
+    "/panel/datos-comercio",
+    methods=["POST"],
+)
+def guardar_datos_comercio():
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+
+    if not comercio_id:
+        return redirect(url_for("login"))
+
+    nombre_negocio = str(
+        request.form.get("nombre_negocio") or ""
+    ).strip()
+    descripcion = str(request.form.get("descripcion") or "").strip()
+    direccion = str(request.form.get("direccion") or "").strip()
+    ciudad = str(request.form.get("ciudad") or "").strip()
+    whatsapp = str(request.form.get("whatsapp") or "").strip()
+    whatsapp_limpio = limpiar_numero_whatsapp(whatsapp)
+
+    if (
+        not nombre_negocio
+        or not direccion
+        or not ciudad
+        or not whatsapp_limpio
+    ):
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                datos_comercio_error="campos",
+            )
+            + "#datos-comercio"
+        )
+
+    datos = {
+        "nombre_negocio": nombre_negocio,
+        "descripcion": descripcion,
+        "direccion": direccion,
+        "direccion_mostrar": direccion,
+        "ciudad": ciudad,
+        "whatsapp": whatsapp_limpio,
+    }
+
+    try:
+        (
+            supabase_admin
+            .table("comercios")
+            .update(datos)
+            .eq("id", comercio_id)
+            .execute()
+        )
+    except Exception as error:
+        print(
+            "ERROR ACTUALIZANDO DATOS DEL COMERCIO GASTRONOMICO:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                datos_comercio_error="guardar",
+            )
+            + "#datos-comercio"
+        )
+
+    comercio_sesion = session.get("comercio")
+    if isinstance(comercio_sesion, dict):
+        comercio_sesion.update(datos)
+        session["comercio"] = comercio_sesion
+        session.modified = True
+
+    return redirect(
+        url_for(
+            "gastronomia.panel_gastronomia",
+            datos_comercio_ok="1",
+        )
+        + "#datos-comercio"
+    )
+
+
+@gastronomia_bp.route(
+    "/panel/delivery/ubicacion",
+    methods=["POST"],
+)
+def guardar_ubicacion_delivery():
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    comercio_id = comercio.get("id")
+    direccion = str(
+        request.form.get("delivery_origen_direccion") or ""
+    ).strip()
+
+    try:
+        latitud, longitud = geocodificar_direccion_nominatim(
+            direccion,
+            comercio.get("ciudad"),
+        )
+    except DeliveryError:
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                ubicacion_delivery_error="1",
+            )
+            + "#delivery-distancia"
+        )
+
+    try:
+        (
+            supabase_admin
+            .table("gastronomia_configuracion")
+            .update({
+                "delivery_origen_direccion": direccion,
+                "delivery_origen_latitud": latitud,
+                "delivery_origen_longitud": longitud,
+            })
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+    except Exception as error:
+        print(
+            "ERROR GUARDANDO UBICACION DE DELIVERY:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="guardar",
+            )
+            + "#delivery-distancia"
+        )
+
+    return redirect(
+        url_for(
+            "gastronomia.panel_gastronomia",
+            ubicacion_delivery_ok="1",
+        )
+        + "#delivery-distancia"
+    )
+
+
+@gastronomia_bp.route(
     "/panel/configuracion",
     methods=["POST"],
 )
@@ -1641,6 +2527,67 @@ def guardar_configuracion_negocio():
     descuento_transferencia_raw = str(
         request.form.get("descuento_transferencia_pct") or "0"
     ).strip()
+
+    delivery_distancia_activo = (
+        request.form.get("delivery_distancia_activo") == "on"
+    )
+    if delivery_distancia_activo and not acepta_delivery:
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="delivery_distancia",
+            )
+            + "#configuracion-negocio"
+        )
+    configuracion_actual_res = (
+        supabase_admin
+        .table("gastronomia_configuracion")
+        .select(
+            "delivery_origen_direccion,delivery_origen_latitud,"
+            "delivery_origen_longitud"
+        )
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    configuraciones_actuales = configuracion_actual_res.data or []
+    configuracion_actual = (
+        configuraciones_actuales[0]
+        if configuraciones_actuales
+        else {}
+    )
+    delivery_origen_direccion = str(
+        configuracion_actual.get("delivery_origen_direccion") or ""
+    ).strip()
+    if delivery_distancia_activo:
+        try:
+            validar_coordenadas(
+                configuracion_actual.get("delivery_origen_latitud"),
+                configuracion_actual.get("delivery_origen_longitud"),
+            )
+        except DeliveryError:
+            return redirect(
+                url_for(
+                    "gastronomia.panel_gastronomia",
+                    configuracion_error="delivery_ubicacion",
+                )
+                + "#delivery-distancia"
+            )
+    try:
+        delivery_franjas = validar_configuracion_delivery(
+            delivery_distancia_activo,
+            delivery_origen_direccion,
+            request.form.getlist("delivery_hasta_km"),
+            request.form.getlist("delivery_precio"),
+        )
+    except ValueError:
+        return redirect(
+            url_for(
+                "gastronomia.panel_gastronomia",
+                configuracion_error="delivery_distancia",
+            )
+            + "#configuracion-negocio"
+        )
 
     try:
         pedido_minimo = _parsear_importe_config(
@@ -1721,6 +2668,8 @@ def guardar_configuracion_negocio():
         "tiempo_estimado_min": tiempo_estimado_min,
         "descuento_efectivo_pct": descuento_efectivo_pct,
         "descuento_transferencia_pct": descuento_transferencia_pct,
+        "delivery_distancia_activo": delivery_distancia_activo,
+        "delivery_franjas": delivery_franjas,
     }
 
     try:
@@ -1757,14 +2706,47 @@ def guardar_configuracion_negocio():
     )
 
 
+@gastronomia_bp.route("/panel/productos", methods=["GET"])
+def productos_gastronomia():
+    return panel_gastronomia("productos")
+
+
+@gastronomia_bp.route("/panel/configuracion", methods=["GET"])
+def configuracion_gastronomia():
+    return panel_gastronomia("configuracion")
+
+
+@gastronomia_bp.route("/panel/plan", methods=["GET"])
+def plan_gastronomia():
+    return panel_gastronomia("plan")
+
+
 @gastronomia_bp.route("/panel", methods=["GET", "POST"])
-def panel_gastronomia():
+def panel_gastronomia(panel_seccion="productos"):
     comercio = _comercio_panel_gastronomia()
 
     if not comercio:
         return redirect(url_for("login"))
 
     comercio_id = comercio.get("id")
+
+    if request.method == "POST" or any(
+        request.args.get(clave)
+        for clave in (
+            "producto_ok", "producto_editado", "producto_eliminado",
+            "limite_productos", "destacado_error",
+        )
+    ):
+        panel_seccion = "productos"
+    elif any(
+        request.args.get(clave)
+        for clave in (
+            "datos_comercio_ok", "datos_comercio_error",
+            "configuracion_ok", "configuracion_error",
+            "ubicacion_delivery_ok", "ubicacion_delivery_error",
+        )
+    ):
+        panel_seccion = "configuracion"
 
     configuracion_res = (
         supabase_admin
@@ -1773,7 +2755,9 @@ def panel_gastronomia():
             "comercio_id,activo,acepta_delivery,"
             "acepta_retiro,pedido_minimo,costo_envio,"
             "tiempo_estimado_min,descuento_efectivo_pct,"
-            "descuento_transferencia_pct"
+            "descuento_transferencia_pct,delivery_distancia_activo,"
+            "delivery_franjas,delivery_origen_direccion,"
+            "delivery_origen_latitud,delivery_origen_longitud"
         )
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -1791,6 +2775,16 @@ def panel_gastronomia():
 
     configuracion = configuraciones[0]
 
+    for campo in (
+        "pedido_minimo",
+        "costo_envio",
+        "descuento_efectivo_pct",
+        "descuento_transferencia_pct",
+    ):
+        configuracion[campo + "_input"] = _precio_producto_input(
+            configuracion.get(campo)
+        )
+
     configuracion["pedido_minimo_mostrar"] = (
         _formatear_precio(
             configuracion.get("pedido_minimo")
@@ -1805,11 +2799,34 @@ def panel_gastronomia():
         )
     )
 
+    configuracion["delivery_franjas_input"] = (
+        configuracion.get("delivery_franjas")
+        if isinstance(configuracion.get("delivery_franjas"), list)
+        else []
+    )
+
+    if panel_seccion == "plan":
+        return render_template(
+            "gastronomia/plan.html",
+            comercio=comercio,
+            panel_seccion="plan",
+            pos_activo=_pos_activo_gastronomia(comercio_id),
+            modulo_pos=obtener_modulo("pos"),
+        )
+
+    if panel_seccion == "configuracion":
+        return render_template(
+            "gastronomia/configuracion.html",
+            comercio=comercio,
+            configuracion=configuracion,
+            panel_seccion="configuracion",
+        )
+
     productos_res = (
         supabase_admin
         .table("gastronomia_productos")
         .select(
-            "id,nombre,descripcion,precio,"
+            "id,nombre,descripcion,categoria,precio,"
             "precio_promocional,imagen_url,disponible,"
             "activo,destacado,destacado_hasta,"
             "promocion_desde,promocion_hasta,orden"
@@ -1820,65 +2837,7 @@ def panel_gastronomia():
     )
 
     productos = productos_res.data or []
-
-    # --------------------------------------------------------
-    # PLAN GASTRONOMIA
-    # Gratis: máximo 10 productos activos.
-    # Premium: sin este límite reducido.
-    # --------------------------------------------------------
-    plan_actual = str(
-        comercio.get("plan") or "gratis"
-    ).strip().lower()
-
-    if plan_actual != "premium":
-        plan_actual = "gratis"
-
-    comercio["plan_actual"] = plan_actual
-    comercio["plan_nombre"] = (
-        "Premium"
-        if plan_actual == "premium"
-        else "Gratis"
-    )
-
-    comercio["fecha_vencimiento_plan_mostrar"] = None
-    comercio["dias_restantes_plan"] = None
-
-    if (
-        plan_actual == "premium"
-        and comercio.get("fecha_vencimiento_plan")
-    ):
-        try:
-            vencimiento_plan = date.fromisoformat(
-                str(
-                    comercio.get(
-                        "fecha_vencimiento_plan"
-                    )
-                )[:10]
-            )
-
-            hoy_plan = date.today()
-
-            comercio[
-                "fecha_vencimiento_plan_mostrar"
-            ] = vencimiento_plan.strftime(
-                "%d/%m/%Y"
-            )
-
-            comercio["dias_restantes_plan"] = max(
-                (vencimiento_plan - hoy_plan).days,
-                0,
-            )
-
-        except (TypeError, ValueError):
-            comercio[
-                "fecha_vencimiento_plan_mostrar"
-            ] = comercio.get(
-                "fecha_vencimiento_plan"
-            )
-
-    es_premium = plan_actual == "premium"
-
-    limite_productos_gratis = 10
+    categorias = _categorias_catalogo(productos)
 
     cantidad_productos_activos = sum(
         1
@@ -1888,6 +2847,9 @@ def panel_gastronomia():
 
     for producto in productos:
         producto["precio_mostrar"] = _formatear_precio(
+            producto.get("precio")
+        )
+        producto["precio_input"] = _precio_producto_input(
             producto.get("precio")
         )
 
@@ -1900,13 +2862,16 @@ def panel_gastronomia():
             if precio_promocional is not None
             else ""
         )
+        producto["precio_promocional_input"] = _precio_producto_input(
+            precio_promocional
+        )
 
     error_producto = ""
 
     if request.args.get("limite_productos") == "1":
         error_producto = (
-            "El plan Gratis permite hasta 10 productos activos. "
-            "Pausá otro producto o pasá a Gastronomía Premium."
+            "Gastronomía permite hasta 30 productos activos. "
+            "Pausá otro producto para activar uno nuevo."
         )
 
     if request.method == "POST":
@@ -1917,6 +2882,10 @@ def panel_gastronomia():
         descripcion = str(
             request.form.get("descripcion") or ""
         ).strip()
+
+        categoria = _limpiar_categoria_producto(
+            request.form.get("categoria")
+        )
 
         precio_raw = str(
             request.form.get("precio") or ""
@@ -1937,17 +2906,7 @@ def panel_gastronomia():
 
         else:
             try:
-                precio = float(
-                    precio_raw
-                    .replace("$", "")
-                    .replace(" ", "")
-                    .replace(".", "")
-                    .replace(",", ".")
-                )
-
-                if precio < 0:
-                    raise ValueError
-
+                precio = _parsear_precio_producto(precio_raw)
             except (TypeError, ValueError):
                 error_producto = (
                     "El precio ingresado no es válido."
@@ -1955,12 +2914,13 @@ def panel_gastronomia():
 
         if (
             not error_producto
-            and not es_premium
-            and cantidad_productos_activos >= limite_productos_gratis
+            and _limite_productos_gastronomia_alcanzado(
+                cantidad_productos_activos
+            )
         ):
             error_producto = (
-                "El plan Gratis permite hasta 10 productos activos. "
-                "Pausá otro producto o pasá a Gastronomía Premium."
+                "Gastronomía permite hasta 30 productos activos. "
+                "Pausá otro producto para activar uno nuevo."
             )
 
         if not error_producto:
@@ -1980,6 +2940,7 @@ def panel_gastronomia():
                     "comercio_id": comercio_id,
                     "nombre": nombre,
                     "descripcion": descripcion,
+                    "categoria": categoria,
                     "precio": precio,
                     "precio_promocional": None,
                     "imagen_url": imagen_url,
@@ -2037,8 +2998,9 @@ def panel_gastronomia():
 
     metricas_por_producto = {}
 
-    if es_premium:
-        try:
+    pos_activo = _pos_activo_gastronomia(comercio_id)
+
+    try:
             ahora_utc = datetime.now(timezone.utc)
 
             zona_local = ZoneInfo(
@@ -2070,23 +3032,33 @@ def panel_gastronomia():
                     - timedelta(days=dias)
                 ).isoformat()
 
-            pedidos_metricas_res = (
+            consulta_metricas = (
                 supabase_admin
                 .table("gastronomia_pedidos")
                 .select(
                     "id,created_at,total,detalle,"
+                    "estado,estado_pago,origen,"
                     "visitante_id,sesion_id,"
                     "telefono_normalizado,"
                     "nombre_cliente,apellido_cliente,"
                     "direccion_entrega"
                 )
                 .eq("comercio_id", comercio_id)
+                .eq("estado_pago", "pagado")
+                .neq("estado", "cancelado")
                 .gte(
                     "created_at",
                     desde_consulta
                 )
-                .execute()
             )
+
+            if not pos_activo:
+                consulta_metricas = consulta_metricas.eq(
+                    "origen",
+                    "clicklocal",
+                )
+
+            pedidos_metricas_res = consulta_metricas.execute()
 
             pedidos_metricas = (
                 pedidos_metricas_res.data or []
@@ -2135,6 +3107,12 @@ def panel_gastronomia():
                         pass
 
                 pedidos_metricas = pedidos_filtrados
+
+            pedidos_metricas = [
+                pedido
+                for pedido in pedidos_metricas
+                if pedido_es_venta(pedido)
+            ]
 
             total_ventas = 0.0
 
@@ -2225,51 +3203,27 @@ def panel_gastronomia():
                     2
                 )
 
-        except Exception as error:
-            print(
-                "ERROR METRICAS GASTRONOMIA:",
-                type(error),
-                error,
-                flush=True,
-            )
-
-    listas_buscables = []
-
-    try:
-        listas_res = (
-            supabase_admin
-            .table("listas_buscables")
-            .select("*")
-            .eq("comercio_id", comercio_id)
-            .order("created_at", desc=True)
-            .execute()
-        )
-
-        listas_buscables = listas_res.data or []
-
     except Exception as error:
         print(
-            "ERROR LEYENDO LISTAS EN GASTRONOMIA:",
+            "ERROR METRICAS GASTRONOMIA:",
             type(error),
             error,
-            flush=True
+            flush=True,
         )
 
     return render_template(
-        "gastronomia/panel.html",
+        "gastronomia/productos.html",
         comercio=comercio,
         configuracion=configuracion,
         productos=productos,
+        categorias=categorias,
         error_producto=error_producto,
-        listas_buscables=listas_buscables,
         es_cine_teatro=False,
-        es_premium=es_premium,
-        plan_nombre=("Premium" if es_premium else "Gratis"),
-        limite_productos_gratis=limite_productos_gratis,
         cantidad_productos_activos=cantidad_productos_activos,
         metricas_gastronomia=metricas_gastronomia,
         metricas_por_producto=metricas_por_producto,
         periodo_metricas=periodo_metricas,
+        panel_seccion="productos",
     )
 
 
@@ -2330,15 +3284,6 @@ def extras_producto(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
-
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="extras"
-            )
-            + "#mis-productos"
-        )
 
     comercio_id = comercio.get("id")
 
@@ -2434,15 +3379,6 @@ def crear_grupo_extra(producto_id):
 
     if not comercio:
         return redirect(url_for("login"))
-
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="extras"
-            )
-            + "#mis-productos"
-        )
 
     comercio_id = comercio.get("id")
 
@@ -2549,15 +3485,6 @@ def crear_opcion_extra(
 
     if not comercio:
         return redirect(url_for("login"))
-
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="extras"
-            )
-            + "#mis-productos"
-        )
 
     comercio_id = comercio.get("id")
 
@@ -2672,15 +3599,6 @@ def eliminar_grupo_extra(
     if not comercio:
         return redirect(url_for("login"))
 
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="extras"
-            )
-            + "#mis-productos"
-        )
-
     comercio_id = comercio.get("id")
 
     producto = _producto_gastronomia_del_comercio(
@@ -2754,15 +3672,6 @@ def eliminar_opcion_extra(
 
     if not comercio:
         return redirect(url_for("login"))
-
-    if not _es_premium_gastronomia(comercio):
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                premium_bloqueado="extras"
-            )
-            + "#mis-productos"
-        )
 
     comercio_id = comercio.get("id")
 
@@ -2871,12 +3780,188 @@ def _normalizar_telefono_pedido(valor):
 
 
 @gastronomia_bp.route(
+    "/comercio/<comercio_id>/delivery/cotizar",
+    methods=["POST"],
+)
+def cotizar_delivery(comercio_id):
+    payload = request.get_json(silent=True) or {}
+    direccion = str(
+        payload.get("direccion_entrega")
+        or payload.get("direccion")
+        or ""
+    ).strip()
+    telefono_normalizado = _normalizar_telefono_pedido(
+        payload.get("telefono_cliente")
+    )
+    if not direccion or len(direccion) > 160:
+        return jsonify({"ok": False, "error": "Ingresá una dirección válida."}), 400
+    if not telefono_normalizado:
+        return jsonify({
+            "ok": False,
+            "error": "Ingresá un WhatsApp válido antes de calcular el envío.",
+        }), 400
+
+    config_res = (
+        supabase_admin.table("gastronomia_configuracion")
+        .select(
+            "comercio_id,activo,acepta_delivery,delivery_distancia_activo,"
+            "delivery_franjas,delivery_origen_direccion,"
+            "delivery_origen_latitud,delivery_origen_longitud"
+        )
+        .eq("comercio_id", comercio_id)
+        .eq("activo", True)
+        .limit(1)
+        .execute()
+    )
+    configuraciones = config_res.data or []
+    if not configuraciones:
+        return jsonify({"ok": False, "error": "El comercio no está recibiendo pedidos."}), 404
+    configuracion = configuraciones[0]
+    if not configuracion.get("acepta_delivery"):
+        return jsonify({"ok": False, "error": "El comercio no tiene Delivery habilitado."}), 400
+    if not configuracion.get("delivery_distancia_activo"):
+        return jsonify({"ok": False, "error": "El envío por distancia no está habilitado."}), 400
+
+    comercio_res = (
+        supabase_admin.table("comercios")
+        .select("id,ciudad")
+        .eq("id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    comercios = comercio_res.data or []
+    if not comercios:
+        return jsonify({"ok": False, "error": "Comercio no encontrado."}), 404
+
+    origen = str(configuracion.get("delivery_origen_direccion") or "").strip()
+    try:
+        origen_latitud, origen_longitud = validar_coordenadas(
+            configuracion.get("delivery_origen_latitud"),
+            configuracion.get("delivery_origen_longitud"),
+        )
+    except DeliveryError:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "Este comercio todavía debe configurar la ubicación "
+                "de salida del delivery."
+            ),
+        }), 409
+    direccion_normalizada = normalizar_direccion(direccion)
+    origen_normalizado = clave_origen_coordenadas(
+        origen_latitud,
+        origen_longitud,
+    )
+    origen_cache_validado = clave_cache_delivery(origen_normalizado)
+    try:
+        distancia_m = None
+        try:
+            cache_res = (
+                supabase_admin.table("gastronomia_cliente_direcciones")
+                .select("distancia_m,origen_normalizado")
+                .eq("comercio_id", comercio_id)
+                .eq("telefono_normalizado", telefono_normalizado)
+                .eq("direccion_normalizada", direccion_normalizada)
+                .limit(1)
+                .execute()
+            )
+            cache = cache_res.data or []
+            if (
+                cache
+                and cache[0].get("origen_normalizado")
+                == origen_cache_validado
+            ):
+                distancia_cache = cache[0].get("distancia_m")
+                if (
+                    not isinstance(distancia_cache, bool)
+                    and isinstance(distancia_cache, (int, float))
+                    and distancia_cache >= 0
+                ):
+                    distancia_m = int(distancia_cache)
+        except Exception:
+            current_app.logger.exception(
+                "No se pudo consultar la caché privada de delivery"
+            )
+
+        if distancia_m is None:
+            distancia_m = consultar_distancia_osm(
+                origen_latitud,
+                origen_longitud,
+                direccion,
+                comercios[0].get("ciudad"),
+            )
+            try:
+                (
+                    supabase_admin.table("gastronomia_cliente_direcciones")
+                    .upsert({
+                        "comercio_id": comercio_id,
+                        "telefono_normalizado": telefono_normalizado,
+                        "direccion": direccion,
+                        "direccion_normalizada": direccion_normalizada,
+                        "distancia_m": distancia_m,
+                        "origen_normalizado": origen_cache_validado,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }, on_conflict=(
+                        "comercio_id,telefono_normalizado,direccion_normalizada"
+                    ))
+                    .execute()
+                )
+            except Exception:
+                current_app.logger.exception(
+                    "No se pudo actualizar la caché privada de delivery"
+                )
+
+        franja = seleccionar_franja(
+            configuracion.get("delivery_franjas"),
+            distancia_m,
+        )
+    except (DeliveryError, ValueError) as error:
+        mensaje = getattr(error, "mensaje", "La configuración de delivery no es válida.")
+        status = getattr(error, "status_code", 500)
+        return jsonify({"ok": False, "error": mensaje}), status
+
+    if franja is None:
+        return jsonify({"ok": False, "fuera_zona": True, "error": "Fuera de la zona de delivery."}), 422
+
+    costo_envio = float(franja["precio"])
+    token = firmar_cotizacion(
+        comercio_id,
+        telefono_normalizado,
+        direccion,
+        distancia_m,
+        costo_envio,
+        origen_normalizado,
+    )
+    distancia_km = distancia_m / 1000
+    distancia_mostrar = f"{distancia_km:.1f}".replace(".", ",") + " km"
+    return jsonify({
+        "ok": True,
+        "distancia_m": distancia_m,
+        "distancia_mostrar": distancia_mostrar,
+        "costo_envio": costo_envio,
+        "mensaje": "Envío calculado correctamente.",
+        "cotizacion_token": token,
+    })
+
+
+@gastronomia_bp.route(
     "/comercio/<comercio_id>/pedido",
     methods=["POST"]
 )
 def registrar_pedido(comercio_id):
 
     payload = request.get_json(silent=True) or {}
+
+    idempotency_key_raw = str(
+        payload.get("idempotency_key") or ""
+    ).strip()
+    try:
+        idempotency_key = str(UUID(idempotency_key_raw))
+    except (ValueError, TypeError, AttributeError):
+        return jsonify({
+            "ok": False,
+            "error": "La identificación de la solicitud es inválida.",
+        }), 400
 
     nombre = str(
         payload.get("nombre") or ""
@@ -2911,6 +3996,45 @@ def registrar_pedido(comercio_id):
     ).strip()[:220]
 
     detalle_cliente = payload.get("detalle") or []
+
+    idempotency_fingerprint = construir_idempotency_fingerprint(
+        comercio_id=comercio_id,
+        nombre=nombre,
+        apellido=apellido,
+        telefono_normalizado=telefono_normalizado,
+        modalidad=modalidad,
+        direccion=direccion,
+        forma_pago=forma_pago,
+        paga_con=payload.get("paga_con"),
+        observaciones=observaciones,
+        items=detalle_cliente,
+        cotizacion_delivery=payload.get("cotizacion_delivery"),
+    )
+
+    try:
+        resultado_existente = buscar_pedido_idempotente(
+            comercio_id,
+            idempotency_key,
+            idempotency_fingerprint,
+        )
+    except PedidoError as error:
+        return jsonify({
+            "ok": False,
+            "error": error.mensaje,
+        }), error.status_code
+
+    if resultado_existente:
+        return jsonify({
+            "ok": True,
+            "pedido_id": resultado_existente.get("id"),
+            "numero_pedido": resultado_existente.get("numero_pedido"),
+            "created_at": resultado_existente.get("created_at"),
+            "texto_pedido": resultado_existente.get("texto_pedido"),
+            "whatsapp_comercio": (
+                resultado_existente.get("whatsapp_comercio") or ""
+            ),
+            "idempotent_replay": True,
+        })
 
     # ----------------------------------------------------------
     # Validaciones base
@@ -2968,6 +4092,33 @@ def registrar_pedido(comercio_id):
         }), 400
 
     try:
+        cotizacion_delivery = None
+        if modalidad == "delivery":
+            config_delivery_res = (
+                supabase_admin.table("gastronomia_configuracion")
+                .select(
+                    "delivery_distancia_activo,delivery_origen_direccion,"
+                    "delivery_origen_latitud,delivery_origen_longitud"
+                )
+                .eq("comercio_id", comercio_id)
+                .eq("activo", True)
+                .limit(1)
+                .execute()
+            )
+            config_delivery = config_delivery_res.data or []
+            if config_delivery and config_delivery[0].get("delivery_distancia_activo"):
+                origen_token = clave_origen_coordenadas(
+                    config_delivery[0].get("delivery_origen_latitud"),
+                    config_delivery[0].get("delivery_origen_longitud"),
+                )
+                cotizacion_delivery = validar_cotizacion(
+                    payload.get("cotizacion_delivery"),
+                    comercio_id,
+                    telefono_normalizado,
+                    direccion,
+                    origen_token,
+                )
+
         resultado = crear_pedido(
             comercio_id=comercio_id,
             nombre=nombre,
@@ -2990,8 +4141,11 @@ def registrar_pedido(comercio_id):
                 "analytics_sesion_id",
                 None,
             ),
+            cotizacion_delivery=cotizacion_delivery,
+            idempotency_key=idempotency_key,
+            idempotency_fingerprint=idempotency_fingerprint,
         )
-    except PedidoError as error:
+    except (PedidoError, DeliveryError) as error:
         return jsonify({
             "ok": False,
             "error": error.mensaje,
@@ -3004,4 +4158,5 @@ def registrar_pedido(comercio_id):
         "created_at": resultado.get("created_at"),
         "texto_pedido": resultado.get("texto_pedido"),
         "whatsapp_comercio": resultado.get("whatsapp_comercio") or "",
+        "idempotent_replay": bool(resultado.get("idempotent_replay")),
     })

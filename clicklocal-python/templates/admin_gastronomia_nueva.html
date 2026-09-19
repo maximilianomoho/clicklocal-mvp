@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nueva Gastronomía · ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .alta-admin{max-width:720px;margin:36px auto;padding:0 18px}.alta-admin__card{background:#fff;border-radius:18px;padding:26px;box-shadow:0 8px 28px rgba(0,0,0,.09)}.alta-admin label{display:block;font-weight:700;margin-top:15px}.alta-admin input,.alta-admin textarea{width:100%;box-sizing:border-box;margin-top:6px;padding:11px;border:1px solid #d1d5db;border-radius:9px}.alta-admin textarea{min-height:100px;resize:vertical}.alta-admin button{margin-top:22px;padding:12px 18px;border:0;border-radius:10px;background:#7a1f2b;color:#fff;font-weight:800;cursor:pointer}.alta-admin__error{padding:12px;border-radius:10px;background:#fee2e2;color:#991b1b}.alta-admin__nota{color:#4b5563;line-height:1.5}
+  </style>
+</head>
+<body>
+  {% include "_admin_nav.html" %}
+  <main class="alta-admin">
+    <section class="alta-admin__card">
+      <h1>Nueva alta gastronómica</h1>
+      <p class="alta-admin__nota">Se creará el comercio y su configuración gastronómica activa. No se enviará ningún email todavía.</p>
+      {% if error %}<p class="alta-admin__error">{{ error }}</p>{% endif %}
+      <form method="post">
+        <label>Nombre del negocio *<input name="nombre_negocio" value="{{ valores.nombre_negocio|e }}" required></label>
+        <label>Email del propietario *<input type="email" name="email" value="{{ valores.email|e }}" required></label>
+        <label>WhatsApp *<input type="tel" name="whatsapp" value="{{ valores.whatsapp|e }}" placeholder="343 000 0000" required></label>
+        <label>Dirección *<input name="direccion" value="{{ valores.direccion|e }}" required></label>
+        <label>Descripción<textarea name="descripcion">{{ valores.descripcion|e }}</textarea></label>
+        <button type="submit">Crear y administrar</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

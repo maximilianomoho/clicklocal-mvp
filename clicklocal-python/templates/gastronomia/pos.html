@@ -1,0 +1,204 @@
+{% extends "panel.html" %}
+
+{% block retorno_terminos %}gastronomia{% endblock %}
+
+{% block panel_hero_texto %}
+<div>
+  <p class="titulo-chico">GASTRONOMÍA</p>
+  <h1>{{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}</h1>
+</div>
+{% endblock %}
+
+{% block panel_menu_principal %}
+{% set panel_seccion = 'ventas' %}{% set ventas_vista = 'pos' %}{% include "gastronomia/_panel_nav.html" %}
+{% endblock %}
+
+{% block panel_contenido_general %}{% endblock %}
+
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/pos.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/panel.css') }}">
+
+<header class="ventas-seccion-encabezado">
+  <p class="titulo-chico">VENTAS</p>
+  <h2>Punto de venta</h2>
+  <p>Catálogo y carrito privado.</p>
+</header>
+
+<section class="pos" data-pos data-confirmar-url="{{ url_for('gastronomia.confirmar_venta_pos_gastronomia') }}">
+  <header class="pos-encabezado">
+    <div>
+      <p class="titulo-chico">VENTA EN EL LOCAL</p>
+      <h2>Elegí productos</h2>
+      <p>Armá el carrito y confirmá la venta para enviarla a Pedidos.</p>
+    </div>
+  </header>
+
+  <div class="pos-layout">
+    <div class="pos-catalogo" aria-label="Catálogo de productos">
+      {% if productos %}
+        <nav class="pos-filtros" aria-label="Filtrar productos por categoría">
+          <button type="button" class="pos-filtro activo" data-filtro-categoria="" aria-pressed="true">Todos</button>
+          {% for categoria in categorias %}
+            <button type="button" class="pos-filtro" data-filtro-categoria="{{ categoria | e }}" aria-pressed="false">{{ categoria }}</button>
+          {% endfor %}
+        </nav>
+        <div class="pos-productos">
+          {% for producto in productos %}
+            <button
+              type="button"
+              class="pos-producto{% if not producto.disponible %} pos-producto--no-disponible{% endif %}"
+              data-abrir-producto="modal-pos-{{ producto.id }}"
+              data-categoria="{{ producto.categoria | default('', true) | e }}"
+              {% if not producto.disponible %}disabled{% endif %}
+            >
+              {% if producto.imagen_url %}
+                <span class="pos-producto-imagen" style="background-image:url('{{ producto.imagen_url }}')"></span>
+              {% else %}
+                <span class="pos-producto-imagen pos-producto-imagen--vacia" aria-hidden="true"></span>
+              {% endif %}
+              <span class="pos-producto-datos">
+                <strong>{{ producto.nombre }}</strong>
+                {% if producto.descripcion %}<small>{{ producto.descripcion }}</small>{% endif %}
+                <span class="pos-producto-precio">
+                  {% if producto.precio_promocional_mostrar %}
+                    {{ producto.precio_promocional_mostrar }}
+                    <del>{{ producto.precio_mostrar }}</del>
+                  {% else %}
+                    {{ producto.precio_mostrar }}
+                  {% endif %}
+                </span>
+                {% if not producto.disponible %}<em>No disponible</em>{% endif %}
+              </span>
+            </button>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="pos-vacio">Todavía no hay productos activos.</div>
+      {% endif %}
+    </div>
+
+    <aside class="pos-carrito" aria-labelledby="pos-carrito-titulo">
+      <div class="pos-carrito-cabecera">
+        <div>
+          <p class="titulo-chico">VENTA ACTUAL</p>
+          <h2 id="pos-carrito-titulo">Carrito</h2>
+        </div>
+        <button type="button" class="pos-vaciar" data-vaciar-carrito hidden>Vaciar</button>
+      </div>
+      <div class="pos-carrito-items" data-carrito-items>
+        <p class="pos-carrito-vacio">El carrito está vacío.</p>
+      </div>
+      <div class="pos-total">
+        <span>Subtotal</span>
+        <strong data-subtotal>$0</strong>
+      </div>
+      <div class="pos-total pos-total--principal">
+        <span>Total</span>
+        <strong data-total>$0</strong>
+      </div>
+      <fieldset class="pos-seleccion">
+        <legend>Forma de pago</legend>
+        <select data-forma-pago aria-label="Forma de pago" required>
+          <option value="">Elegí una opción</option>
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="qr">QR</option>
+          <option value="debito">Débito</option>
+          <option value="credito">Crédito</option>
+        </select>
+      </fieldset>
+      <fieldset class="pos-seleccion">
+        <legend>Tipo de venta</legend>
+        <label><input type="radio" name="tipo_venta" value="rapida" data-tipo-venta checked> Venta rápida</label>
+        <label><input type="radio" name="tipo_venta" value="preparacion" data-tipo-venta> Enviar a preparación</label>
+      </fieldset>
+      <button type="button" class="pos-confirmar" data-confirmar-venta disabled>Confirmar venta</button>
+      <p class="pos-confirmacion" data-confirmacion-venta role="status" hidden></p>
+    </aside>
+  </div>
+
+  {% for producto in productos if producto.disponible %}
+    <div
+      class="pos-modal"
+      id="modal-pos-{{ producto.id }}"
+      data-modal-producto
+      data-producto-id="{{ producto.id }}"
+      data-producto-nombre="{{ producto.nombre | e }}"
+      data-producto-precio="{{ producto.precio_venta or 0 }}"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-pos-{{ producto.id }}"
+      hidden
+    >
+      <div class="pos-modal-panel">
+        <button type="button" class="pos-modal-cerrar" data-cerrar-modal aria-label="Cerrar">×</button>
+        <header class="pos-modal-cabecera">
+          <h2 id="titulo-pos-{{ producto.id }}">{{ producto.nombre }}</h2>
+          <strong>{% if producto.precio_promocional_mostrar %}{{ producto.precio_promocional_mostrar }}{% else %}{{ producto.precio_mostrar }}{% endif %}</strong>
+        </header>
+        {% for grupo in producto.grupos_opciones %}
+          <fieldset
+            class="pos-opciones"
+            data-grupo-opciones
+            data-grupo-nombre="{{ grupo.nombre | e }}"
+            data-grupo-minimo="{{ grupo.minimo or 0 }}"
+            data-grupo-maximo="{{ grupo.maximo or 0 }}"
+          >
+            <legend>{{ grupo.nombre }}</legend>
+            {% if grupo.minimo or grupo.maximo %}
+              <p>
+                {% if grupo.minimo and grupo.maximo %}Elegí entre {{ grupo.minimo }} y {{ grupo.maximo }}.
+                {% elif grupo.minimo %}Elegí al menos {{ grupo.minimo }}.
+                {% else %}Podés elegir hasta {{ grupo.maximo }}.{% endif %}
+              </p>
+            {% endif %}
+            {% for opcion in grupo.opciones if opcion.disponible %}
+              <label class="pos-opcion">
+                <input
+                  type="checkbox"
+                  data-opcion
+                  data-opcion-id="{{ opcion.id }}"
+                  data-opcion-nombre="{{ opcion.nombre | e }}"
+                  data-opcion-precio="{{ opcion.precio_extra or 0 }}"
+                >
+                <span>{{ opcion.nombre }}</span>
+                {% if opcion.precio_extra_mostrar %}<strong>+ {{ opcion.precio_extra_mostrar }}</strong>{% endif %}
+              </label>
+            {% endfor %}
+          </fieldset>
+        {% endfor %}
+
+        <section class="pos-modal-resumen" aria-label="Resumen del producto">
+          <div class="pos-modal-resumen-fila">
+            <span>Precio base</span>
+            <strong data-resumen-precio-base>{% if producto.precio_promocional_mostrar %}{{ producto.precio_promocional_mostrar }}{% else %}{{ producto.precio_mostrar }}{% endif %}</strong>
+          </div>
+          <div class="pos-modal-resumen-opciones">
+            <span>Opciones seleccionadas</span>
+            <p data-resumen-sin-opciones>Sin agregados</p>
+            <ul data-resumen-opciones hidden></ul>
+          </div>
+          <div class="pos-modal-resumen-fila pos-modal-resumen-total">
+            <span>Total del producto</span>
+            <strong data-resumen-total>{% if producto.precio_promocional_mostrar %}{{ producto.precio_promocional_mostrar }}{% else %}{{ producto.precio_mostrar }}{% endif %}</strong>
+          </div>
+        </section>
+
+        <p class="pos-modal-error" data-modal-error role="alert" hidden></p>
+        <div class="pos-modal-acciones">
+          <button type="button" class="pos-modal-cancelar" data-cerrar-modal>Cancelar</button>
+          <div class="pos-cantidad pos-modal-cantidad" aria-label="Cantidad del producto">
+            <button type="button" data-cantidad-modal-cambio="-1" aria-label="Restar uno">−</button>
+            <span data-cantidad-modal>1</span>
+            <button type="button" data-cantidad-modal-cambio="1" aria-label="Sumar uno">+</button>
+          </div>
+          <button type="button" class="pos-modal-agregar" data-agregar-producto>Agregar al carrito</button>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</section>
+
+<script src="{{ url_for('static', filename='gastronomia/pos.js') }}" defer></script>
+{% endblock %}

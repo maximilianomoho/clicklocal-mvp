@@ -6,7 +6,7 @@
 {% block panel_hero_texto %}
 <div>
   <p class="titulo-chico">
-    EXTRAS Y OPCIONES
+    OPCIONES Y EXTRAS
   </p>
 
   <h1>
@@ -27,34 +27,19 @@
 
 
 {% block panel_menu_principal %}
-
-<a
-  href="{{ url_for(
-    'gastronomia.panel_gastronomia'
-  ) }}#mis-productos"
-  class="panel-menu-link"
->
-  ← Volver a productos
-</a>
-
-<a
-  href="#nuevo-grupo"
-  class="panel-menu-link activo"
->
-  Crear grupo
-</a>
-
-<a
-  href="#grupos"
-  class="panel-menu-link"
->
-  Grupos actuales
-</a>
-
+{% set panel_seccion = 'productos' %}{% include "gastronomia/_panel_nav.html" %}
 {% endblock %}
 
+{% block panel_contenido_general %}{% endblock %}
 
 {% block panel_contenido_principal %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/panel.css') }}">
+<nav class="gastro-subnav" aria-label="Navegación de opciones y extras">
+  <a href="{{ url_for('gastronomia.productos_gastronomia') }}#mis-productos">← Volver a productos</a>
+  <a class="activo" href="#nuevo-grupo">Crear grupo</a>
+  <a href="#grupos">Grupos actuales</a>
+</nav>
 
 <style>
   .extras-explicacion{

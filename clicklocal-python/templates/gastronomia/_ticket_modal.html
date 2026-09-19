@@ -1,0 +1,20 @@
+<dialog class="ticket-modal" id="ticketModal" aria-labelledby="ticketTitulo">
+  <article class="ticket-contenido">
+    <header class="ticket-cabecera">
+      <div class="ticket-marca">
+        <strong id="ticketComercio">{{ comercio.nombre_negocio or 'Mi comercio' }}</strong>
+        <h2 id="ticketTitulo">Ticket / Recibo no fiscal</h2>
+        <p id="ticketPedido"></p>
+      </div>
+      <button type="button" class="ticket-cerrar" data-cerrar-ticket aria-label="Cerrar">×</button>
+    </header>
+    <section class="ticket-datos" id="ticketDatos"></section>
+    <section class="ticket-productos" id="ticketProductos"></section>
+    <section class="ticket-totales" id="ticketTotales"></section>
+    <section class="ticket-pago" id="ticketPago"></section>
+    <footer class="ticket-acciones">
+      <button type="button" data-cerrar-ticket>Cerrar</button>
+      <button type="button" class="ticket-imprimir" data-imprimir-ticket>Imprimir ticket</button>
+    </footer>
+  </article>
+</dialog>

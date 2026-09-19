@@ -1,0 +1,131 @@
+{% extends "panel.html" %}
+
+{% block retorno_terminos %}gastronomia{% endblock %}
+
+{% block panel_hero_texto %}
+<div>
+  <p class="titulo-chico">GASTRONOMÍA</p>
+  <h1>{{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}</h1>
+</div>
+{% endblock %}
+
+{% block panel_menu_principal %}
+{% set panel_seccion = 'ventas' %}{% set ventas_vista = 'caja' %}{% include "gastronomia/_panel_nav.html" %}
+{% endblock %}
+
+{% block panel_contenido_general %}{% endblock %}
+
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/pedidos.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/panel.css') }}">
+<style>
+  .ventas-dia{display:grid;gap:20px}
+  .ventas-resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+  .ventas-tarjeta,.ventas-seccion{background:#fff;border:1px solid #e8e8e8;border-radius:14px;padding:18px}
+  .ventas-tarjeta span,.ventas-fila small{color:#666}
+  .ventas-tarjeta strong{display:block;font-size:1.55rem;margin-top:6px}
+  .ventas-cierre{align-items:center;display:flex;justify-content:space-between;gap:16px}
+  .ventas-cierre p{margin:4px 0 0;color:#666}
+  .ventas-cierre-estado{font-size:1.1rem}
+  .ventas-cerrar-caja{border:0;border-radius:9px;background:#681823;color:#fff;cursor:pointer;padding:11px 16px;font-weight:800}
+  .ventas-cerrar-caja:disabled{cursor:wait;opacity:.65}
+  .ventas-pagos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+  .ventas-pago{background:#f7f7f7;border-radius:10px;padding:12px}
+  .ventas-pago strong{display:block;margin-top:4px}
+  .ventas-lista{display:grid;margin-top:12px}
+  .ventas-fila{align-items:center;border-top:1px solid #eee;display:grid;gap:10px;grid-template-columns:70px 1fr auto auto;padding:14px 0}
+  .ventas-fila:first-child{border-top:0}
+  .ventas-fila--anulada{background:#fff5f5;border-radius:10px;padding-left:10px;padding-right:10px}
+  .ventas-operacion{display:grid;gap:3px}
+  .ventas-total{text-align:right}
+  .ventas-detalle{border:1px solid #681823;border-radius:8px;background:#fff;color:#681823;cursor:pointer;padding:8px 10px;font-weight:700}
+  .ventas-anular{border:0;background:transparent;color:#8c2633;cursor:pointer;font-size:12px;text-decoration:underline}
+  .ventas-anulada{color:#8c2633;font-weight:900}
+  @media(max-width:600px){.ventas-cierre{align-items:flex-start;flex-direction:column}.ventas-fila{grid-template-columns:55px 1fr}.ventas-total{grid-column:2;text-align:left}.ventas-detalle{grid-column:2;justify-self:start}}
+</style>
+
+<section class="ventas-dia">
+  <header class="ventas-seccion-encabezado">
+    <p class="titulo-chico">VENTAS</p>
+    {% if pos_activo %}<h2>Caja actual</h2>{% else %}<h2>Ventas de ClickLocal</h2>{% endif %}
+    <p>{% if pos_activo %}Operaciones pagadas asociadas a la caja actual.{% else %}Resumen de las ventas originadas en ClickLocal.{% endif %}</p>
+    {% if not pos_activo and request.args.get('pos_requerido') %}<p>La función solicitada requiere tener POS activo.</p>{% endif %}
+  </header>
+  <div class="ventas-resumen" aria-label="Resumen de ventas de la caja">
+    <article class="ventas-tarjeta"><span>Total vendido</span><strong>{{ total_vendido|precio_arg }}</strong></article>
+    <article class="ventas-tarjeta"><span>Cantidad de ventas</span><strong>{{ cantidad_ventas }}</strong></article>
+    <article class="ventas-tarjeta"><span>Ticket promedio</span><strong>{{ ticket_promedio|precio_arg }}</strong></article>
+  </div>
+
+  {% if pos_activo %}
+  <section class="ventas-seccion ventas-cierre" aria-labelledby="ventas-cierre-estado">
+    <div>
+      {% if caja_abierta %}
+        <strong class="ventas-cierre-estado" id="ventas-cierre-estado">Caja #{{ caja_abierta.numero }} abierta</strong>
+        <p>Desde: {{ caja_abierta.abierto_at_mostrar }}</p>
+        <p>Ventas: {{ total_vendido|precio_arg }}</p>
+      {% else %}
+        <strong class="ventas-cierre-estado" id="ventas-cierre-estado">Caja cerrada</strong>
+        {% if ultima_caja %}
+          <p>Último cierre: Caja #{{ ultima_caja.numero }} · {{ ultima_caja.cerrado_at_mostrar }}</p>
+          <p>La próxima venta abrirá automáticamente la Caja #{{ proximo_numero }}.</p>
+        {% else %}
+          <p>La primera venta abrirá automáticamente la Caja #1.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if caja_abierta %}
+      <button
+        type="button"
+        class="ventas-cerrar-caja"
+        data-cerrar-caja-url="{{ url_for('gastronomia.cerrar_caja_ventas_gastronomia') }}"
+      >Cerrar caja</button>
+    {% endif %}
+  </section>
+
+  <section class="ventas-seccion" aria-labelledby="ventas-pagos-titulo">
+    <h2 id="ventas-pagos-titulo">Por forma de pago</h2>
+    <div class="ventas-pagos">
+      {% for forma in formas_pago %}
+        <div class="ventas-pago"><span>{{ etiquetas_forma_pago[forma] }}</span><strong>{{ totales_forma_pago[forma]|precio_arg }}</strong></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="ventas-seccion" aria-labelledby="ultimas-ventas-titulo">
+    <h2 id="ultimas-ventas-titulo">{% if pos_activo %}Operaciones de la caja{% else %}Historial del canal ClickLocal{% endif %}</h2>
+    {% if operaciones %}
+      <div class="ventas-lista">
+        {% for venta in operaciones %}
+          <article class="ventas-fila{% if venta.estado == 'cancelado' %} ventas-fila--anulada{% endif %}">
+            <time datetime="{{ venta.created_at }}">{{ venta.hora_mostrar }}</time>
+            <div class="ventas-operacion">
+              <strong>Pedido #{{ venta.numero_pedido }}</strong>
+              <small>{{ venta.operacion_mostrar }} · {{ venta.forma_pago_mostrar }}</small>
+              {% if venta.estado == 'cancelado' %}
+                <span class="ventas-anulada">ANULADA</span>
+                <small>Motivo: {{ venta.motivo_cancelacion or 'Sin informar' }}</small>
+              {% endif %}
+            </div>
+            <strong class="ventas-total">{{ venta.total|precio_arg }}</strong>
+            <div>
+              <button type="button" class="ventas-detalle js-ver-detalle" data-pedido="{{ venta|tojson|forceescape }}">Ver detalle</button>
+              {% if pos_activo and venta.estado != 'cancelado' %}
+                <button type="button" class="ventas-anular" data-anular-venta-url="{{ url_for('gastronomia.anular_venta_gastronomia', pedido_id=venta.id) }}">Anular venta</button>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>{% if pos_activo %}No hay una caja abierta con operaciones.{% else %}Todavía no hay operaciones originadas en ClickLocal.{% endif %}</p>
+    {% endif %}
+  </section>
+</section>
+{% include "gastronomia/_pedido_modal.html" %}
+<script src="{{ url_for('static', filename='gastronomia/pedido_detalle.js', v='1') }}" defer></script>
+{% if pos_activo %}
+<script src="{{ url_for('static', filename='gastronomia/ventas.js', v='1') }}" defer></script>
+{% endif %}
+{% endblock %}

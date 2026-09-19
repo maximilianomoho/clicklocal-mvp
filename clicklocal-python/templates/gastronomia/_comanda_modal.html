@@ -1,0 +1,21 @@
+<dialog class="comanda-modal" id="comandaModal" aria-labelledby="comandaTitulo">
+  <article class="comanda-contenido">
+    <header class="comanda-cabecera">
+      <div>
+        <h2 id="comandaTitulo">Pedido</h2>
+        <p id="comandaHora"></p>
+        <strong id="comandaModalidad"></strong>
+      </div>
+      <button type="button" class="comanda-cerrar" data-cerrar-comanda aria-label="Cerrar">×</button>
+    </header>
+    <section>
+      <h3>Pedido completo</h3>
+      <div class="comanda-productos" id="comandaProductos"></div>
+    </section>
+    <div class="comanda-observaciones" id="comandaObservaciones" hidden></div>
+    <footer class="comanda-acciones">
+      <button type="button" data-cerrar-comanda>Cerrar</button>
+      <button type="button" class="comanda-imprimir" data-imprimir-comanda>Imprimir comanda</button>
+    </footer>
+  </article>
+</dialog>

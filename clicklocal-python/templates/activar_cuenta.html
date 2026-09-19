@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activar cuenta · ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>.activar{max-width:520px;margin:50px auto;padding:24px}.activar__card{background:#fff;border-radius:18px;padding:28px;box-shadow:0 8px 28px rgba(0,0,0,.1)}.activar label{display:block;margin:16px 0}.activar input[type=password]{width:100%;box-sizing:border-box;padding:11px;margin-top:6px}.activar button{padding:12px 18px;border:0;border-radius:10px;background:#7a1f2b;color:#fff;font-weight:800}.activar__error{color:#991b1b}</style>
+</head>
+<body>
+  <main class="activar"><section class="activar__card">
+    <h1>Creá tu contraseña</h1>
+    <p>Elegí tu acceso personal para administrar el comercio.</p>
+    <p id="estado">Validando enlace…</p>
+    <form id="formulario" hidden>
+      <label>Nueva contraseña *<input id="password" type="password" minlength="6" required></label>
+      <label>Repetir contraseña *<input id="repetir" type="password" minlength="6" required></label>
+      <label><input id="terminos" type="checkbox" required> Leí y acepto los <a href="{{ url_for('terminos') }}" target="_blank">Términos y Condiciones</a>.</label>
+      <button type="submit">Activar mi cuenta</button>
+    </form>
+  </section></main>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm";
+    const urlInicial = new URL(window.location.href);
+    const fragmentoInicial = new URLSearchParams(urlInicial.hash.slice(1));
+    const eraRedirectRecuperacion = (
+      urlInicial.searchParams.get("type") === "recovery"
+      || fragmentoInicial.get("type") === "recovery"
+    );
+    const cliente = createClient({{ supabase_url|tojson }}, {{ supabase_anon_key|tojson }});
+    const estado = document.getElementById("estado");
+    const formulario = document.getElementById("formulario");
+    let sesion = null;
+    let recuperacionConfirmada = false;
+    let procesando = false;
+    let activacionCompletada = false;
+
+    function habilitarRecuperacion(sesionRecuperada) {
+      if (recuperacionConfirmada || activacionCompletada || !sesionRecuperada?.access_token) return;
+      recuperacionConfirmada = true;
+      sesion = sesionRecuperada;
+      estado.textContent = "";
+      formulario.hidden = false;
+    }
+
+    const { data: escuchaAuth } = cliente.auth.onAuthStateChange((evento, sesionEvento) => {
+      if (evento === "PASSWORD_RECOVERY" && sesionEvento) {
+        habilitarRecuperacion(sesionEvento);
+      }
+    });
+
+    async function fallbackRecuperacion() {
+      if (!eraRedirectRecuperacion || recuperacionConfirmada) return;
+      const resultado = await cliente.auth.getSession();
+      if (!resultado.error && resultado.data.session) {
+        habilitarRecuperacion(resultado.data.session);
+      }
+    }
+
+    setTimeout(async () => {
+      await fallbackRecuperacion();
+      if (!recuperacionConfirmada) {
+        estado.textContent = "El enlace no es válido o venció. Pedí al administrador que lo reenvíe.";
+        formulario.hidden = true;
+      }
+    }, 1500);
+
+    formulario.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      if (!recuperacionConfirmada || !sesion?.access_token || procesando || activacionCompletada) return;
+      const password = document.getElementById("password").value;
+      if (password.length < 6 || password !== document.getElementById("repetir").value) { estado.textContent = "Las contraseñas deben coincidir y tener al menos 6 caracteres."; return; }
+      if (!document.getElementById("terminos").checked) { estado.textContent = "Debés aceptar los términos."; return; }
+      procesando = true;
+      formulario.querySelector("button[type=submit]").disabled = true;
+      estado.textContent = "Activando…";
+      const actualizada = await cliente.auth.updateUser({ password });
+      if (actualizada.error) {
+        estado.textContent = actualizada.error.message;
+        procesando = false;
+        formulario.querySelector("button[type=submit]").disabled = false;
+        return;
+      }
+      const respuesta = await fetch({{ url_for('completar_activacion_cuenta')|tojson }}, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({access_token:sesion.access_token,acepta_terminos:true})});
+      const datos = await respuesta.json();
+      if (!respuesta.ok) {
+        estado.textContent = datos.error || "No se pudo completar la activación.";
+        procesando = false;
+        formulario.querySelector("button[type=submit]").disabled = false;
+        return;
+      }
+      activacionCompletada = true;
+      escuchaAuth.subscription.unsubscribe();
+      window.location.assign(datos.destino);
+    });
+  </script>
+</body>
+</html>

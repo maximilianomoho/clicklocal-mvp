@@ -1,0 +1,124 @@
+{% extends "panel.html" %}
+
+{% block retorno_terminos %}gastronomia{% endblock %}
+
+{% block panel_hero_texto %}
+<div>
+  <p class="titulo-chico">GASTRONOMÍA</p>
+  <h1>{{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}</h1>
+</div>
+{% endblock %}
+
+{% block panel_menu_principal %}
+{% set panel_seccion = 'ventas' %}{% set ventas_vista = 'historial' %}{% include "gastronomia/_panel_nav.html" %}
+{% endblock %}
+
+{% block panel_contenido_general %}{% endblock %}
+
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/pedidos.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/panel.css') }}">
+<style>
+  .cierres-panel{display:grid;gap:18px}
+  .historial-vistas{display:flex;gap:8px;flex-wrap:wrap}
+  .historial-vistas a,.cierre-volver{border:1px solid #681823;border-radius:9px;padding:9px 14px;color:#681823;font-weight:800;text-decoration:none}
+  .historial-vistas a.activo{background:#681823;color:#fff}
+  .cierres-lista{display:grid;gap:12px}
+  .cierre-card{display:grid;grid-template-columns:minmax(130px,1fr) repeat(3,minmax(120px,1fr)) auto;align-items:center;gap:12px;border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#fff;color:#302526;text-decoration:none}
+  .cierre-card small,.cierre-operacion small{display:block;color:#6b7280}
+  .cierre-card strong{display:block;margin-top:3px}
+  .cierre-desglose{grid-column:1/-1;color:#6b7280;font-size:13px}
+  .cierre-resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .cierre-metrica{border:1px solid #e5e7eb;border-radius:10px;padding:13px;background:#fff}
+  .cierre-metrica small{display:block;color:#6b7280;margin-bottom:4px}
+  .cierre-aviso{margin:0;padding:12px;border-radius:10px;background:#faf6f0;color:#655b57}
+  .cierre-operaciones{display:grid;gap:10px}
+  .cierre-operacion{display:grid;grid-template-columns:65px 1fr auto auto;align-items:center;gap:12px;border-top:1px solid #eee;padding:13px 0}
+  .cierre-operacion:first-child{border-top:0}
+  .cierre-operacion--anulada{background:#fff5f5;border-radius:10px;padding-left:10px;padding-right:10px}
+  .cierre-anulada{display:block;color:#8c2633;font-weight:900}
+  .cierre-detalle{border:1px solid #681823;border-radius:8px;background:#fff;color:#681823;cursor:pointer;padding:8px 10px;font-weight:700}
+  .cierres-vacio{padding:28px;border:1px dashed #cbd5e1;border-radius:12px;text-align:center;color:#64748b}
+  @media(max-width:760px){.cierre-card{grid-template-columns:1fr 1fr}.cierre-card> :last-child{grid-column:1/-1}.cierre-operacion{grid-template-columns:55px 1fr}.cierre-operacion-total,.cierre-detalle{grid-column:2;justify-self:start}}
+</style>
+
+<header class="ventas-seccion-encabezado">
+  <p class="titulo-chico">VENTAS</p>
+  <h2>Historial de cajas</h2>
+  <p>Consultá las cajas cerradas y sus operaciones.</p>
+</header>
+
+<article class="panel-card cierres-panel">
+
+  {% if caja_seleccionada %}
+    <div><a class="cierre-volver" href="{{ url_for('gastronomia.historial_cajas_gastronomia') }}">← Volver a cajas</a></div>
+    <header>
+      <p class="titulo-chico">FOTO GUARDADA AL CIERRE</p>
+      <h2>Caja #{{ caja_seleccionada.numero }}</h2>
+      <p>Abierta: {{ caja_seleccionada.abierto_at_mostrar }}</p>
+      <p>Cerrada: {{ caja_seleccionada.cerrado_at_mostrar }}</p>
+    </header>
+    <section class="cierre-resumen" aria-label="Resumen del cierre guardado">
+      <div class="cierre-metrica"><small>Total vendido</small><strong>{{ caja_seleccionada.total_vendido|precio_arg }}</strong></div>
+      <div class="cierre-metrica"><small>Cantidad de ventas</small><strong>{{ caja_seleccionada.cantidad_ventas }}</strong></div>
+      <div class="cierre-metrica"><small>Ticket promedio</small><strong>{{ caja_seleccionada.ticket_promedio|precio_arg }}</strong></div>
+      <div class="cierre-metrica"><small>Efectivo</small><strong>{{ caja_seleccionada.efectivo|precio_arg }}</strong></div>
+      <div class="cierre-metrica"><small>Transferencia</small><strong>{{ caja_seleccionada.transferencia|precio_arg }}</strong></div>
+      <div class="cierre-metrica"><small>QR</small><strong>{{ caja_seleccionada.qr|precio_arg }}</strong></div>
+      <div class="cierre-metrica"><small>Débito</small><strong>{{ caja_seleccionada.debito|precio_arg }}</strong></div>
+      <div class="cierre-metrica"><small>Crédito</small><strong>{{ caja_seleccionada.credito|precio_arg }}</strong></div>
+    </section>
+    <p class="cierre-aviso">Esta es la foto guardada al cerrar. Las operaciones inferiores pertenecen a esta caja y no modifican la foto.</p>
+
+    <section aria-labelledby="operaciones-cierre-titulo">
+      <h2 id="operaciones-cierre-titulo">Operaciones de la caja</h2>
+      {% if operaciones %}
+        <div class="cierre-operaciones">
+          {% for venta in operaciones %}
+            <article class="cierre-operacion{% if venta.estado == 'cancelado' %} cierre-operacion--anulada{% endif %}">
+              <time datetime="{{ venta.created_at }}">{{ venta.hora_mostrar }}</time>
+              <div>
+                <strong>Pedido #{{ venta.numero_pedido }}</strong>
+                <small>{{ venta.operacion_mostrar }} · {{ venta.forma_pago_mostrar }}</small>
+                {% if venta.estado == 'cancelado' %}
+                  <span class="cierre-anulada">ANULADA</span>
+                  <small>Motivo: {{ venta.motivo_cancelacion or 'Sin informar' }}</small>
+                {% endif %}
+              </div>
+              <strong class="cierre-operacion-total">{{ venta.total|precio_arg }}</strong>
+              <button type="button" class="cierre-detalle js-ver-detalle" data-pedido="{{ venta|tojson|forceescape }}">Ver detalle</button>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="cierres-vacio">No hay operaciones asociadas a esta caja.</div>
+      {% endif %}
+    </section>
+  {% else %}
+    <header>
+      <p class="titulo-chico">CAJAS</p>
+      <h2>Cajas cerradas</h2>
+      <p>Cada caja conserva la foto financiera guardada al cerrarse.</p>
+    </header>
+    {% if cajas %}
+      <div class="cierres-lista">
+        {% for caja in cajas %}
+          <a class="cierre-card" href="{{ url_for('gastronomia.detalle_caja_gastronomia', caja_id=caja.id) }}">
+            <div><small>Caja</small><strong>Caja #{{ caja.numero }}</strong><small>{{ caja.abierto_at_mostrar }} → {{ caja.cerrado_at_mostrar }}</small></div>
+            <div><small>Total vendido</small><strong>{{ caja.total_vendido|precio_arg }}</strong></div>
+            <div><small>Ventas</small><strong>{{ caja.cantidad_ventas }}</strong></div>
+            <div><small>Ticket promedio</small><strong>{{ caja.ticket_promedio|precio_arg }}</strong></div>
+            <strong>Ver caja →</strong>
+            <div class="cierre-desglose">Efectivo {{ caja.efectivo|precio_arg }} · Transferencia {{ caja.transferencia|precio_arg }} · QR {{ caja.qr|precio_arg }} · Débito {{ caja.debito|precio_arg }} · Crédito {{ caja.credito|precio_arg }}</div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="cierres-vacio">Todavía no hay cajas cerradas.</div>
+    {% endif %}
+  {% endif %}
+</article>
+
+{% include "gastronomia/_pedido_modal.html" %}
+<script src="{{ url_for('static', filename='gastronomia/pedido_detalle.js', v='1') }}" defer></script>
+{% endblock %}

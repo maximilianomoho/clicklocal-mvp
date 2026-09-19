@@ -532,13 +532,6 @@
 </section>
 
 <section class="admin-card" style="margin-top:24px;">
-  <h2 style="margin-top:0;">Administración de módulos</h2>
-  <a class="admin-mini-link" href="{{ url_for('admin_modulos') }}">
-    Ir a Módulos / Verticales
-  </a>
-</section>
-
-<section class="admin-card" style="margin-top:24px;">
   <h2 style="margin-top:0;">
     📩 Consultas de soporte
     {% if resumen.total_consultas_soporte %}
@@ -835,122 +828,6 @@
       <article class="admin-card">
         <div class="admin-card-header">
           <div>
-            <p class="titulo-chico">ACTIVIDAD RECIENTE</p>
-            <h2>🆕 Últimos negocios registrados</h2>
-          </div>
-        </div>
-
-        {% if ultimos_comercios %}
-          <div class="admin-tabla-contenedor">
-            <table class="admin-tabla">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Comercio</th>
-                  <th>Categoría</th>
-                  <th>Publicaciones</th>
-                  <th>Perfil</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for c in ultimos_comercios %}
-                  <tr>
-                    <td>{{ c.created_at_mostrar }}</td>
-                    <td><strong>{{ c.nombre }}</strong></td>
-                    <td>{{ c.categoria }}</td>
-                    <td>{{ c.publicaciones_total }}</td>
-                    <td>
-                      {% if c.perfil_url %}
-                        <a
-                          class="admin-mini-link"
-                          href="{{ c.perfil_url }}"
-                          target="_blank"
-                        >
-                          Ver
-                        </a>
-                      {% else %}
-                        -
-                      {% endif %}
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="admin-vacio">
-            Todavía no hay comercios registrados.
-          </div>
-        {% endif %}
-      </article>
-
-    </section>
-
-    <section class="admin-layout" style="display:block; margin-bottom: 24px;">
-
-      <article class="admin-card">
-        <div class="admin-card-header">
-          <div>
-            <p class="titulo-chico">ACTIVIDAD RECIENTE</p>
-            <h2>📸 Últimas publicaciones</h2>
-          </div>
-        </div>
-
-        {% if ultimas_publicaciones %}
-          <div class="admin-tabla-contenedor">
-            <table class="admin-tabla">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Publicación</th>
-                  <th>Comercio</th>
-                  <th>Categoría</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for p in ultimas_publicaciones %}
-                  <tr>
-                    <td>{{ p.created_at_mostrar }}</td>
-                    <td><strong>{{ p.nombre }}</strong></td>
-                    <td>{{ p.comercio_nombre }}</td>
-                    <td>{{ p.categoria }}</td>
-                    <td>
-                      {% if p.activa %}
-                        <span
-                          class="admin-plan"
-                          style="background:#dcfce7; color:#166534;"
-                        >
-                          Activa
-                        </span>
-                      {% else %}
-                        <span
-                          class="admin-plan"
-                          style="background:#f3f4f6; color:#6b7280;"
-                        >
-                          Inactiva
-                        </span>
-                      {% endif %}
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="admin-vacio">
-            Todavía no hay publicaciones.
-          </div>
-        {% endif %}
-      </article>
-
-    </section>
-
-    <section class="admin-layout" style="display:block; margin-bottom: 24px;">
-
-      <article class="admin-card">
-        <div class="admin-card-header">
-          <div>
             <p class="titulo-chico">PREMIUM</p>
             <h2>Solicitudes Premium pendientes</h2>
           </div>
@@ -1016,6 +893,87 @@
 
       </article>
 
+    </section>
+
+    <section class="admin-layout" style="display:block; margin-bottom: 24px;">
+      <article class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <p class="titulo-chico">MÓDULOS / VERTICALES</p>
+            <h2>Administración de módulos</h2>
+          </div>
+          <a class="admin-mini-link" href="{{ url_for('admin_modulos') }}">
+            Ir a Módulos / Verticales
+          </a>
+        </div>
+      </article>
+    </section>
+
+    <section class="admin-layout" style="display:block; margin-bottom: 24px;">
+      <article class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <p class="titulo-chico">MÓDULOS / VERTICALES</p>
+            <h2>Próximos vencimientos de Módulos / Verticales</h2>
+          </div>
+        </div>
+
+        {% if proximos_vencimientos_modulos %}
+          <div class="admin-tabla-contenedor">
+            <table class="admin-tabla">
+              <thead>
+                <tr>
+                  <th>Comercio</th>
+                  <th>WhatsApp</th>
+                  <th>Módulo / Vertical</th>
+                  <th>Estado</th>
+                  <th>Vence</th>
+                  <th>Días restantes</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for modulo in proximos_vencimientos_modulos %}
+                  <tr>
+                    <td><strong>{{ modulo.comercio_nombre }}</strong></td>
+                    <td>{{ modulo.whatsapp }}</td>
+                    <td>{{ modulo.nombre_modulo }}</td>
+                    <td><span class="admin-plan">{{ modulo.etiqueta_estado }}</span></td>
+                    <td>{{ modulo.fecha_vencimiento_mostrar }}</td>
+                    <td>{{ modulo.dias_restantes_texto }}</td>
+                    <td>
+                      <form
+                        method="POST"
+                        action="{{ url_for(
+                          'admin_activar_renovar_modulo',
+                          comercio_id=modulo.comercio_id,
+                          slug=modulo.slug
+                        ) }}"
+                        style="margin:0; display:flex; gap:6px; flex-wrap:wrap; align-items:center;"
+                        onsubmit="return confirm('¿Renovar el período de {{ modulo.nombre_modulo }} para {{ modulo.comercio_nombre }}?');"
+                      >
+                        <input type="hidden" name="origen_admin" value="admin">
+                        <select name="duracion_meses" class="admin-mini-link" style="border:0; cursor:pointer;">
+                          <option value="1">1 mes</option>
+                          <option value="3">3 meses</option>
+                          <option value="6">6 meses</option>
+                        </select>
+                        <button type="submit" class="admin-mini-link" style="border:0; cursor:pointer;">
+                          Renovar período
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="admin-vacio">
+            No hay vencimientos de módulos que requieran atención.
+          </div>
+        {% endif %}
+      </article>
     </section>
 
     <section class="admin-layout" style="display:block;">

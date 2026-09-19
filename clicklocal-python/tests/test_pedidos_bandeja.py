@@ -2,9 +2,18 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from flask import Flask
 
 from gastronomia import gastronomia_bp
+
+
+@pytest.fixture(autouse=True)
+def pos_activo(monkeypatch):
+    monkeypatch.setattr(
+        "gastronomia.routes._pos_activo_gastronomia",
+        lambda _comercio_id: True,
+    )
 
 
 class ConsultaPedidosFalsa:
@@ -76,7 +85,7 @@ class PedidosBandejaTest(unittest.TestCase):
             return_value=None,
         ):
             respuesta = self.app.test_client().get(
-                "/gastronomia/panel/pedidos"
+                "/gastronomia/panel/pedidos/historial"
             )
 
         self.assertEqual(respuesta.status_code, 302)
@@ -97,7 +106,7 @@ class PedidosBandejaTest(unittest.TestCase):
             ) as render_mock,
         ):
             respuesta = self.app.test_client().get(
-                "/gastronomia/panel/pedidos?comercio_id=otro"
+                "/gastronomia/panel/pedidos/historial?comercio_id=otro"
             )
 
         self.assertEqual(respuesta.status_code, 200)
@@ -148,7 +157,7 @@ class PedidosBandejaTest(unittest.TestCase):
             ) as render_mock,
         ):
             respuesta = self.app.test_client().get(
-                "/gastronomia/panel/pedidos"
+                "/gastronomia/panel/pedidos/historial"
                 "?vista=incorrecta&estado=desconocido"
                 "&origen=externo&tipo_entrega=avion"
                 "&estado_pago=parcial&pagina=-4"
@@ -181,7 +190,7 @@ class PedidosBandejaTest(unittest.TestCase):
             ),
         ):
             respuesta = self.app.test_client().get(
-                "/gastronomia/panel/pedidos"
+                "/gastronomia/panel/pedidos/historial"
                 "?vista=todos&estado=cerrado&origen=telefono"
                 "&tipo_entrega=mostrador&estado_pago=pagado&pagina=2"
             )

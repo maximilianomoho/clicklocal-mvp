@@ -15,9 +15,16 @@ except Exception as e:
 
 import json
 import datetime
+import re
 import time
 from threading import Lock
-from config.supabase_config import supabase_auth, supabase_admin
+from config.contacto import CLICKLOCAL_WHATSAPP
+from config.supabase_config import (
+    SUPABASE_ANON_KEY,
+    SUPABASE_URL,
+    supabase_auth,
+    supabase_admin,
+)
 from gastronomia import gastronomia_bp
 from turnos import turnos_bp
 from modulos import (
@@ -29,15 +36,17 @@ from modulos import (
     desinstalar_modulo,
     evaluar_vigencia_modulo,
     instalar_modulo,
+    modulo_disponible_para_comercio,
     modulo_activo,
     obtener_modulo,
     slug_modulo_valido,
 )
+from whatsapp import construir_url_whatsapp, limpiar_numero_whatsapp
 from push_notifications import (
-    configuracion_vapid,
     desactivar_suscripcion_admin,
     enviar_notificacion_admin,
     guardar_suscripcion_admin,
+    configuracion_vapid,
     webpush_disponible,
 )
 
@@ -695,52 +704,6 @@ def uuid_o_none(valor):
         return str(UUID(str(valor)))
     except (ValueError, TypeError, AttributeError):
         return None
-
-
-def limpiar_numero_whatsapp(numero_raw):
-    """
-    Normaliza números para WhatsApp Argentina.
-
-    Casos esperados:
-    - 3434150049      -> 5493434150049
-    - 03434150049     -> 5493434150049
-    - 543434150049    -> 5493434150049
-    - 5493434150049   -> 5493434150049
-
-    Nota: para celulares argentinos WhatsApp requiere 54 + 9 + característica + número.
-    """
-    numero = "".join(ch for ch in str(numero_raw or "") if ch.isdigit())
-
-    if numero.startswith("00"):
-        numero = numero[2:]
-
-    while numero.startswith("0"):
-        numero = numero[1:]
-
-    if not numero:
-        return ""
-
-    if numero.startswith("549"):
-        return numero
-
-    if numero.startswith("54"):
-        resto = numero[2:]
-        if resto.startswith("9"):
-            return numero
-        return f"549{resto}"
-
-    return f"549{numero}"
-
-
-def construir_url_whatsapp(numero_raw, mensaje):
-    from urllib.parse import quote
-
-    numero = limpiar_numero_whatsapp(numero_raw)
-
-    if not numero:
-        return ""
-
-    return f"https://wa.me/{numero}?text={quote(mensaje)}"
 
 
 def analytics_crear_busqueda(
@@ -2079,29 +2042,6 @@ def inicio():
             for com in comercios
             if com.get("id") and com.get("activo") is not False
         }
-
-        categorias_por_comercio = (
-            obtener_categorias_secundarias_por_comercio(
-                list(comercios_por_id.keys())
-            )
-        )
-
-        for comercio_id, comercio_data in (
-            comercios_por_id.items()
-        ):
-            categorias_secundarias = (
-                categorias_por_comercio.get(
-                    comercio_id,
-                    []
-                )
-            )
-
-            comercio_data["categorias_secundarias"] = (
-                categorias_secundarias
-            )
-            comercio_data[
-                "_categorias_secundarias_texto"
-            ] = " ".join(categorias_secundarias)
 
         return comercios_por_id
 
@@ -3463,24 +3403,6 @@ def publicaciones_recientes_api():
                 and comercio.get("activo") is not False
             }
 
-        categorias_por_comercio = (
-            obtener_categorias_secundarias_por_comercio(
-                list(comercios_por_id.keys())
-            )
-            if comercios_por_id
-            else {}
-        )
-
-        for comercio_id, comercio_data in (
-            comercios_por_id.items()
-        ):
-            comercio_data["categorias_secundarias"] = (
-                categorias_por_comercio.get(
-                    comercio_id,
-                    []
-                )
-            )
-
         def imagen_publica(pub):
             imagenes = pub.get("imagenes") or []
             primera = ""
@@ -3588,10 +3510,7 @@ def cartelera_demo():
 
 
 # ============================================================
-# CLICKLOCAL: CATEGORÍAS MÚLTIPLES V1
-#
-# La categoría principal continúa en comercios.categoria.
-# Las categorías opcionales se guardan en comercio_categorias.
+# CLICKLOCAL: CATEGORÍA PRINCIPAL
 # ============================================================
 
 CATEGORIA_CINE_TEATRO = "Cine y Teatro"
@@ -3621,12 +3540,6 @@ CATEGORIAS_COMERCIO = (
     "Ferretería, Sanitarios y Electricidad",
     CATEGORIA_CINE_TEATRO,
     "Otros",
-)
-
-CATEGORIAS_SECUNDARIAS_PERMITIDAS = tuple(
-    categoria
-    for categoria in CATEGORIAS_COMERCIO
-    if categoria != CATEGORIA_CINE_TEATRO
 )
 
 CATEGORIAS_AUTOGESTION = tuple(
@@ -3773,9 +3686,6 @@ def comercio_pertenece_a_categoria(
 app.jinja_env.globals.update({
     "CATEGORIAS_COMERCIO": CATEGORIAS_COMERCIO,
     "CATEGORIAS_AUTOGESTION": CATEGORIAS_AUTOGESTION,
-    "CATEGORIAS_SECUNDARIAS_PERMITIDAS": (
-        CATEGORIAS_SECUNDARIAS_PERMITIDAS
-    ),
     "CATEGORIAS_HOME": CATEGORIAS_HOME,
     "CATEGORIA_CINE_TEATRO": CATEGORIA_CINE_TEATRO,
 })
@@ -3783,23 +3693,10 @@ app.jinja_env.globals.update({
 
 def validar_categorias_comercio(
     categoria_principal,
-    categoria_secundaria_2="",
-    categoria_secundaria_3="",
 ):
     principal = str(
         categoria_principal or ""
     ).strip()
-
-    secundarias_recibidas = [
-        str(categoria_secundaria_2 or "").strip(),
-        str(categoria_secundaria_3 or "").strip(),
-    ]
-
-    secundarias = [
-        categoria
-        for categoria in secundarias_recibidas
-        if categoria
-    ]
 
     if not principal:
         return None, (
@@ -3811,44 +3708,12 @@ def validar_categorias_comercio(
             "La categoría principal seleccionada no es válida."
         )
 
-    for categoria in secundarias:
-        if (
-            categoria
-            not in CATEGORIAS_SECUNDARIAS_PERMITIDAS
-        ):
-            return None, (
-                "Una de las categorías secundarias "
-                "seleccionadas no es válida."
-            )
-
-    categorias_elegidas = [principal] + secundarias
-
-    if len(set(categorias_elegidas)) != len(
-        categorias_elegidas
-    ):
-        return None, (
-            "No se puede repetir la misma categoría."
-        )
-
-    if (
-        principal == CATEGORIA_CINE_TEATRO
-        and secundarias
-    ):
-        return None, (
-            "Cine y Teatro no admite categorías secundarias."
-        )
-
-    return {
-        "principal": principal,
-        "secundarias": secundarias,
-    }, None
+    return {"principal": principal}, None
 
 
 
 def validar_categorias_registro(
     categoria_principal,
-    categoria_secundaria_2="",
-    categoria_secundaria_3="",
 ):
     principal = str(
         categoria_principal or ""
@@ -3860,18 +3725,12 @@ def validar_categorias_registro(
             "Debe ser habilitada por administración."
         )
 
-    return validar_categorias_comercio(
-        principal,
-        categoria_secundaria_2,
-        categoria_secundaria_3,
-    )
+    return validar_categorias_comercio(principal)
 
 
 def validar_categorias_panel(
     comercio,
     categoria_principal,
-    categoria_secundaria_2="",
-    categoria_secundaria_3="",
 ):
     categoria_actual = str(
         (comercio or {}).get("categoria") or ""
@@ -3881,29 +3740,14 @@ def validar_categorias_panel(
         categoria_principal or ""
     ).strip()
 
-    secundaria_2 = str(
-        categoria_secundaria_2 or ""
-    ).strip()
-
-    secundaria_3 = str(
-        categoria_secundaria_3 or ""
-    ).strip()
-
     if categoria_actual == CATEGORIA_CINE_TEATRO:
-        if (
-            principal != CATEGORIA_CINE_TEATRO
-            or secundaria_2
-            or secundaria_3
-        ):
+        if principal != CATEGORIA_CINE_TEATRO:
             return None, (
                 "Cine y Teatro es una categoría especial "
                 "y no puede modificarse desde el panel."
             )
 
-        return {
-            "principal": CATEGORIA_CINE_TEATRO,
-            "secundarias": [],
-        }, None
+        return {"principal": CATEGORIA_CINE_TEATRO}, None
 
     if principal == CATEGORIA_CINE_TEATRO:
         return None, (
@@ -3911,161 +3755,7 @@ def validar_categorias_panel(
             "Debe ser habilitada por administración."
         )
 
-    return validar_categorias_comercio(
-        principal,
-        secundaria_2,
-        secundaria_3,
-    )
-
-
-def obtener_categorias_secundarias_por_comercio(
-    comercio_ids
-):
-    ids = list(dict.fromkeys(
-        comercio_id
-        for comercio_id in (comercio_ids or [])
-        if comercio_id
-    ))
-
-    if not ids:
-        return {}
-
-    try:
-        respuesta = (
-            supabase_admin
-            .table("comercio_categorias")
-            .select(
-                "id,comercio_id,categoria,orden,created_at"
-            )
-            .in_("comercio_id", ids)
-            .order("orden")
-            .execute()
-        )
-
-        filas = respuesta.data or []
-
-    except Exception as error:
-        print(
-            "AVISO CARGANDO CATEGORÍAS SECUNDARIAS:",
-            error,
-            flush=True
-        )
-        return {}
-
-    resultado = {}
-
-    for fila in filas:
-        comercio_id = fila.get("comercio_id")
-        categoria = str(
-            fila.get("categoria") or ""
-        ).strip()
-
-        if not comercio_id or not categoria:
-            continue
-
-        resultado.setdefault(
-            comercio_id,
-            []
-        ).append(categoria)
-
-    return resultado
-
-
-def obtener_filas_categorias_secundarias(
-    comercio_id
-):
-    if not comercio_id:
-        return []
-
-    respuesta = (
-        supabase_admin
-        .table("comercio_categorias")
-        .select(
-            "id,comercio_id,categoria,orden,created_at"
-        )
-        .eq("comercio_id", comercio_id)
-        .order("orden")
-        .execute()
-    )
-
-    return respuesta.data or []
-
-
-def reemplazar_categorias_secundarias(
-    comercio_id,
-    categorias_secundarias,
-):
-    categorias = [
-        str(categoria or "").strip()
-        for categoria in (
-            categorias_secundarias or []
-        )
-        if str(categoria or "").strip()
-    ]
-
-    filas_anteriores = (
-        obtener_filas_categorias_secundarias(
-            comercio_id
-        )
-    )
-
-    nuevas_filas = [
-        {
-            "comercio_id": comercio_id,
-            "categoria": categoria,
-            "orden": posicion,
-        }
-        for posicion, categoria in enumerate(
-            categorias,
-            start=2
-        )
-    ]
-
-    try:
-        (
-            supabase_admin
-            .table("comercio_categorias")
-            .delete()
-            .eq("comercio_id", comercio_id)
-            .execute()
-        )
-
-        if nuevas_filas:
-            (
-                supabase_admin
-                .table("comercio_categorias")
-                .insert(nuevas_filas)
-                .execute()
-            )
-
-    except Exception:
-        try:
-            (
-                supabase_admin
-                .table("comercio_categorias")
-                .delete()
-                .eq("comercio_id", comercio_id)
-                .execute()
-            )
-
-            if filas_anteriores:
-                (
-                    supabase_admin
-                    .table("comercio_categorias")
-                    .insert(filas_anteriores)
-                    .execute()
-                )
-
-        except Exception as error_restaurando:
-            print(
-                "ERROR RESTAURANDO CATEGORÍAS "
-                "SECUNDARIAS:",
-                error_restaurando,
-                flush=True
-            )
-
-        raise
-
+    return validar_categorias_comercio(principal)
 
 
 # VERSIÓN VIGENTE DE LOS TÉRMINOS Y CONDICIONES
@@ -4203,6 +3893,8 @@ def herramienta_detalle(slug):
         return "Herramienta no encontrada.", 404
 
     comercio = session.get("comercio") or {}
+    if not modulo_disponible_para_comercio(slug, comercio):
+        return "Herramienta no encontrada.", 404
     comercio_id = comercio.get("id")
     modulo["activo"] = modulo_activo(comercio_id, slug)
 
@@ -4220,17 +3912,34 @@ def _motivo_solicitud_modulo(datos_modulo):
     return f"Activación de {nombre_modulo}"
 
 
-def _es_solicitud_modulo(consulta):
-    return (
-        str(consulta.get("origen") or "").strip().casefold()
-        == "catalogo_modulos"
+def _preparar_alerta_admin_solicitud_modulo(comercio, datos_modulo):
+    if not CLICKLOCAL_WHATSAPP:
+        return ""
+
+    nombre_comercio = (
+        comercio.get("nombre_negocio")
+        or comercio.get("nombre")
+        or "Comercio local"
     )
+    whatsapp_comercio = comercio.get("whatsapp") or "-"
+    email_comercio = comercio.get("email") or "-"
+    mensaje = (
+        "Nueva solicitud de módulo en ClickLocal\n\n"
+        f"Comercio: {nombre_comercio}\n"
+        f"Módulo: {datos_modulo['nombre']}\n"
+        f"WhatsApp: {whatsapp_comercio}\n"
+        f"Email: {email_comercio}"
+    )
+    return construir_url_whatsapp(CLICKLOCAL_WHATSAPP, mensaje)
 
 
-def _separar_solicitudes_modulos(consultas):
-    solicitudes = [consulta for consulta in consultas if _es_solicitud_modulo(consulta)]
-    soporte = [consulta for consulta in consultas if not _es_solicitud_modulo(consulta)]
-    return solicitudes, soporte
+def _url_retorno_solicitud_modulo(slug, **parametros):
+    if (
+        slug == "pos"
+        and request.form.get("retorno") == "gastronomia"
+    ):
+        return url_for("gastronomia.plan_gastronomia", **parametros)
+    return url_for("panel", **parametros) + "#catalogo-herramientas"
 
 
 @app.post("/panel/modulos/<slug>/solicitar-instalacion")
@@ -4242,14 +3951,17 @@ def solicitar_instalacion_modulo_panel(slug):
     datos_modulo = obtener_modulo(slug)
     if not datos_modulo or not datos_modulo.get("disponible"):
         return redirect(
-            url_for("panel", modulo_solicitud_error="modulo_invalido")
-            + "#catalogo-herramientas"
+            _url_retorno_solicitud_modulo(
+                slug,
+                modulo_solicitud_error="modulo_invalido",
+            )
         )
 
     comercio = session.get("comercio") or comercio_default()
     try:
         comercio_res = (
-            supabase_admin.table("comercios")
+            supabase_admin
+            .table("comercios")
             .select("*")
             .eq("user_id", user_id)
             .limit(1)
@@ -4261,6 +3973,14 @@ def solicitar_instalacion_modulo_panel(slug):
     except Exception:
         pass
 
+    if not modulo_disponible_para_comercio(slug, comercio):
+        return redirect(
+            _url_retorno_solicitud_modulo(
+                slug,
+                modulo_solicitud_error="modulo_no_disponible",
+            )
+        )
+
     comercio_id = (
         comercio.get("id")
         or comercio.get("user_id")
@@ -4269,8 +3989,10 @@ def solicitar_instalacion_modulo_panel(slug):
     vigencia = evaluar_vigencia_modulo(comercio_id, slug)
     if vigencia.get("existe"):
         return redirect(
-            url_for("panel", modulo_solicitud_error="ya_instalado")
-            + "#catalogo-herramientas"
+            _url_retorno_solicitud_modulo(
+                slug,
+                modulo_solicitud_error="ya_instalado",
+            )
         )
 
     motivo = _motivo_solicitud_modulo(datos_modulo)
@@ -4298,7 +4020,11 @@ def solicitar_instalacion_modulo_panel(slug):
                     or "Comercio local"
                 ),
                 "email": comercio.get("email") or None,
-                "whatsapp": limpiar_numero_whatsapp(whatsapp) if whatsapp else None,
+                "whatsapp": (
+                    limpiar_numero_whatsapp(whatsapp)
+                    if whatsapp
+                    else None
+                ),
                 "origen": "catalogo_modulos",
                 "motivo": motivo,
                 "mensaje": (
@@ -4328,20 +4054,37 @@ def solicitar_instalacion_modulo_panel(slug):
                         flush=True,
                     )
 
+            alerta_whatsapp_url = (
+                _preparar_alerta_admin_solicitud_modulo(
+                    comercio,
+                    datos_modulo,
+                )
+            )
+            if alerta_whatsapp_url:
+                print(
+                    "ALERTA WHATSAPP ADMIN PREPARADA (ENVÍO MANUAL):",
+                    alerta_whatsapp_url,
+                    flush=True,
+                )
+
         return redirect(
-            url_for("panel", modulo_solicitud="enviada")
-            + "#catalogo-herramientas"
+            _url_retorno_solicitud_modulo(
+                slug,
+                modulo_solicitud="enviada",
+            )
         )
-    except Exception as error:
+    except Exception as e:
         print(
             "ERROR SOLICITANDO INSTALACIÓN DE MÓDULO:",
-            type(error),
-            error,
+            type(e),
+            e,
             flush=True,
         )
         return redirect(
-            url_for("panel", modulo_solicitud_error="registro")
-            + "#catalogo-herramientas"
+            _url_retorno_solicitud_modulo(
+                slug,
+                modulo_solicitud_error="registro",
+            )
         )
 
 
@@ -4364,14 +4107,6 @@ def registro():
         venta_online = request.form.get("venta_online") == "on"
         ciudad = request.form.get("ciudad", "Paraná").strip()
         categoria = request.form.get("categoria", "").strip()
-        categoria_secundaria_2 = request.form.get(
-            "categoria_secundaria_2",
-            ""
-        ).strip()
-        categoria_secundaria_3 = request.form.get(
-            "categoria_secundaria_3",
-            ""
-        ).strip()
         descripcion = request.form.get("descripcion", "").strip()
         password = request.form.get("password", "").strip()
         repetir_password = request.form.get("repetir_password", "").strip()
@@ -4389,6 +4124,9 @@ def registro():
         if not nombre_negocio or not email or not whatsapp or not direccion or not password:
             return "Faltan datos obligatorios: nombre del negocio, email, WhatsApp, dirección o contraseña.", 400
 
+        if not _email_basico_valido(email):
+            return "El email ingresado no es válido.", 400
+
         whatsapp_limpio = limpiar_numero_whatsapp(whatsapp)
 
         if not whatsapp_limpio:
@@ -4401,21 +4139,13 @@ def registro():
             ), 400
 
         categorias_validadas, error_categorias = (
-            validar_categorias_registro(
-                categoria,
-                categoria_secundaria_2,
-                categoria_secundaria_3,
-            )
+            validar_categorias_registro(categoria)
         )
 
         if error_categorias:
             return error_categorias, 400
 
         categoria = categorias_validadas["principal"]
-        categorias_secundarias = (
-            categorias_validadas["secundarias"]
-        )
-
         if password != repetir_password:
             return "Las contraseñas no coinciden.", 400
 
@@ -4538,61 +4268,6 @@ def registro():
 
             comercio_guardado = insert_res.data[0] if insert_res.data else comercio_nuevo
 
-            if categorias_secundarias:
-                comercio_id_nuevo = comercio_guardado.get("id")
-
-                if not comercio_id_nuevo:
-                    comercio_creado_res = (
-                        supabase_admin
-                        .table("comercios")
-                        .select("*")
-                        .eq("user_id", user.id)
-                        .limit(1)
-                        .execute()
-                    )
-
-                    if comercio_creado_res.data:
-                        comercio_guardado = (
-                            comercio_creado_res.data[0]
-                        )
-                        comercio_id_nuevo = (
-                            comercio_guardado.get("id")
-                        )
-
-                if not comercio_id_nuevo:
-                    raise RuntimeError(
-                        "El comercio se creó, pero no se pudo "
-                        "obtener su identificador para guardar "
-                        "las categorías secundarias."
-                    )
-
-                try:
-                    reemplazar_categorias_secundarias(
-                        comercio_id_nuevo,
-                        categorias_secundarias,
-                    )
-
-                except Exception:
-                    try:
-                        (
-                            supabase_admin
-                            .table("comercios")
-                            .delete()
-                            .eq("id", comercio_id_nuevo)
-                            .execute()
-                        )
-                    except Exception:
-                        pass
-
-                    try:
-                        supabase_admin.auth.admin.delete_user(
-                            str(user.id)
-                        )
-                    except Exception:
-                        pass
-
-                    raise
-
             session["user_id"] = user.id
             session["comercio"] = comercio_guardado
             session["publicaciones"] = []
@@ -4614,6 +4289,16 @@ def registro():
             return redirect(url_for("panel"))
 
         except Exception as e:
+            if "user" in locals() and user:
+                try:
+                    supabase_admin.auth.admin.delete_user(str(user.id))
+                except Exception as error_rollback:
+                    print(
+                        "ERROR ROLLBACK AUTH REGISTRO:",
+                        type(error_rollback).__name__,
+                        error_rollback,
+                        flush=True,
+                    )
             return f"Error registrando comercio: {e}", 400
 
     return render_template("registro.html")
@@ -4766,7 +4451,7 @@ def login():
             }:
                 return redirect(
                     url_for(
-                        "gastronomia.configuracion_inicial"
+                        "gastronomia.panel_gastronomia"
                     )
                 )
 
@@ -5082,6 +4767,15 @@ def subir_foto_publicacion_secuencial():
 # CLICKLOCAL: LOGO DEL NEGOCIO V1
 # ============================================================
 
+def _url_retorno_logo(**parametros):
+    """Vuelve al editor que originó la operación de logo."""
+    if request.form.get("retorno") == "gastronomia":
+        return (
+            url_for("gastronomia.configuracion_gastronomia", **parametros)
+            + "#datos-comercio"
+        )
+    return url_for("panel", **parametros) + "#datos"
+
 @app.route("/panel/logo/subir", methods=["POST"])
 def subir_logo_negocio():
     user_id = _user_id_panel_efectivo()
@@ -5103,8 +4797,7 @@ def subir_logo_negocio():
         ""
     ).strip():
         return redirect(
-            url_for("panel", logo_error="sin_imagen")
-            + "#datos"
+            _url_retorno_logo(logo_error="sin_imagen")
         )
 
     try:
@@ -5202,8 +4895,7 @@ def subir_logo_negocio():
         session.modified = True
 
         return redirect(
-            url_for("panel", logo_ok="subido")
-            + "#datos"
+            _url_retorno_logo(logo_ok="subido")
         )
 
     except ValueError as e:
@@ -5214,8 +4906,7 @@ def subir_logo_negocio():
         )
 
         return redirect(
-            url_for("panel", logo_error="formato")
-            + "#datos"
+            _url_retorno_logo(logo_error="formato")
         )
 
     except Exception as e:
@@ -5227,8 +4918,7 @@ def subir_logo_negocio():
         )
 
         return redirect(
-            url_for("panel", logo_error="subida")
-            + "#datos"
+            _url_retorno_logo(logo_error="subida")
         )
 
 
@@ -5261,8 +4951,7 @@ def quitar_logo_negocio():
         session.modified = True
 
         return redirect(
-            url_for("panel", logo_ok="quitado")
-            + "#datos"
+            _url_retorno_logo(logo_ok="quitado")
         )
 
     except Exception as e:
@@ -5274,8 +4963,7 @@ def quitar_logo_negocio():
         )
 
         return redirect(
-            url_for("panel", logo_error="quitar")
-            + "#datos"
+            _url_retorno_logo(logo_error="quitar")
         )
 
 
@@ -5319,6 +5007,18 @@ def panel():
     # ==========================================================
 
     if request.method == "GET":
+        categoria_panel = str(
+            comercio.get("categoria") or ""
+        ).strip().lower()
+
+        if categoria_panel in {
+            "gastronomía",
+            "gastronomia",
+        }:
+            return redirect(
+                url_for("gastronomia.panel_gastronomia")
+            )
+
         try:
             gastronomia_res = (
                 supabase_admin
@@ -5331,7 +5031,9 @@ def panel():
             )
 
             if gastronomia_res.data:
-                return redirect("/gastronomia/panel")
+                return redirect(
+                    url_for("gastronomia.panel_gastronomia")
+                )
 
         except Exception as error:
             print(
@@ -5355,23 +5057,6 @@ def panel():
         session.pop("publicaciones", None)
         return "Esta cuenta fue bloqueada por administración.", 403
 
-    categorias_secundarias_panel = (
-        obtener_categorias_secundarias_por_comercio(
-            [comercio_id]
-        ).get(comercio_id, [])
-    )
-
-    comercio["categoria_secundaria_2"] = (
-        categorias_secundarias_panel[0]
-        if len(categorias_secundarias_panel) >= 1
-        else ""
-    )
-    comercio["categoria_secundaria_3"] = (
-        categorias_secundarias_panel[1]
-        if len(categorias_secundarias_panel) >= 2
-        else ""
-    )
-
     if request.method == "POST" and request.form.get("accion") == "actualizar_mis_datos":
         invalidar_cache_publicaciones_portada()
 
@@ -5380,17 +5065,6 @@ def panel():
         direccion = request.form.get("direccion", "").strip()
         descripcion = request.form.get("descripcion", "").strip()
         categoria = request.form.get("categoria", "").strip()
-        categoria_secundaria_2 = (
-            categorias_secundarias_panel[0]
-            if len(categorias_secundarias_panel) >= 1
-            else ""
-        )
-        categoria_secundaria_3 = (
-            categorias_secundarias_panel[1]
-            if len(categorias_secundarias_panel) >= 2
-            else ""
-        )
-
         if not nombre_negocio or not whatsapp or not direccion:
             return "Faltan datos obligatorios: nombre del comercio, WhatsApp o dirección.", 400
 
@@ -5403,8 +5077,6 @@ def panel():
             validar_categorias_panel(
                 comercio,
                 categoria,
-                categoria_secundaria_2,
-                categoria_secundaria_3,
             )
         )
 
@@ -5412,10 +5084,6 @@ def panel():
             return error_categorias, 400
 
         categoria = categorias_validadas["principal"]
-        categorias_secundarias = (
-            categorias_validadas["secundarias"]
-        )
-
         datos_actualizados = {
             "nombre_negocio": nombre_negocio,
             "whatsapp": whatsapp_limpio,
@@ -5436,10 +5104,6 @@ def panel():
             "categoria": comercio.get("categoria"),
         }
 
-        categorias_anteriores = list(
-            categorias_secundarias_panel
-        )
-
         try:
             (
                 supabase_admin
@@ -5447,11 +5111,6 @@ def panel():
                 .update(datos_actualizados)
                 .eq("id", comercio_id)
                 .execute()
-            )
-
-            reemplazar_categorias_secundarias(
-                comercio_id,
-                categorias_secundarias,
             )
 
             # Mantener sincronizada la dirección visible
@@ -5467,17 +5126,6 @@ def panel():
             )
 
             comercio.update(datos_actualizados)
-            comercio["categoria_secundaria_2"] = (
-                categorias_secundarias[0]
-                if len(categorias_secundarias) >= 1
-                else ""
-            )
-            comercio["categoria_secundaria_3"] = (
-                categorias_secundarias[1]
-                if len(categorias_secundarias) >= 2
-                else ""
-            )
-
             session["comercio"] = comercio
             session.modified = True
 
@@ -5505,16 +5153,6 @@ def panel():
                 )
 
             try:
-                reemplazar_categorias_secundarias(
-                    comercio_id,
-                    categorias_anteriores,
-                )
-            except Exception as error_restaurando:
-                errores_restauracion.append(
-                    f"categorías: {error_restaurando}"
-                )
-
-            try:
                 (
                     supabase_admin
                     .table("publicaciones")
@@ -5538,7 +5176,7 @@ def panel():
                 )
 
             print(
-                "ERROR ACTUALIZANDO DATOS Y CATEGORÍAS:",
+                "ERROR ACTUALIZANDO DATOS DEL COMERCIO:",
                 error,
                 flush=True
             )
@@ -6536,7 +6174,11 @@ def panel():
     # CLICKLOCAL - MODULOS TRANSVERSALES DEL COMERCIO
     # ==========================================================
 
-    modulos_catalogo = combinar_catalogo_con_vigencia(comercio_id)
+    modulos_catalogo = [
+        modulo
+        for modulo in combinar_catalogo_con_vigencia(comercio_id)
+        if modulo_disponible_para_comercio(modulo.get("slug"), comercio)
+    ]
     (
         modulos_activos,
         modulos_asignados_limitados,
@@ -6559,17 +6201,18 @@ def panel():
                 str(solicitud.get("motivo") or "").strip()
                 for solicitud in (solicitudes_modulos_res.data or [])
             }
-        except Exception as error:
+        except Exception as e:
             print(
                 "ERROR CARGANDO SOLICITUDES DE MÓDULOS EN PANEL:",
-                type(error),
-                error,
+                type(e),
+                e,
                 flush=True,
             )
 
     for modulo in modulos_disponibles:
         modulo["solicitud_pendiente"] = (
-            _motivo_solicitud_modulo(modulo) in motivos_pendientes_modulos
+            _motivo_solicitud_modulo(modulo)
+            in motivos_pendientes_modulos
         )
 
     return render_template(
@@ -9035,6 +8678,236 @@ def admin_requerido(func):
     return wrapper
 
 
+def _email_basico_valido(email):
+    return bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email or ""))
+
+
+def _buscar_duplicado_whatsapp(whatsapp_limpio):
+    respuesta = (
+        supabase_admin
+        .table("comercios")
+        .select("id,nombre_negocio,email,whatsapp,activo")
+        .execute()
+    )
+    for comercio in respuesta.data or []:
+        if limpiar_numero_whatsapp(comercio.get("whatsapp")) == whatsapp_limpio:
+            return comercio
+    return None
+
+
+def _url_activar_cuenta_externa():
+    """Genera HTTPS en hosts públicos y conserva HTTP para desarrollo local."""
+    host_sin_puerto = str(request.host or "").split(":", 1)[0].lower()
+    esquema = (
+        "http"
+        if host_sin_puerto in {"localhost", "127.0.0.1", "::1"}
+        else "https"
+    )
+    return url_for("activar_cuenta", _external=True, _scheme=esquema)
+
+
+@app.route("/admin/gastronomia/nueva", methods=["GET", "POST"])
+@admin_requerido
+def admin_nueva_gastronomia():
+    valores = {
+        "nombre_negocio": request.form.get("nombre_negocio", "").strip(),
+        "email": request.form.get("email", "").strip().lower(),
+        "whatsapp": request.form.get("whatsapp", "").strip(),
+        "direccion": request.form.get("direccion", "").strip(),
+        "descripcion": request.form.get("descripcion", "").strip(),
+    }
+    error = ""
+
+    if request.method == "POST":
+        obligatorios = (
+            valores["nombre_negocio"], valores["email"],
+            valores["whatsapp"], valores["direccion"],
+        )
+        if not all(obligatorios):
+            error = "Completá nombre, email, WhatsApp y dirección."
+        elif not _email_basico_valido(valores["email"]):
+            error = "El email del propietario no es válido."
+
+        whatsapp_limpio = limpiar_numero_whatsapp(valores["whatsapp"])
+        if not error and not whatsapp_limpio:
+            error = "El WhatsApp no es válido."
+
+        if not error:
+            try:
+                duplicado = _buscar_duplicado_whatsapp(whatsapp_limpio)
+                if duplicado:
+                    error = "Ya existe un comercio con ese WhatsApp."
+            except Exception as exc:
+                print("ERROR VERIFICANDO WHATSAPP ADMIN:", type(exc).__name__, exc, flush=True)
+                error = "No se pudo verificar el WhatsApp. Intentá nuevamente."
+
+        usuario = None
+        comercio_id = None
+        comercio_creado = False
+        if not error:
+            try:
+                auth_res = supabase_admin.auth.admin.create_user({
+                    "email": valores["email"],
+                    "email_confirm": True,
+                })
+                usuario = auth_res.user
+                if not usuario:
+                    raise RuntimeError("Supabase Auth no devolvió el usuario creado.")
+
+                comercio_res = supabase_admin.table("comercios").insert({
+                    "user_id": usuario.id,
+                    "nombre_negocio": valores["nombre_negocio"],
+                    "email": valores["email"],
+                    "whatsapp": whatsapp_limpio,
+                    "direccion": valores["direccion"],
+                    "direccion_mostrar": valores["direccion"],
+                    "venta_online": False,
+                    "ciudad": "Paraná",
+                    "categoria": "Gastronomía",
+                    "descripcion": valores["descripcion"],
+                    "plan": "gratis",
+                    "terminos_aceptados_at": None,
+                    "terminos_version": None,
+                }).execute()
+                comercio_creado = True
+                comercio = (comercio_res.data or [None])[0]
+                comercio_id = (comercio or {}).get("id")
+                if not comercio_id:
+                    consulta = (
+                        supabase_admin.table("comercios").select("id")
+                        .eq("user_id", usuario.id).limit(1).execute()
+                    )
+                    comercio_id = ((consulta.data or [None])[0] or {}).get("id")
+                if not comercio_id:
+                    raise RuntimeError("No se obtuvo el id del comercio creado.")
+
+                supabase_admin.table("gastronomia_configuracion").insert({
+                    "comercio_id": comercio_id,
+                    "activo": True,
+                    "acepta_delivery": False,
+                    "acepta_retiro": True,
+                    "pedido_minimo": 0,
+                    "costo_envio": 0,
+                    "tiempo_estimado_min": 30,
+                }).execute()
+
+                session["gestor_comercio_id"] = comercio_id
+                session.pop("comercio", None)
+                session.pop("publicaciones", None)
+                session.modified = True
+                return redirect(url_for("panel", gestor="1", alta_gastronomia="1"))
+            except Exception as exc:
+                print("ERROR ALTA ASISTIDA GASTRONOMIA:", type(exc).__name__, exc, flush=True)
+                if comercio_creado:
+                    try:
+                        if comercio_id:
+                            supabase_admin.table("gastronomia_configuracion").delete().eq("comercio_id", comercio_id).execute()
+                    except Exception:
+                        pass
+                    try:
+                        borrado = supabase_admin.table("comercios").delete()
+                        if comercio_id:
+                            borrado = borrado.eq("id", comercio_id)
+                        else:
+                            borrado = borrado.eq("user_id", usuario.id)
+                        borrado.execute()
+                    except Exception:
+                        pass
+                if usuario:
+                    try:
+                        supabase_admin.auth.admin.delete_user(str(usuario.id))
+                    except Exception:
+                        pass
+                error = f"No se pudo crear el comercio: {exc}"
+
+    return render_template("admin_gastronomia_nueva.html", error=error, valores=valores)
+
+
+@app.post("/admin/gastronomia/<comercio_id>/dar-acceso")
+@admin_requerido
+def admin_dar_acceso_gastronomia(comercio_id):
+    try:
+        comercio_id = str(uuid.UUID(str(comercio_id)))
+        respuesta = (
+            supabase_admin.table("comercios")
+            .select("id,user_id,email,categoria")
+            .eq("id", comercio_id).limit(1).execute()
+        )
+        comercio = (respuesta.data or [None])[0]
+        if not comercio or not comercio.get("user_id") or not comercio.get("email"):
+            raise ValueError("El comercio no tiene propietario asociado.")
+        if str(comercio.get("categoria") or "").strip().casefold() not in {
+            "gastronomía", "gastronomia"
+        }:
+            raise ValueError("El comercio no es gastronómico.")
+
+        supabase_auth.auth.reset_password_for_email(
+            comercio["email"],
+            {"redirect_to": _url_activar_cuenta_externa()},
+        )
+        return redirect(url_for("admin_comercios", acceso_enviado="1"))
+    except Exception as exc:
+        print("ERROR ENVIANDO ACCESO PROPIETARIO:", type(exc).__name__, exc, flush=True)
+        return redirect(url_for("admin_comercios", acceso_error="1"))
+
+
+@app.route("/activar-cuenta", methods=["GET"])
+def activar_cuenta():
+    return render_template(
+        "activar_cuenta.html",
+        supabase_url=SUPABASE_URL,
+        supabase_anon_key=SUPABASE_ANON_KEY,
+    )
+
+
+@app.post("/activar-cuenta/completar")
+def completar_activacion_cuenta():
+    datos = request.get_json(silent=True) or {}
+    token = str(datos.get("access_token") or "").strip()
+    acepta_terminos = datos.get("acepta_terminos") is True
+    if not token or not acepta_terminos:
+        return jsonify({"ok": False, "error": "Debés aceptar los términos."}), 400
+    try:
+        usuario_res = supabase_auth.auth.get_user(token)
+        usuario = usuario_res.user if usuario_res else None
+        if not usuario:
+            return jsonify({"ok": False, "error": "El enlace no es válido o venció."}), 401
+        comercio_res = (
+            supabase_admin.table("comercios").select("*")
+            .eq("user_id", usuario.id).limit(1).execute()
+        )
+        comercio = (comercio_res.data or [None])[0]
+        if not comercio:
+            return jsonify({"ok": False, "error": "No se encontró el comercio."}), 404
+        aceptados_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        actualizacion = (
+            supabase_admin.table("comercios").update({
+                "terminos_aceptados_at": aceptados_at,
+                "terminos_version": TERMINOS_VERSION,
+            }).eq("id", comercio["id"]).eq("user_id", usuario.id).execute()
+        )
+        if actualizacion.data:
+            comercio = actualizacion.data[0]
+        else:
+            comercio = {
+                **comercio,
+                "terminos_aceptados_at": aceptados_at,
+                "terminos_version": TERMINOS_VERSION,
+            }
+        session["user_id"] = usuario.id
+        session["comercio"] = comercio
+        session["publicaciones"] = []
+        destino = (
+            url_for("gastronomia.panel_gastronomia")
+            if str(comercio.get("categoria") or "").strip().casefold() in {"gastronomía", "gastronomia"}
+            else url_for("panel")
+        )
+        return jsonify({"ok": True, "destino": destino})
+    except Exception as exc:
+        print("ERROR COMPLETANDO ACTIVACION:", type(exc).__name__, exc, flush=True)
+        return jsonify({"ok": False, "error": "No se pudo completar la activación."}), 400
+
+
 @app.post("/admin/push/suscribir")
 @admin_requerido
 def admin_push_suscribir():
@@ -9077,6 +8950,15 @@ def admin_push_desuscribir():
         return jsonify({"ok": False, "error": "No se pudo desactivar la suscripción."}), 500
 
     return jsonify({"ok": True})
+
+
+def _url_retorno_accion_comercio(**parametros):
+    endpoint = (
+        "admin_comercios"
+        if request.form.get("origen_admin") == "comercios"
+        else "admin"
+    )
+    return url_for(endpoint, **parametros)
 
 
 def _url_retorno_accion_modulo(**parametros):
@@ -9125,6 +9007,9 @@ def admin_login():
 
 @app.route("/logout")
 def logout():
+    # Cierra cualquier contexto de comercio, incluido el gestionado,
+    # sin cerrar la sesión general de Administración.
+    session.pop("gestor_comercio_id", None)
     session.pop("user_id", None)
     session.pop("comercio", None)
     session.pop("publicaciones", None)
@@ -9136,6 +9021,7 @@ def admin_logout():
     session.pop("admin_logueado", None)
     session.pop("admin_user", None)
     session.pop("gestor_comercio_id", None)
+    session.pop("user_id", None)
     session.pop("comercio", None)
     session.pop("publicaciones", None)
     return redirect(url_for("admin_login"))
@@ -9152,7 +9038,7 @@ def admin_toggle_gastronomia(comercio_id):
         uuid.UUID(str(comercio_id))
     except Exception:
         return redirect(
-            url_for("admin", gastronomia_error="id_invalido")
+            _url_retorno_accion_comercio(gastronomia_error="id_invalido")
         )
 
     try:
@@ -9169,8 +9055,7 @@ def admin_toggle_gastronomia(comercio_id):
 
         if not configuraciones:
             return redirect(
-                url_for(
-                    "admin",
+                _url_retorno_accion_comercio(
                     gastronomia_error="sin_configuracion"
                 )
             )
@@ -9192,8 +9077,7 @@ def admin_toggle_gastronomia(comercio_id):
         )
 
         return redirect(
-            url_for(
-                "admin",
+            _url_retorno_accion_comercio(
                 gastronomia_estado=(
                     "visible"
                     if nuevo_estado
@@ -9211,10 +9095,7 @@ def admin_toggle_gastronomia(comercio_id):
         )
 
         return redirect(
-            url_for(
-                "admin",
-                gastronomia_error="servidor"
-            )
+            _url_retorno_accion_comercio(gastronomia_error="servidor")
         )
 
 
@@ -9242,7 +9123,7 @@ def admin_instalar_modulo(comercio_id, slug):
     try:
         comercio_res = (
             supabase_admin.table("comercios")
-            .select("id")
+            .select("id,categoria")
             .eq("id", comercio_id)
             .limit(1)
             .execute()
@@ -9253,6 +9134,14 @@ def admin_instalar_modulo(comercio_id, slug):
                     modulo_error="comercio_no_encontrado"
                 )
             )
+
+        if not modulo_disponible_para_comercio(
+            slug,
+            comercio_res.data[0],
+        ):
+            return redirect(_url_retorno_accion_modulo(
+                modulo_error="modulo_no_disponible"
+            ))
 
         creado = instalar_modulo(
             comercio_id,
@@ -9315,7 +9204,7 @@ def admin_toggle_modulo(comercio_id, slug):
         comercio_res = (
             supabase_admin
             .table("comercios")
-            .select("id")
+            .select("id,categoria")
             .eq("id", comercio_id)
             .limit(1)
             .execute()
@@ -9345,6 +9234,16 @@ def admin_toggle_modulo(comercio_id, slug):
             ))
 
         nuevo_estado = not (relaciones[0].get("activo") is True)
+        if (
+            nuevo_estado
+            and not modulo_disponible_para_comercio(
+                slug,
+                comercio_res.data[0],
+            )
+        ):
+            return redirect(_url_retorno_accion_modulo(
+                modulo_error="modulo_no_disponible"
+            ))
         cambiar_activo_modulo(comercio_id, slug, nuevo_estado)
 
         return redirect(
@@ -9388,7 +9287,7 @@ def admin_activar_renovar_modulo(comercio_id, slug):
         comercio_res = (
             supabase_admin
             .table("comercios")
-            .select("id")
+            .select("id,categoria")
             .eq("id", comercio_id)
             .limit(1)
             .execute()
@@ -9399,6 +9298,14 @@ def admin_activar_renovar_modulo(comercio_id, slug):
                     modulo_error="comercio_no_encontrado"
                 )
             )
+
+        if not modulo_disponible_para_comercio(
+            slug,
+            comercio_res.data[0],
+        ):
+            return redirect(_url_retorno_accion_modulo(
+                modulo_error="modulo_no_disponible"
+            ))
 
         activar_renovar_modulo(
             comercio_id,
@@ -9436,7 +9343,7 @@ def admin_gestionar_comercio(comercio_id):
         uuid.UUID(str(comercio_id))
     except Exception:
         return redirect(
-            url_for("admin", gestor_error="id_invalido")
+            _url_retorno_accion_comercio(gestor_error="id_invalido")
         )
 
     try:
@@ -9456,25 +9363,21 @@ def admin_gestionar_comercio(comercio_id):
 
         if not comercios:
             return redirect(
-                url_for("admin", gestor_error="no_encontrado")
+                _url_retorno_accion_comercio(gestor_error="no_encontrado")
             )
 
         comercio = comercios[0]
 
         if comercio.get("activo") is False:
             return redirect(
-                url_for(
-                    "admin",
+                _url_retorno_accion_comercio(
                     gestor_error="comercio_bloqueado"
                 )
             )
 
         if not comercio.get("user_id"):
             return redirect(
-                url_for(
-                    "admin",
-                    gestor_error="sin_propietario"
-                )
+                _url_retorno_accion_comercio(gestor_error="sin_propietario")
             )
 
         session["gestor_comercio_id"] = comercio["id"]
@@ -9499,7 +9402,7 @@ def admin_gestionar_comercio(comercio_id):
         )
 
         return redirect(
-            url_for("admin", gestor_error="servidor")
+            _url_retorno_accion_comercio(gestor_error="servidor")
         )
 
 
@@ -9518,9 +9421,251 @@ def admin_salir_gestor():
 
     session.modified = True
 
-    return redirect(
-        url_for("admin", gestor_fin="1")
-    )
+    return redirect("/admin")
+
+
+def _es_publicacion_activa_admin(publicacion):
+    if "activa" in publicacion:
+        return bool(publicacion.get("activa"))
+    if "activo" in publicacion:
+        return bool(publicacion.get("activo"))
+
+    estado = str(
+        publicacion.get("estado")
+        or publicacion.get("estado_publicacion")
+        or ""
+    ).strip().lower()
+    if estado:
+        return estado in ["activa", "activo", "publicada", "publicado"]
+    return True
+
+
+def _construir_comercios_admin(
+    comercios_raw,
+    publicaciones_raw,
+    gastronomia_config_raw,
+):
+    publicaciones_por_comercio = {}
+    publicaciones_restaurables_por_comercio = {}
+    publicaciones_activas_por_comercio = {}
+
+    for publicacion in publicaciones_raw:
+        comercio_id = publicacion.get("comercio_id")
+        if not comercio_id:
+            continue
+        publicaciones_por_comercio[comercio_id] = (
+            publicaciones_por_comercio.get(comercio_id, 0) + 1
+        )
+        if publicacion.get("eliminada") is not True:
+            publicaciones_restaurables_por_comercio[comercio_id] = (
+                publicaciones_restaurables_por_comercio.get(comercio_id, 0)
+                + 1
+            )
+        if _es_publicacion_activa_admin(publicacion):
+            publicaciones_activas_por_comercio[comercio_id] = (
+                publicaciones_activas_por_comercio.get(comercio_id, 0) + 1
+            )
+
+    gastronomia_por_comercio = {
+        str(config.get("comercio_id")): config
+        for config in gastronomia_config_raw
+        if config.get("comercio_id")
+    }
+    comercios = []
+    for comercio_raw in comercios_raw:
+        comercio_id = (
+            comercio_raw.get("id")
+            or comercio_raw.get("comercio_id")
+            or comercio_raw.get("user_id")
+        )
+        plan = str(comercio_raw.get("plan") or "gratis").strip().lower()
+        if plan != "premium":
+            plan = "gratis"
+        whatsapp = comercio_raw.get("whatsapp") or "-"
+        cuenta_habilitada = comercio_raw.get("activo") is not False
+        publicaciones_total = publicaciones_por_comercio.get(comercio_id, 0)
+        publicaciones_restaurables = (
+            publicaciones_restaurables_por_comercio.get(comercio_id, 0)
+        )
+        publicaciones_activas = publicaciones_activas_por_comercio.get(
+            comercio_id,
+            0,
+        )
+        gastronomia_config = gastronomia_por_comercio.get(str(comercio_id))
+        propietario_activo = (
+            comercio_raw.get("terminos_aceptados_at") is not None
+        )
+
+        comercios.append({
+            "id": comercio_id,
+            "nombre": (
+                comercio_raw.get("nombre_negocio")
+                or comercio_raw.get("nombre")
+                or "Sin nombre"
+            ),
+            "email": comercio_raw.get("email") or "-",
+            "whatsapp": whatsapp,
+            "whatsapp_url": construir_url_whatsapp(
+                whatsapp,
+                "Hola, vengo de ClickLocal Paraná. Quiero consultar por ClickLocal.",
+            ) if limpiar_numero_whatsapp(whatsapp) else None,
+            "ciudad": comercio_raw.get("ciudad") or "Paraná",
+            "categoria": (
+                comercio_raw.get("categoria")
+                or comercio_raw.get("rubro")
+                or "-"
+            ),
+            "descripcion": comercio_raw.get("descripcion") or "Sin descripción.",
+            "plan": plan,
+            "estado_plan": str(
+                comercio_raw.get("estado_plan") or ""
+            ).strip().lower(),
+            "solicitud_premium": bool(comercio_raw.get("solicitud_premium")),
+            "activo": cuenta_habilitada,
+            "estado_cuenta": (
+                "Habilitada" if cuenta_habilitada else "Bloqueada"
+            ),
+            "necesita_restaurar": (
+                cuenta_habilitada
+                and publicaciones_restaurables > 0
+                and publicaciones_activas == 0
+            ),
+            "contenido_restaurado": (
+                cuenta_habilitada and publicaciones_activas > 0
+            ),
+            "publicaciones_restaurables": publicaciones_restaurables,
+            "created_at": comercio_raw.get("created_at") or "-",
+            "publicaciones_total": publicaciones_total,
+            "publicaciones_activas": publicaciones_activas,
+            "gastronomia_configurada": bool(gastronomia_config),
+            "gastronomia_activa": bool(
+                gastronomia_config and gastronomia_config.get("activo")
+            ),
+            "terminos_aceptados_at": comercio_raw.get(
+                "terminos_aceptados_at"
+            ),
+            "propietario_activo": propietario_activo,
+            "estado_acceso": (
+                "Propietario activo"
+                if propietario_activo
+                else "Acceso pendiente"
+            ),
+            "perfil_url": url_for(
+                "perfil_comercio",
+                comercio_id=comercio_id,
+            ) if comercio_id else None,
+        })
+
+    comercios.sort(key=lambda comercio: (
+        0 if comercio.get("necesita_restaurar")
+        else 1 if not comercio.get("activo")
+        else 2,
+        str(comercio.get("nombre") or "").lower(),
+    ))
+    return comercios
+
+
+def _ultimos_comercios_admin(comercios, limite=12):
+    recientes = sorted(
+        comercios,
+        key=lambda comercio: str(comercio.get("created_at") or ""),
+        reverse=True,
+    )[:limite]
+    return [
+        dict(
+            comercio,
+            created_at_mostrar=formatear_fecha_argentina(
+                comercio.get("created_at")
+            ),
+        )
+        for comercio in recientes
+    ]
+
+
+def _proximos_vencimientos_modulos_admin(
+    comercio_modulos_raw,
+    comercios_por_id,
+):
+    proximos_vencimientos = []
+
+    for relacion in comercio_modulos_raw:
+        comercio_id = str(relacion.get("comercio_id") or "")
+        slug = str(relacion.get("modulo") or "").strip().lower()
+        datos_modulo = CATALOGO_MODULOS.get(slug)
+        if not comercio_id or not datos_modulo:
+            continue
+
+        vigencia = evaluar_vigencia_modulo(comercio_id, slug)
+        if not vigencia.get("existe"):
+            continue
+        if (
+            vigencia.get("habilitado_manual") is False
+            or vigencia.get("motivo_bloqueo") == "suspension_manual"
+        ):
+            continue
+        if vigencia.get("motivo_bloqueo") in (
+            "error_consulta",
+            "datos_invalidos",
+            "modulo_no_asignado",
+        ):
+            continue
+
+        estado_vigencia = vigencia.get("estado_vigencia")
+        dias_restantes = vigencia.get("dias_restantes")
+        if estado_vigencia == "vencido":
+            prioridad = 0
+            etiqueta_estado = "Vencido"
+            dias_texto = "Vencido"
+        elif estado_vigencia == "en_gracia":
+            prioridad = 1
+            etiqueta_estado = "En gracia"
+            dias_gracia = vigencia.get("dias_gracia_restantes") or 0
+            unidad = "día" if dias_gracia == 1 else "días"
+            dias_texto = f"En gracia · {dias_gracia} {unidad}"
+        elif (
+            isinstance(dias_restantes, int)
+            and 0 <= dias_restantes <= 7
+            and vigencia.get("fecha_vencimiento")
+        ):
+            prioridad = 2
+            etiqueta_estado = "Por vencer"
+            if dias_restantes == 0:
+                dias_texto = "Hoy"
+            else:
+                unidad = "día" if dias_restantes == 1 else "días"
+                dias_texto = f"{dias_restantes} {unidad}"
+        else:
+            continue
+
+        comercio = comercios_por_id.get(comercio_id, {})
+        fecha_vencimiento = vigencia.get("fecha_vencimiento")
+        proximos_vencimientos.append({
+            "comercio_id": comercio_id,
+            "comercio_nombre": (
+                comercio.get("nombre")
+                or comercio.get("nombre_negocio")
+                or "Comercio sin nombre"
+            ),
+            "whatsapp": comercio.get("whatsapp") or "-",
+            "slug": slug,
+            "nombre_modulo": datos_modulo.get("nombre") or slug,
+            "etiqueta_estado": etiqueta_estado,
+            "fecha_vencimiento_mostrar": (
+                fecha_vencimiento.strftime("%d/%m/%Y")
+                if fecha_vencimiento else "-"
+            ),
+            "dias_restantes_texto": dias_texto,
+            "_prioridad": prioridad,
+            "_fecha_vencimiento": fecha_vencimiento,
+        })
+
+    proximos_vencimientos.sort(key=lambda modulo: (
+        modulo["_prioridad"],
+        modulo["_fecha_vencimiento"] or datetime.date.max,
+        str(modulo.get("comercio_nombre") or "").casefold(),
+        str(modulo.get("nombre_modulo") or "").casefold(),
+    ))
+    return proximos_vencimientos
 
 
 @app.route("/admin")
@@ -9586,7 +9731,10 @@ def admin():
         modulos_res = (
             supabase_admin
             .table("comercio_modulos")
-            .select("comercio_id,modulo,activo")
+            .select(
+                "comercio_id,modulo,activo,fecha_activacion,"
+                "fecha_vencimiento,aviso_dias_antes,gracia_dias"
+            )
             .execute()
         )
         comercio_modulos_raw = modulos_res.data or []
@@ -9644,59 +9792,11 @@ def admin():
         consultas_soporte = pendientes
         consultas_soporte_resueltas = resueltas
 
-        solicitudes_modulos_raw, consultas_soporte = (
-            _separar_solicitudes_modulos(consultas_soporte)
-        )
-        _, consultas_soporte_resueltas = _separar_solicitudes_modulos(
-            consultas_soporte_resueltas
-        )
-
     except Exception as e:
         if error:
             error += f" | No se pudieron cargar las consultas de soporte: {e}"
         else:
             error = f"No se pudieron cargar las consultas de soporte: {e}"
-        solicitudes_modulos_raw = []
-
-    def es_publicacion_activa(pub):
-        if "activa" in pub:
-            return bool(pub.get("activa"))
-
-        if "activo" in pub:
-            return bool(pub.get("activo"))
-
-        estado = str(
-            pub.get("estado")
-            or pub.get("estado_publicacion")
-            or ""
-        ).strip().lower()
-
-        if estado:
-            return estado in ["activa", "activo", "publicada", "publicado"]
-
-        return True
-
-    publicaciones_por_comercio = {}
-    publicaciones_restaurables_por_comercio = {}
-    publicaciones_activas_por_comercio = {}
-
-    for pub in publicaciones_raw:
-        comercio_id = pub.get("comercio_id")
-
-        if comercio_id:
-            publicaciones_por_comercio[comercio_id] = publicaciones_por_comercio.get(comercio_id, 0) + 1
-
-            if pub.get("eliminada") is not True:
-                publicaciones_restaurables_por_comercio[comercio_id] = publicaciones_restaurables_por_comercio.get(comercio_id, 0) + 1
-
-            if es_publicacion_activa(pub):
-                publicaciones_activas_por_comercio[comercio_id] = publicaciones_activas_por_comercio.get(comercio_id, 0) + 1
-
-    gastronomia_por_comercio = {
-        str(config.get("comercio_id")): config
-        for config in gastronomia_config_raw
-        if config.get("comercio_id")
-    }
 
     modulos_por_comercio = {}
     for relacion in comercio_modulos_raw:
@@ -9711,101 +9811,91 @@ def admin():
             modulos_por_comercio.setdefault(
                 relacion_comercio_id,
                 {},
-            )[relacion_slug] = relacion.get("activo") is True
+            )[relacion_slug] = relacion
 
-    comercios = []
-
-    for c in comercios_raw:
-        comercio_id = c.get("id") or c.get("comercio_id") or c.get("user_id")
-
-        plan = str(c.get("plan") or "gratis").strip().lower()
-        if plan != "premium":
-            plan = "gratis"
-
-        estado_plan = str(c.get("estado_plan") or "").strip().lower()
-        solicitud_premium = bool(c.get("solicitud_premium"))
-
-        whatsapp = c.get("whatsapp") or "-"
-        whatsapp_numero = limpiar_numero_whatsapp(whatsapp)
-
-        cuenta_habilitada = c.get("activo") is not False
-        publicaciones_total = publicaciones_por_comercio.get(comercio_id, 0)
-        publicaciones_restaurables = publicaciones_restaurables_por_comercio.get(comercio_id, 0)
-        publicaciones_activas = publicaciones_activas_por_comercio.get(comercio_id, 0)
-
-        gastronomia_config = gastronomia_por_comercio.get(
-            str(comercio_id)
-        )
-
-        gastronomia_configurada = bool(
-            gastronomia_config
-        )
-
-        gastronomia_activa = bool(
-            gastronomia_config
-            and gastronomia_config.get("activo")
-        )
-
-        estados_modulos = modulos_por_comercio.get(
+    comercios = _construir_comercios_admin(
+        comercios_raw,
+        publicaciones_raw,
+        gastronomia_config_raw,
+    )
+    for comercio in comercios:
+        comercio_id = comercio.get("id")
+        relaciones_modulos = modulos_por_comercio.get(
             str(comercio_id),
             {},
         )
-        modulos_admin = [
-            {
+        modulos_admin = []
+        for slug, datos_modulo in CATALOGO_MODULOS.items():
+            if not modulo_disponible_para_comercio(slug, comercio):
+                continue
+
+            relacion_modulo = relaciones_modulos.get(slug) or {}
+            activo_modulo = relacion_modulo.get("activo") is True
+            vencimiento_raw = relacion_modulo.get("fecha_vencimiento")
+            vencimiento_mostrar = None
+
+            if vencimiento_raw:
+                try:
+                    vencimiento_mostrar = datetime.date.fromisoformat(
+                        str(vencimiento_raw)[:10]
+                    ).strftime("%d/%m/%Y")
+                except (TypeError, ValueError):
+                    vencimiento_mostrar = str(vencimiento_raw)
+
+            modulos_admin.append({
                 "slug": slug,
                 "nombre": datos_modulo.get("nombre") or slug,
-                "activo": estados_modulos.get(slug, False),
-            }
-            for slug, datos_modulo in CATALOGO_MODULOS.items()
-            if datos_modulo.get("disponible")
-        ]
+                "existe": bool(relacion_modulo),
+                "activo": activo_modulo,
+                "fecha_vencimiento_mostrar": vencimiento_mostrar,
+                "activo_sin_vencimiento": (
+                    activo_modulo and not vencimiento_raw
+                ),
+            })
 
-        necesita_restaurar = (
-            cuenta_habilitada
-            and publicaciones_restaurables > 0
-            and publicaciones_activas == 0
-        )
+        comercio["modulos"] = modulos_admin
 
-        contenido_restaurado = (
-            cuenta_habilitada
-            and publicaciones_activas > 0
-        )
-
-        comercios.append({
-            "id": comercio_id,
-            "nombre": c.get("nombre_negocio") or c.get("nombre") or "Sin nombre",
-            "email": c.get("email") or "-",
-            "whatsapp": whatsapp,
-            "whatsapp_url": construir_url_whatsapp(
-                whatsapp,
-                "Hola, vengo de ClickLocal Paraná. Quiero consultar por ClickLocal."
-            ) if whatsapp_numero else None,
-            "ciudad": c.get("ciudad") or "Paraná",
-            "categoria": c.get("categoria") or c.get("rubro") or "-",
-            "descripcion": c.get("descripcion") or "Sin descripción.",
-            "plan": plan,
-            "estado_plan": estado_plan,
-            "solicitud_premium": solicitud_premium,
-            "activo": cuenta_habilitada,
-            "estado_cuenta": "Habilitada" if cuenta_habilitada else "Bloqueada",
-            "necesita_restaurar": necesita_restaurar,
-            "contenido_restaurado": contenido_restaurado,
-            "publicaciones_restaurables": publicaciones_restaurables,
-            "created_at": c.get("created_at") or "-",
-            "publicaciones_total": publicaciones_total,
-            "publicaciones_activas": publicaciones_activas,
-            "gastronomia_configurada": gastronomia_configurada,
-            "gastronomia_activa": gastronomia_activa,
-            "modulos": modulos_admin,
-            "perfil_url": url_for("perfil_comercio", comercio_id=comercio_id) if comercio_id else None,
-        })
-
-    comercios.sort(
-        key=lambda c: (
-            0 if c.get("necesita_restaurar") else 1 if not c.get("activo") else 2,
-            str(c.get("nombre") or "").lower()
+    comercios_por_id_admin = {
+        str(comercio.get("id")): comercio
+        for comercio in comercios
+        if comercio.get("id")
+    }
+    proximos_vencimientos_modulos = (
+        _proximos_vencimientos_modulos_admin(
+            comercio_modulos_raw,
+            comercios_por_id_admin,
         )
     )
+    solicitudes_modulos = []
+    for consulta in consultas_soporte:
+        if str(consulta.get("origen") or "").strip().casefold() != (
+            "catalogo_modulos"
+        ):
+            continue
+
+        slug_modulo = _slug_solicitud_modulo(consulta)
+        comercio = comercios_por_id_admin.get(
+            str(consulta.get("comercio_id") or ""),
+            {},
+        )
+        datos_modulo = CATALOGO_MODULOS.get(slug_modulo) or {}
+        solicitudes_modulos.append({
+            "id": consulta.get("id"),
+            "comercio_id": consulta.get("comercio_id"),
+            "comercio_nombre": (
+                comercio.get("nombre")
+                or consulta.get("nombre")
+                or "Comercio no identificado"
+            ),
+            "whatsapp": consulta.get("whatsapp") or comercio.get("whatsapp") or "-",
+            "email": consulta.get("email") or comercio.get("email") or "-",
+            "plan_actual": comercio.get("plan") or "-",
+            "slug_modulo": slug_modulo,
+            "modulo_solicitado": (
+                datos_modulo.get("nombre")
+                or "Módulo no identificado"
+            ),
+        })
 
     solicitudes_premium = [
         c for c in comercios
@@ -9823,111 +9913,9 @@ def admin():
         if categoria != "Otros"
     ]
 
-    # ========================================================
-    # ULTIMOS MOVIMIENTOS DEL ADMIN
-    # ========================================================
-
-    comercios_por_id_admin = {
-        str(c.get("id")): c
-        for c in comercios
-        if c.get("id")
-    }
-
-    solicitudes_modulos = []
-    for consulta in solicitudes_modulos_raw:
-        comercio_solicitante = comercios_por_id_admin.get(
-            str(consulta.get("comercio_id") or ""),
-            {},
-        )
-        motivo = " ".join(str(consulta.get("motivo") or "").split())
-        prefijo = "Activación de "
-        modulo_solicitado = (
-            motivo[len(prefijo):]
-            if motivo.casefold().startswith(prefijo.casefold())
-            else motivo or "Módulo no identificado"
-        )
-        solicitudes_modulos.append({
-            "id": consulta.get("id"),
-            "comercio_nombre": (
-                comercio_solicitante.get("nombre")
-                or consulta.get("nombre")
-                or "Comercio no identificado"
-            ),
-            "whatsapp": (
-                consulta.get("whatsapp")
-                or comercio_solicitante.get("whatsapp")
-                or "-"
-            ),
-            "email": (
-                consulta.get("email")
-                or comercio_solicitante.get("email")
-                or "-"
-            ),
-            "modulo_solicitado": modulo_solicitado,
-            "estado": "pendiente",
-        })
-
-    ultimos_comercios = sorted(
-        comercios,
-        key=lambda c: str(c.get("created_at") or ""),
-        reverse=True
-    )[:10]
-
-    for comercio_admin in ultimos_comercios:
-        comercio_admin["created_at_mostrar"] = (
-            formatear_fecha_argentina(
-                comercio_admin.get("created_at")
-            )
-        )
-
-    ultimas_publicaciones = []
-
-    publicaciones_ordenadas = sorted(
-        [
-            pub for pub in publicaciones_raw
-            if pub.get("eliminada") is not True
-        ],
-        key=lambda pub: str(pub.get("created_at") or ""),
-        reverse=True
-    )[:10]
-
-    for pub in publicaciones_ordenadas:
-        comercio_id_pub = str(
-            pub.get("comercio_id") or ""
-        )
-
-        comercio_pub = comercios_por_id_admin.get(
-            comercio_id_pub,
-            {}
-        )
-
-        ultimas_publicaciones.append({
-            "id": pub.get("id"),
-            "nombre": (
-                pub.get("nombre")
-                or pub.get("titulo")
-                or "Sin nombre"
-            ),
-            "comercio_nombre": (
-                comercio_pub.get("nombre")
-                or "Comercio no identificado"
-            ),
-            "categoria": (
-                comercio_pub.get("categoria")
-                or "-"
-            ),
-            "created_at": pub.get("created_at"),
-            "created_at_mostrar": (
-                formatear_fecha_argentina(
-                    pub.get("created_at")
-                )
-            ),
-            "activa": es_publicacion_activa(pub),
-        })
-
     total_publicaciones_activas = sum(
         1 for pub in publicaciones_raw
-        if es_publicacion_activa(pub)
+        if _es_publicacion_activa_admin(pub)
     )
 
     total_premium = sum(
@@ -9972,10 +9960,9 @@ def admin():
         comercios=comercios,
         solicitudes_premium=solicitudes_premium,
         solicitudes_modulos=solicitudes_modulos,
+        proximos_vencimientos_modulos=proximos_vencimientos_modulos,
         categorias_por_revisar=categorias_por_revisar,
         categorias_reasignacion=categorias_reasignacion,
-        ultimos_comercios=ultimos_comercios,
-        ultimas_publicaciones=ultimas_publicaciones,
         consultas_soporte=consultas_soporte,
         consultas_soporte_resueltas=consultas_soporte_resueltas,
         error=error,
@@ -9985,6 +9972,51 @@ def admin():
     )
 
 
+@app.route("/admin/comercios")
+@admin_requerido
+def admin_comercios():
+    error = None
+    comercios_raw = []
+    publicaciones_raw = []
+    gastronomia_config_raw = []
+
+    try:
+        respuesta = supabase_admin.table("comercios").select("*").execute()
+        comercios_raw = respuesta.data or []
+    except Exception as excepcion:
+        error = f"No se pudieron cargar los comercios: {excepcion}"
+
+    try:
+        respuesta = supabase_admin.table("publicaciones").select("*").execute()
+        publicaciones_raw = respuesta.data or []
+    except Exception as excepcion:
+        mensaje = f"No se pudieron cargar las publicaciones: {excepcion}"
+        error = f"{error} | {mensaje}" if error else mensaje
+
+    try:
+        respuesta = (
+            supabase_admin.table("gastronomia_configuracion")
+            .select("comercio_id,activo")
+            .execute()
+        )
+        gastronomia_config_raw = respuesta.data or []
+    except Exception as excepcion:
+        mensaje = f"No se pudo cargar Gastronomía: {excepcion}"
+        error = f"{error} | {mensaje}" if error else mensaje
+
+    comercios = _construir_comercios_admin(
+        comercios_raw,
+        publicaciones_raw,
+        gastronomia_config_raw,
+    )
+    ultimos_comercios = _ultimos_comercios_admin(comercios)
+    return render_template(
+        "admin_comercios.html",
+        comercios=comercios,
+        ultimos_comercios=ultimos_comercios,
+        error=error,
+        admin_user=session.get("admin_user"),
+    )
 
 
 @app.route("/admin/modulos")
@@ -10047,7 +10079,7 @@ def admin_modulos():
     modulos_comercios = []
     for comercio_id, comercio in comercios_por_id.items():
         for slug, datos_catalogo in CATALOGO_MODULOS.items():
-            if not datos_catalogo.get("disponible"):
+            if not modulo_disponible_para_comercio(slug, comercio):
                 continue
 
             relacion = relaciones_por_comercio.get(comercio_id, {}).get(slug)
@@ -10127,6 +10159,10 @@ def admin_modulos():
             {},
         )
         datos_modulo = CATALOGO_MODULOS.get(slug) or {}
+        modulo_elegible = modulo_disponible_para_comercio(
+            slug,
+            comercio,
+        )
         solicitudes_modulos.append({
             "id": solicitud.get("id"),
             "comercio_id": solicitud.get("comercio_id"),
@@ -10137,9 +10173,10 @@ def admin_modulos():
             ),
             "modulo_solicitado": (
                 datos_modulo.get("nombre")
+                if modulo_elegible else None
                 or "Módulo no identificado"
             ),
-            "slug_modulo": slug,
+            "slug_modulo": slug if modulo_elegible else None,
         })
 
     return render_template(
@@ -10149,6 +10186,8 @@ def admin_modulos():
         error=error,
         admin_user=session.get("admin_user"),
     )
+
+
 
 
 # ============================================================
@@ -10213,7 +10252,7 @@ def admin_instalar_modulo_solicitado(consulta_id):
         comercio_id = consulta.get("comercio_id")
         comercio_res = (
             supabase_admin.table("comercios")
-            .select("id")
+            .select("id,categoria")
             .eq("id", comercio_id)
             .limit(1)
             .execute()
@@ -10222,6 +10261,15 @@ def admin_instalar_modulo_solicitado(consulta_id):
             return redirect(url_for(
                 "admin_modulos",
                 modulo_solicitud_error="comercio_no_encontrado",
+            ))
+
+        if not modulo_disponible_para_comercio(
+            slug,
+            comercio_res.data[0],
+        ):
+            return redirect(url_for(
+                "admin_modulos",
+                modulo_solicitud_error="modulo_no_disponible",
             ))
 
         vigencia_inicial = evaluar_vigencia_modulo(comercio_id, slug)
@@ -10980,13 +11028,13 @@ def admin_bloquear_comercio(comercio_id):
         except Exception as e:
             print("AVISO: no se pudieron desactivar listas_buscables:", e, flush=True)
 
-        return redirect(url_for("admin", comercio_bloqueado="1"))
+        return redirect(_url_retorno_accion_comercio(comercio_bloqueado="1"))
 
     except Exception as e:
         print("\nERROR BLOQUEANDO COMERCIO:", flush=True)
         print(type(e), flush=True)
         print(e, flush=True)
-        return redirect(url_for("admin", bloqueo_error="1"))
+        return redirect(_url_retorno_accion_comercio(bloqueo_error="1"))
 
 
 @app.route("/admin/reactivar-comercio/<comercio_id>", methods=["POST"])
@@ -11002,13 +11050,13 @@ def admin_reactivar_comercio(comercio_id):
             "activo": True
         }).eq("id", comercio_id).execute()
 
-        return redirect(url_for("admin", comercio_reactivado="1"))
+        return redirect(_url_retorno_accion_comercio(comercio_reactivado="1"))
 
     except Exception as e:
         print("\nERROR REACTIVANDO COMERCIO:", flush=True)
         print(type(e), flush=True)
         print(e, flush=True)
-        return redirect(url_for("admin", reactivar_error="1"))
+        return redirect(_url_retorno_accion_comercio(reactivar_error="1"))
 
 
 
@@ -11036,10 +11084,14 @@ def admin_restaurar_contenido_comercio(comercio_id):
         comercio_data = comercio_res.data or []
 
         if not comercio_data:
-            return redirect(url_for("admin", restaurar_contenido_error="1"))
+            return redirect(_url_retorno_accion_comercio(
+                restaurar_contenido_error="1"
+            ))
 
         if comercio_data[0].get("activo") is False:
-            return redirect(url_for("admin", restaurar_bloqueado="1"))
+            return redirect(_url_retorno_accion_comercio(
+                restaurar_bloqueado="1"
+            ))
 
         (
             supabase_admin
@@ -11062,13 +11114,17 @@ def admin_restaurar_contenido_comercio(comercio_id):
         except Exception as e:
             print("AVISO: no se pudieron restaurar listas_buscables:", e, flush=True)
 
-        return redirect(url_for("admin", contenido_restaurado="1"))
+        return redirect(_url_retorno_accion_comercio(
+            contenido_restaurado="1"
+        ))
 
     except Exception as e:
         print("\nERROR RESTAURANDO CONTENIDO:", flush=True)
         print(type(e), flush=True)
         print(e, flush=True)
-        return redirect(url_for("admin", restaurar_contenido_error="1"))
+        return redirect(_url_retorno_accion_comercio(
+            restaurar_contenido_error="1"
+        ))
 
 
 

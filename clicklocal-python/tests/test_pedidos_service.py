@@ -9,8 +9,11 @@ from gastronomia.services.pedidos import (
     ESTADOS_PAGO,
     ESTADOS_PEDIDO,
     PedidoError,
+    construir_idempotency_fingerprint,
     crear_pedido,
+    pedido_es_venta,
     preparar_actualizacion_estados,
+    preparar_transicion_pedido,
     validar_estado_pago,
     validar_estado_pedido,
 )
@@ -48,11 +51,12 @@ class ConsultaFalsa:
             self.db.insertados.append((self.tabla, self.datos_insertados))
             if self.db.insercion_vacia:
                 return SimpleNamespace(data=[])
-            return SimpleNamespace(data=[{
-                "id": "pedido-1",
-                "numero_pedido": 7,
-                "created_at": "2026-09-02T15:00:00+00:00",
-            }])
+            fila = dict(self.datos_insertados)
+            fila.setdefault("id", f"pedido-{len(self.db.insertados)}")
+            fila.setdefault("numero_pedido", 6 + len(self.db.insertados))
+            fila.setdefault("created_at", "2026-09-02T15:00:00+00:00")
+            self.db.datos.setdefault(self.tabla, []).append(fila)
+            return SimpleNamespace(data=[fila])
         datos = list(self.db.datos.get(self.tabla, []))
         for operador, columna, valor in self.filtros:
             if operador == "eq":
@@ -73,6 +77,25 @@ class SupabaseFalso:
         return ConsultaFalsa(self, nombre)
 
 
+class ConsultaConflicto(ConsultaFalsa):
+    def execute(self):
+        if self.datos_insertados is not None:
+            ganador = dict(self.datos_insertados)
+            ganador.update({
+                "id": "pedido-ganador",
+                "numero_pedido": 19,
+                "created_at": "2026-09-16T17:00:00+00:00",
+            })
+            self.db.datos.setdefault(self.tabla, []).append(ganador)
+            raise RuntimeError("duplicate key value violates unique constraint")
+        return super().execute()
+
+
+class SupabaseConflicto(SupabaseFalso):
+    def table(self, nombre):
+        return ConsultaConflicto(self, nombre)
+
+
 def datos_base():
     return {
         "comercios": [{
@@ -87,6 +110,9 @@ def datos_base():
             "acepta_retiro": True,
             "pedido_minimo": 0,
             "costo_envio": 1500,
+            "delivery_distancia_activo": False,
+            "delivery_franjas": [],
+            "delivery_origen_direccion": None,
             "descuento_efectivo_pct": 10,
             "descuento_transferencia_pct": 5,
         }],
@@ -126,6 +152,225 @@ def crear(db, **cambios):
 
 
 class PedidosServiceTest(unittest.TestCase):
+    def test_fingerprint_es_estable_sin_importar_orden(self):
+        argumentos = {
+            "comercio_id": "comercio-1",
+            "nombre": " Ana ",
+            "apellido": "Prueba",
+            "telefono_normalizado": "3436123456",
+            "modalidad": "Retiro",
+            "direccion": "",
+            "forma_pago": "Efectivo",
+            "paga_con": "20000.00",
+            "observaciones": "Sin sal",
+            "items": [
+                {
+                    "id": "producto-2",
+                    "cantidad": 1,
+                    "opciones": [{"id": "b"}, {"id": "a"}],
+                },
+                {"id": "producto-1", "cantidad": 2, "opciones": []},
+            ],
+            "cotizacion_delivery": "",
+        }
+        primero = construir_idempotency_fingerprint(**argumentos)
+        argumentos["items"] = list(reversed(argumentos["items"]))
+        argumentos["items"][1]["opciones"] = [{"id": "a"}, {"id": "b"}]
+        segundo = construir_idempotency_fingerprint(**argumentos)
+        self.assertEqual(primero, segundo)
+
+    def test_retry_idempotente_devuelve_original_sin_segundo_insert(self):
+        db = SupabaseFalso(datos_base())
+        clave = "11111111-1111-4111-8111-111111111111"
+        fingerprint = "a" * 64
+        primero = crear(
+            db,
+            idempotency_key=clave,
+            idempotency_fingerprint=fingerprint,
+        )
+        segundo = crear(
+            db,
+            idempotency_key=clave,
+            idempotency_fingerprint=fingerprint,
+        )
+        self.assertEqual(primero["id"], segundo["id"])
+        self.assertEqual(primero["numero_pedido"], segundo["numero_pedido"])
+        self.assertTrue(segundo["idempotent_replay"])
+        self.assertEqual(len(db.insertados), 1)
+
+    def test_misma_clave_con_otro_fingerprint_da_409(self):
+        db = SupabaseFalso(datos_base())
+        clave = "11111111-1111-4111-8111-111111111111"
+        crear(
+            db,
+            idempotency_key=clave,
+            idempotency_fingerprint="a" * 64,
+        )
+        with self.assertRaises(PedidoError) as contexto:
+            crear(
+                db,
+                idempotency_key=clave,
+                idempotency_fingerprint="b" * 64,
+            )
+        self.assertEqual(contexto.exception.status_code, 409)
+        self.assertEqual(len(db.insertados), 1)
+
+    def test_clave_nueva_permite_mismo_pedido_legitimo(self):
+        db = SupabaseFalso(datos_base())
+        for clave in (
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
+        ):
+            crear(
+                db,
+                idempotency_key=clave,
+                idempotency_fingerprint="a" * 64,
+            )
+        self.assertEqual(len(db.insertados), 2)
+
+    def test_misma_clave_es_valida_en_otro_comercio(self):
+        datos = datos_base()
+        datos["comercios"].append({
+            "id": "comercio-2",
+            "nombre_negocio": "Otro comercio",
+            "whatsapp": "5493431111111",
+        })
+        segunda_config = dict(datos["gastronomia_configuracion"][0])
+        segunda_config["comercio_id"] = "comercio-2"
+        datos["gastronomia_configuracion"].append(segunda_config)
+        segundo_producto = dict(datos["gastronomia_productos"][0])
+        segundo_producto.update({"id": "producto-2", "comercio_id": "comercio-2"})
+        datos["gastronomia_productos"].append(segundo_producto)
+        db = SupabaseFalso(datos)
+        clave = "11111111-1111-4111-8111-111111111111"
+        crear(db, idempotency_key=clave, idempotency_fingerprint="a" * 64)
+        crear(
+            db,
+            comercio_id="comercio-2",
+            items=[{"id": "producto-2", "cantidad": 1, "opciones": []}],
+            idempotency_key=clave,
+            idempotency_fingerprint="b" * 64,
+        )
+        self.assertEqual(len(db.insertados), 2)
+
+    def test_conflicto_concurrente_recupera_al_ganador(self):
+        db = SupabaseConflicto(datos_base())
+        resultado = crear(
+            db,
+            idempotency_key="11111111-1111-4111-8111-111111111111",
+            idempotency_fingerprint="a" * 64,
+        )
+        self.assertEqual(resultado["id"], "pedido-ganador")
+        self.assertEqual(resultado["numero_pedido"], 19)
+        self.assertTrue(resultado["idempotent_replay"])
+
+    def test_delivery_por_distancia_guarda_cotizacion_validada(self):
+        datos = datos_base()
+        datos["gastronomia_configuracion"][0]["delivery_distancia_activo"] = True
+        datos["gastronomia_configuracion"][0]["delivery_franjas"] = [
+            {"hasta_km": 4, "precio": 2500},
+        ]
+        db = SupabaseFalso(datos)
+        resultado = crear(
+            db,
+            modalidad="delivery",
+            direccion="Perú 50",
+            cotizacion_delivery={"distancia_m": 3200, "costo_envio": 2500},
+        )
+        self.assertEqual(resultado["costo_envio"], 2500)
+        self.assertEqual(resultado["total"], 11500)
+        self.assertEqual(db.insertados[0][1]["delivery_distancia_m"], 3200)
+
+    def test_delivery_por_distancia_exige_cotizacion(self):
+        datos = datos_base()
+        datos["gastronomia_configuracion"][0]["delivery_distancia_activo"] = True
+        datos["gastronomia_configuracion"][0]["delivery_franjas"] = [
+            {"hasta_km": 4, "precio": 2500},
+        ]
+        with self.assertRaisesRegex(PedidoError, "Calculá el envío"):
+            crear(
+                SupabaseFalso(datos),
+                modalidad="delivery",
+                direccion="Perú 50",
+            )
+
+    def test_delivery_por_distancia_rechaza_costo_que_no_coincide_con_franja(self):
+        datos = datos_base()
+        datos["gastronomia_configuracion"][0].update({
+            "delivery_distancia_activo": True,
+            "delivery_franjas": [{"hasta_km": 4, "precio": 2500}],
+        })
+        with self.assertRaisesRegex(PedidoError, "cotización cambió"):
+            crear(
+                SupabaseFalso(datos),
+                modalidad="delivery",
+                direccion="Perú 50",
+                cotizacion_delivery={"distancia_m": 3200, "costo_envio": 1},
+            )
+
+    def test_retiro_no_guarda_distancia(self):
+        db = SupabaseFalso(datos_base())
+        crear(db)
+        pedido = db.insertados[0][1]
+        self.assertEqual(pedido["costo_envio"], 0)
+        self.assertIsNone(pedido["delivery_distancia_m"])
+
+    def test_transiciones_operativas(self):
+        self.assertEqual(
+            preparar_transicion_pedido("pendiente", "avanzar")["estado"],
+            "marchando",
+        )
+        self.assertEqual(
+            preparar_transicion_pedido("marchando", "avanzar")["estado"],
+            "preparado",
+        )
+        self.assertEqual(
+            preparar_transicion_pedido("preparado", "avanzar")["estado"],
+            "cerrado",
+        )
+        self.assertEqual(
+            preparar_transicion_pedido("cerrado", "retroceder")["estado"],
+            "preparado",
+        )
+        self.assertEqual(
+            preparar_transicion_pedido("marchando", "cancelar")["estado"],
+            "cancelado",
+        )
+
+    def test_transiciones_invalidas(self):
+        casos = (
+            ("pendiente", "retroceder"),
+            ("cerrado", "avanzar"),
+            ("cerrado", "cancelar"),
+            ("cancelado", "avanzar"),
+        )
+        for estado, accion in casos:
+            with self.subTest(estado=estado, accion=accion):
+                with self.assertRaises(PedidoError):
+                    preparar_transicion_pedido(estado, accion)
+
+    def test_regla_minima_de_ventas(self):
+        self.assertTrue(pedido_es_venta({
+            "estado": "cerrado",
+            "estado_pago": "pagado",
+        }))
+        self.assertTrue(pedido_es_venta({
+            "estado": "preparado",
+            "estado_pago": "pagado",
+        }))
+        self.assertTrue(pedido_es_venta({
+            "estado": "pendiente",
+            "estado_pago": "pagado",
+        }))
+        self.assertFalse(pedido_es_venta({
+            "estado": "cancelado",
+            "estado_pago": "pagado",
+        }))
+        self.assertFalse(pedido_es_venta({
+            "estado": "cerrado",
+            "estado_pago": "pendiente",
+        }))
+
     def test_retiro_efectivo_producto_sin_extras(self):
         db = SupabaseFalso(datos_base())
         resultado = crear(db)
@@ -173,6 +418,161 @@ class PedidosServiceTest(unittest.TestCase):
         )
         self.assertEqual(resultado["detalle"][0]["precio_unitario"], 10750)
         self.assertEqual(resultado["subtotal"], 21500)
+
+    def test_precio_del_cliente_se_ignora_y_se_recalcula(self):
+        resultado = crear(
+            SupabaseFalso(datos_base()),
+            items=[{
+                "id": "producto-1",
+                "cantidad": 2,
+                "precio_unitario": 1,
+                "subtotal": 2,
+                "opciones": [],
+            }],
+        )
+        self.assertEqual(resultado["subtotal"], 20000)
+
+    def test_varios_productos_cantidades_y_extras_suman_el_total(self):
+        datos = datos_base()
+        datos["gastronomia_productos"].append({
+            "id": "producto-2",
+            "comercio_id": "comercio-1",
+            "nombre": "Bebida",
+            "precio": 2000,
+            "precio_promocional": 1500,
+            "activo": True,
+            "disponible": True,
+        })
+        datos["gastronomia_opciones"] = [{
+            "id": "opcion-1",
+            "grupo_id": "grupo-1",
+            "nombre": "Extra",
+            "precio_extra": 500,
+            "activo": True,
+            "disponible": True,
+        }]
+        datos["gastronomia_grupos_opciones"] = [{
+            "id": "grupo-1",
+            "producto_id": "producto-1",
+            "nombre": "Extras",
+            "minimo": 0,
+            "maximo": 2,
+            "activo": True,
+        }]
+        resultado = crear(
+            SupabaseFalso(datos),
+            forma_pago="transferencia",
+            paga_con=None,
+            aplicar_condiciones_comerciales=False,
+            items=[
+                {
+                    "id": "producto-1",
+                    "cantidad": 2,
+                    "opciones": [{"id": "opcion-1"}],
+                },
+                {"id": "producto-2", "cantidad": 3, "opciones": []},
+            ],
+        )
+        self.assertEqual(resultado["subtotal"], 25500)
+        self.assertEqual(resultado["total"], 25500)
+        self.assertEqual(len(resultado["detalle"]), 2)
+
+    def test_minimos_y_maximos_de_extras_se_validan_en_servidor(self):
+        datos = datos_base()
+        datos["gastronomia_grupos_opciones"] = [{
+            "id": "grupo-1",
+            "producto_id": "producto-1",
+            "nombre": "Salsas",
+            "minimo": 1,
+            "maximo": 1,
+            "activo": True,
+        }]
+        datos["gastronomia_opciones"] = [
+            {
+                "id": "opcion-1",
+                "grupo_id": "grupo-1",
+                "nombre": "Verdeo",
+                "precio_extra": 500,
+                "activo": True,
+                "disponible": True,
+            },
+            {
+                "id": "opcion-2",
+                "grupo_id": "grupo-1",
+                "nombre": "Queso",
+                "precio_extra": 700,
+                "activo": True,
+                "disponible": True,
+            },
+        ]
+        with self.assertRaisesRegex(PedidoError, "elegir al menos 1"):
+            crear(SupabaseFalso(datos))
+        with self.assertRaisesRegex(PedidoError, "elegir hasta 1"):
+            crear(
+                SupabaseFalso(datos),
+                items=[{
+                    "id": "producto-1",
+                    "cantidad": 1,
+                    "opciones": [{"id": "opcion-1"}, {"id": "opcion-2"}],
+                }],
+            )
+
+    def test_pos_no_aplica_minimo_descuentos_ni_envio(self):
+        datos = datos_base()
+        datos["gastronomia_configuracion"][0]["pedido_minimo"] = 50000
+        resultado = crear(
+            SupabaseFalso(datos),
+            origen="pos",
+            modalidad="mostrador",
+            forma_pago="transferencia",
+            paga_con=None,
+            aplicar_condiciones_comerciales=False,
+        )
+        self.assertEqual(resultado["subtotal"], 10000)
+        self.assertEqual(resultado["descuento"], 0)
+        self.assertEqual(resultado["costo_envio"], 0)
+        self.assertEqual(resultado["total"], 10000)
+
+    def test_pos_guarda_estados_y_timestamps_iniciales(self):
+        for forma_pago in ("efectivo", "qr", "debito", "credito"):
+            with self.subTest(forma_pago=forma_pago):
+                db = SupabaseFalso(datos_base())
+                crear(
+                    db,
+                    origen="pos",
+                    modalidad="mostrador",
+                    forma_pago=forma_pago,
+                    paga_con=None,
+                    aplicar_condiciones_comerciales=False,
+                    estado_inicial="cerrado",
+                    estado_pago_inicial="pagado",
+                )
+                pedido = db.insertados[0][1]
+                self.assertEqual(pedido["estado"], "cerrado")
+                self.assertEqual(pedido["estado_pago"], "pagado")
+                self.assertTrue(pedido["cerrado_at"])
+                self.assertTrue(pedido["pagado_at"])
+
+        db = SupabaseFalso(datos_base())
+        crear(
+            db,
+            origen="pos",
+            modalidad="mostrador",
+            forma_pago="transferencia",
+            paga_con=None,
+            aplicar_condiciones_comerciales=False,
+            estado_inicial="pendiente",
+            estado_pago_inicial="pagado",
+        )
+        pedido = db.insertados[0][1]
+        self.assertEqual(pedido["estado"], "pendiente")
+        self.assertEqual(pedido["estado_pago"], "pagado")
+        self.assertNotIn("cerrado_at", pedido)
+        self.assertTrue(pedido["pagado_at"])
+
+    def test_forma_pago_invalida_se_rechaza_en_servicio(self):
+        with self.assertRaisesRegex(PedidoError, "Forma de pago inválida"):
+            crear(SupabaseFalso(datos_base()), forma_pago="cheque")
 
     def test_pedido_minimo(self):
         datos = datos_base()
@@ -275,6 +675,7 @@ class PedidosServiceTest(unittest.TestCase):
                 "paga_con": None,
                 "subtotal": 21500.0,
                 "costo_envio": 1500.0,
+                "delivery_distancia_m": None,
                 "descuento": 1075.0,
                 "total": 21925.0,
                 "observaciones": "Sin cubiertos",
@@ -331,7 +732,7 @@ class PedidosServiceTest(unittest.TestCase):
         )
 
     def test_cantidades_invalidas(self):
-        for cantidad in (0, 100):
+        for cantidad in (0, 1.5, 100):
             with self.subTest(cantidad=cantidad):
                 with self.assertRaisesRegex(PedidoError, "Cantidad de producto inválida"):
                     crear(
@@ -447,6 +848,8 @@ class PedidosServiceTest(unittest.TestCase):
         self.assertEqual(payload["origen"], "pos")
         self.assertEqual(payload["nombre_cliente"], "")
         self.assertEqual(payload["telefono_cliente"], "")
+        self.assertNotIn("idempotency_key", payload)
+        self.assertNotIn("idempotency_fingerprint", payload)
 
     def test_servicio_mantiene_cliente_obligatorio_para_clicklocal(self):
         for campo in ("nombre", "telefono", "telefono_normalizado"):
@@ -508,6 +911,7 @@ class PedidoPublicoTest(unittest.TestCase):
 
     def payload_valido(self, **cambios):
         payload = {
+            "idempotency_key": "11111111-1111-4111-8111-111111111111",
             "nombre": "Ana",
             "apellido": "Prueba",
             "whatsapp": "3436123456",
@@ -521,7 +925,68 @@ class PedidoPublicoTest(unittest.TestCase):
         return payload
 
     @patch("gastronomia.routes.crear_pedido")
-    def test_respuesta_json_publica_conserva_contrato(self, crear_mock):
+    def test_uuid_invalido_devuelve_400(self, crear_mock):
+        respuesta = self.app.test_client().post(
+            "/gastronomia/comercio/comercio-1/pedido",
+            json=self.payload_valido(idempotency_key="no-es-un-uuid"),
+        )
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(
+            respuesta.get_json()["error"],
+            "La identificación de la solicitud es inválida.",
+        )
+        crear_mock.assert_not_called()
+
+    @patch("gastronomia.routes.buscar_pedido_idempotente")
+    @patch("gastronomia.routes.crear_pedido")
+    def test_replay_devuelve_el_pedido_original(
+        self, crear_mock, buscar_mock
+    ):
+        buscar_mock.return_value = {
+            "id": "pedido-original",
+            "numero_pedido": 31,
+            "created_at": "2026-09-16T17:00:00+00:00",
+            "texto_pedido": "Texto original",
+            "whatsapp_comercio": "5493430000000",
+            "idempotent_replay": True,
+        }
+        respuesta = self.app.test_client().post(
+            "/gastronomia/comercio/comercio-1/pedido",
+            json=self.payload_valido(),
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.get_json(), {
+            "ok": True,
+            "pedido_id": "pedido-original",
+            "numero_pedido": 31,
+            "created_at": "2026-09-16T17:00:00+00:00",
+            "texto_pedido": "Texto original",
+            "whatsapp_comercio": "5493430000000",
+            "idempotent_replay": True,
+        })
+        crear_mock.assert_not_called()
+
+    @patch("gastronomia.routes.buscar_pedido_idempotente")
+    @patch("gastronomia.routes.crear_pedido")
+    def test_clave_reutilizada_con_otros_datos_devuelve_409(
+        self, crear_mock, buscar_mock
+    ):
+        buscar_mock.side_effect = PedidoError(
+            "La solicitud de pedido ya fue utilizada con otros datos.",
+            409,
+        )
+        respuesta = self.app.test_client().post(
+            "/gastronomia/comercio/comercio-1/pedido",
+            json=self.payload_valido(nombre="Otra persona"),
+        )
+        self.assertEqual(respuesta.status_code, 409)
+        crear_mock.assert_not_called()
+
+    @patch("gastronomia.routes.buscar_pedido_idempotente", return_value=None)
+    @patch("gastronomia.routes.crear_pedido")
+    def test_respuesta_json_publica_conserva_contrato(
+        self, crear_mock, buscar_mock
+    ):
         crear_mock.return_value = {
             "id": "pedido-1",
             "numero_pedido": 7,
@@ -532,6 +997,7 @@ class PedidoPublicoTest(unittest.TestCase):
         respuesta = self.app.test_client().post(
             "/gastronomia/comercio/comercio-1/pedido",
             json={
+                "idempotency_key": "11111111-1111-4111-8111-111111111111",
                 "nombre": "Ana",
                 "apellido": "Prueba",
                 "whatsapp": "3436123456",
@@ -549,15 +1015,25 @@ class PedidoPublicoTest(unittest.TestCase):
             "created_at": "2026-09-02T15:00:00+00:00",
             "texto_pedido": "Pedido de prueba",
             "whatsapp_comercio": "5493430000000",
+            "idempotent_replay": False,
         })
         argumentos = crear_mock.call_args.kwargs
         self.assertEqual(argumentos["modalidad"], "retiro")
         self.assertEqual(argumentos["forma_pago"], "efectivo")
         self.assertEqual(argumentos["visitante_id"], "visitante-1")
         self.assertEqual(argumentos["sesion_id"], "sesion-1")
+        self.assertEqual(
+            argumentos["idempotency_key"],
+            "11111111-1111-4111-8111-111111111111",
+        )
+        self.assertEqual(len(argumentos["idempotency_fingerprint"]), 64)
+        buscar_mock.assert_called_once()
 
+    @patch("gastronomia.routes.buscar_pedido_idempotente", return_value=None)
     @patch("gastronomia.routes.crear_pedido")
-    def test_pedido_error_preserva_mensaje_y_status_http(self, crear_mock):
+    def test_pedido_error_preserva_mensaje_y_status_http(
+        self, crear_mock, _buscar_mock
+    ):
         casos = (
             (400, "Error de validación."),
             (404, "Comercio no encontrado."),
@@ -576,8 +1052,11 @@ class PedidoPublicoTest(unittest.TestCase):
                     "error": mensaje,
                 })
 
+    @patch("gastronomia.routes.buscar_pedido_idempotente", return_value=None)
     @patch("gastronomia.routes.crear_pedido")
-    def test_validaciones_publicas_no_llaman_al_servicio(self, crear_mock):
+    def test_validaciones_publicas_no_llaman_al_servicio(
+        self, crear_mock, _buscar_mock
+    ):
         casos = (
             ("nombre vacío", {"nombre": ""}, "Ingresá tu nombre."),
             ("apellido vacío", {"apellido": ""}, "Ingresá tu apellido."),

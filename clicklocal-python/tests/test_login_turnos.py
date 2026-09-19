@@ -74,10 +74,10 @@ def test_login_descarta_next_externo_y_conserva_panel_general():
     assert respuesta.location.endswith(("/panel", "/panel.html"))
 
 
-def test_login_sin_next_conserva_destino_gastronomia_de_head():
+def test_login_sin_next_entra_al_panel_gastronomico():
     respuesta = autenticar("Gastronomía")
     assert respuesta.status_code == 302
-    assert respuesta.location.endswith("/gastronomia/configuracion-inicial")
+    assert respuesta.location.endswith("/gastronomia/panel")
 
 
 def test_login_get_preserva_unicamente_next_turnos():

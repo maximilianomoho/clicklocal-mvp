@@ -478,7 +478,7 @@
 
       <div class="panel-plan">
         <span>Plan actual</span>
-        <strong>{{ comercio.plan_nombre }}</strong>
+        <strong>{{ plan_nombre_panel|default(comercio.plan_nombre) }}</strong>
       </div>
     </section>
 
@@ -497,10 +497,20 @@
         {% endif %}
         <a href="#datos" class="panel-menu-link">Mis datos</a>
         <a href="#plan" class="panel-menu-link">Mi plan</a>
+        {% if (comercio.categoria or '')|lower in ['gastronomía', 'gastronomia'] %}
+        <a href="{{ url_for('gastronomia.panel_gastronomia') }}" class="panel-menu-link">
+          Volver a Gastronomía
+        </a>
+        {% endif %}
 
         {% for modulo in modulos_activos %}
         <a href="#herramienta-{{ modulo.slug }}" class="panel-menu-link">
           {{ modulo.nombre }}
+        </a>
+        {% endfor %}
+        {% for modulo in modulos_asignados_limitados %}
+        <a href="#herramienta-{{ modulo.slug }}" class="panel-menu-link">
+          {{ modulo.nombre }} · {{ modulo.etiqueta_estado }}
         </a>
         {% endfor %}
         <a
@@ -545,6 +555,33 @@
             flex-wrap:wrap;
             margin-top:18px;
           ">
+            <a
+              href="{{ url_for(modulo.endpoint_operativo) }}"
+              class="boton-principal-form"
+              style="text-decoration:none;"
+            >
+              Abrir {{ modulo.nombre }}
+            </a>
+          </div>
+        </article>
+        {% endfor %}
+
+        {% for modulo in modulos_asignados_limitados %}
+        <article id="herramienta-{{ modulo.slug }}" class="panel-card">
+          <div class="panel-card-header">
+            <div>
+              <p class="titulo-chico">HERRAMIENTA ASIGNADA</p>
+              <h2>{{ modulo.nombre }}</h2>
+            </div>
+
+            <span class="badge">{{ modulo.etiqueta_estado }}</span>
+          </div>
+
+          <p class="panel-descripcion">
+            {{ modulo.descripcion_corta }}
+          </p>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px;">
             <a
               href="{{ url_for(modulo.endpoint_operativo) }}"
               class="boton-principal-form"
@@ -1462,6 +1499,7 @@
 
         {% endblock %}
 
+        {% block panel_contenido_general %}
         <!-- LISTAS BUSCABLES -->
         <article id="listas" class="panel-card">
           <div class="panel-card-header">
@@ -1850,16 +1888,6 @@
                   name="categoria"
                   value="{{ CATEGORIA_CINE_TEATRO }}"
                 />
-                <input
-                  type="hidden"
-                  name="categoria_secundaria_2"
-                  value=""
-                />
-                <input
-                  type="hidden"
-                  name="categoria_secundaria_3"
-                  value=""
-                />
                 <small>
                   Categoría especial administrada por ClickLocal.
                 </small>
@@ -1907,7 +1935,7 @@
             <div class="plan-box">
               <div>
                 <span>Plan actual</span>
-                <h3>{{ comercio.plan_nombre }}</h3>
+                <h3>{{ plan_nombre_panel|default(comercio.plan_nombre) }}</h3>
 
                 {% if comercio.plan_actual == 'premium' %}
                   <p>Tu comercio tiene Premium activo y cuenta con mayor visibilidad en ClickLocal.</p>
@@ -1930,6 +1958,10 @@
                 <span class="boton-whatsapp">Premium activo</span>
               {% elif comercio.solicitud_premium %}
                 <span class="boton-whatsapp">Solicitud enviada</span>
+              {% elif modo_gestor %}
+                <span style="max-width:280px; color:#6b7280; font-size:14px; line-height:1.4;">
+                  Las solicitudes Premium deben ser realizadas por el comercio.
+                </span>
               {% else %}
                 <form method="POST" action="/solicitar-premium" style="margin:0;">
                   <button type="submit" class="boton-whatsapp" style="border:0; cursor:pointer;">
@@ -1952,17 +1984,42 @@
             {% endif %}
           </article>
 
-          {% if request.args.get('modulo_solicitud') == 'enviada' %}
-            <div style="margin-top:16px; padding:14px; border-radius:12px; background:#e8f7ee; color:#166534; font-weight:700;">
-              Recibimos tu solicitud de instalación.
-            </div>
-          {% endif %}
+          <style>
+            .modulo-catalogo-accion {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              box-sizing: border-box;
+              width: 210px;
+              height: 52px;
+              margin: 0;
+              padding: 0 18px;
+              border: 0;
+              border-radius: 999px;
+              font: inherit;
+              font-size: 16px;
+              font-weight: 900;
+              line-height: 1.2;
+              text-align: center;
+              text-decoration: none;
+            }
 
-          {% if request.args.get('modulo_solicitud_error') %}
-            <div style="margin-top:16px; padding:14px; border-radius:12px; background:#ffe5e5; color:#8a0000; font-weight:700;">
-              No pudimos registrar la solicitud de instalación.
-            </div>
-          {% endif %}
+            .modulo-catalogo-form {
+              display: flex;
+              width: 210px;
+              height: 52px;
+              margin: 0;
+            }
+
+            .modulo-catalogo-form .modulo-catalogo-accion {
+              width: 100%;
+            }
+
+            .modulo-catalogo-accion:disabled {
+              opacity: 1;
+              cursor: not-allowed;
+            }
+          </style>
 
           <section id="catalogo-herramientas" style="margin-top:28px;">
             <div style="margin-bottom:14px;">
@@ -1981,35 +2038,52 @@
                     <p class="titulo-chico">HERRAMIENTA</p>
                     <h2>{{ modulo.nombre }}</h2>
                   </div>
-                  <span class="badge" style="background:#f3f4f6; color:#4b5563;">
-                    Disponible
-                  </span>
+                  {% if modulo.existe %}
+                    <span class="badge">{{ modulo.etiqueta_estado }}</span>
+                  {% else %}
+                    <span class="badge" style="background:#f3f4f6; color:#4b5563;">
+                      Inactiva
+                    </span>
+                  {% endif %}
                 </div>
 
                 <p class="panel-descripcion">
                   {{ modulo.descripcion_corta }}
                 </p>
 
-                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:stretch; margin-top:18px;">
                   <a
                     href="{{ url_for('herramienta_detalle', slug=modulo.slug) }}"
-                    class="boton-principal-form"
-                    style="text-decoration:none;"
+                    class="boton-principal-form modulo-catalogo-accion"
                   >
                     Ver
                   </a>
 
-                  {% if modulo.solicitud_pendiente %}
-                    <button type="button" class="boton-whatsapp" disabled>
+                  {% if modulo.existe %}
+                    <a
+                      href="{{ url_for(modulo.endpoint_operativo) }}"
+                      class="boton-whatsapp modulo-catalogo-accion"
+                    >
+                      Abrir
+                    </a>
+                  {% elif modulo.solicitud_pendiente %}
+                    <button
+                      type="button"
+                      class="boton-whatsapp modulo-catalogo-accion"
+                      disabled
+                    >
                       Solicitud enviada
                     </button>
                   {% else %}
                     <form
                       method="post"
                       action="{{ url_for('solicitar_instalacion_modulo_panel', slug=modulo.slug) }}"
-                      style="margin:0;"
+                      class="modulo-catalogo-form"
                     >
-                      <button type="submit" class="boton-whatsapp" style="border:0; cursor:pointer;">
+                      <button
+                        type="submit"
+                        class="boton-whatsapp modulo-catalogo-accion"
+                      >
                         Solicitar instalación
                       </button>
                     </form>
@@ -2020,6 +2094,7 @@
             </div>
           </section>
 
+        {% endblock %}
       </section>
 
     </section>

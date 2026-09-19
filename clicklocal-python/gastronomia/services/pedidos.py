@@ -1,6 +1,13 @@
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+import hashlib
+import json
+import math
+import unicodedata
 
 from config.supabase_config import supabase_admin
+
+from .delivery import DeliveryError, seleccionar_franja
 
 
 ESTADOS_PEDIDO = (
@@ -15,6 +22,22 @@ ESTADOS_PAGO = (
     "pendiente",
     "pagado",
 )
+
+FORMAS_PAGO = (
+    "efectivo",
+    "transferencia",
+    "qr",
+    "debito",
+    "credito",
+)
+
+ETIQUETAS_FORMAS_PAGO = {
+    "efectivo": "Efectivo",
+    "transferencia": "Transferencia",
+    "qr": "QR",
+    "debito": "Débito",
+    "credito": "Crédito",
+}
 
 ORIGENES_PEDIDO = (
     "clicklocal",
@@ -33,12 +56,170 @@ TIPOS_ENTREGA = (
 
 ORIGENES_CON_CLIENTE_OBLIGATORIO = ("clicklocal",)
 
+SIGUIENTE_ESTADO_PEDIDO = {
+    "pendiente": "marchando",
+    "marchando": "preparado",
+    "preparado": "cerrado",
+}
+
+ESTADO_ANTERIOR_PEDIDO = {
+    "marchando": "pendiente",
+    "preparado": "marchando",
+    "cerrado": "preparado",
+}
+
 
 class PedidoError(Exception):
     def __init__(self, mensaje, status_code=400):
         super().__init__(mensaje)
         self.mensaje = mensaje
         self.status_code = status_code
+
+
+def _texto_canonico(valor, limite=None, minusculas=False):
+    texto = unicodedata.normalize("NFKC", str(valor or "")).strip()
+    if limite is not None:
+        texto = texto[:limite]
+    return texto.casefold() if minusculas else texto
+
+
+def _numero_canonico(valor):
+    if valor is None or valor == "":
+        return None
+    try:
+        numero = Decimal(str(valor).strip())
+    except (InvalidOperation, TypeError, ValueError):
+        return _texto_canonico(valor)
+    if not numero.is_finite():
+        return _texto_canonico(valor)
+    return format(numero.normalize(), "f")
+
+
+def _detalle_canonico(items):
+    if not isinstance(items, list):
+        return {"valor_invalido": _texto_canonico(items)}
+
+    detalle = []
+    for item in items:
+        if not isinstance(item, dict):
+            detalle.append({"valor_invalido": _texto_canonico(item)})
+            continue
+
+        opciones = item.get("opciones") or []
+        if isinstance(opciones, list):
+            opciones_canonicas = sorted(
+                _texto_canonico(opcion.get("id"))
+                if isinstance(opcion, dict)
+                else _texto_canonico(opcion)
+                for opcion in opciones
+            )
+        else:
+            opciones_canonicas = [_texto_canonico(opciones)]
+
+        detalle.append({
+            "id": _texto_canonico(item.get("id")),
+            "cantidad": _numero_canonico(item.get("cantidad")),
+            "nota": _texto_canonico(item.get("nota"), limite=180),
+            "opciones": opciones_canonicas,
+        })
+
+    return sorted(
+        detalle,
+        key=lambda item: json.dumps(
+            item,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+    )
+
+
+def construir_idempotency_fingerprint(
+    comercio_id,
+    nombre,
+    apellido,
+    telefono_normalizado,
+    modalidad,
+    direccion,
+    forma_pago,
+    paga_con,
+    observaciones,
+    items,
+    cotizacion_delivery,
+):
+    """Identifica una intención sin usar importes calculados en el navegador."""
+    representacion = {
+        "comercio_id": _texto_canonico(comercio_id),
+        "nombre": _texto_canonico(nombre),
+        "apellido": _texto_canonico(apellido),
+        "telefono_normalizado": _texto_canonico(telefono_normalizado),
+        "modalidad": _texto_canonico(modalidad, minusculas=True),
+        "direccion": _texto_canonico(direccion),
+        "forma_pago": _texto_canonico(forma_pago, minusculas=True),
+        "paga_con": _numero_canonico(paga_con),
+        "observaciones": _texto_canonico(observaciones, limite=220),
+        "detalle": _detalle_canonico(items),
+        "cotizacion_delivery": _texto_canonico(cotizacion_delivery),
+    }
+    serializado = json.dumps(
+        representacion,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serializado.encode("utf-8")).hexdigest()
+
+
+def buscar_pedido_idempotente(
+    comercio_id,
+    idempotency_key,
+    idempotency_fingerprint,
+    cliente_supabase=None,
+):
+    if not idempotency_key:
+        return None
+
+    db = cliente_supabase or supabase_admin
+    respuesta = (
+        db.table("gastronomia_pedidos")
+        .select(
+            "id,numero_pedido,created_at,texto_pedido,"
+            "idempotency_fingerprint"
+        )
+        .eq("comercio_id", comercio_id)
+        .eq("idempotency_key", idempotency_key)
+        .limit(1)
+        .execute()
+    )
+    pedidos = respuesta.data or []
+    if not pedidos:
+        return None
+
+    pedido = pedidos[0]
+    if pedido.get("idempotency_fingerprint") != idempotency_fingerprint:
+        raise PedidoError(
+            "La solicitud de pedido ya fue utilizada con otros datos.",
+            409,
+        )
+
+    comercio_res = (
+        db.table("comercios")
+        .select("whatsapp")
+        .eq("id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    comercios = comercio_res.data or []
+    return {
+        "id": pedido.get("id"),
+        "numero_pedido": pedido.get("numero_pedido"),
+        "created_at": pedido.get("created_at"),
+        "texto_pedido": pedido.get("texto_pedido"),
+        "whatsapp_comercio": (
+            comercios[0].get("whatsapp") if comercios else ""
+        ) or "",
+        "idempotent_replay": True,
+    }
 
 
 def validar_estado_pedido(estado):
@@ -52,6 +233,13 @@ def validar_estado_pago(estado_pago):
     valor = str(estado_pago or "").strip().lower()
     if valor not in ESTADOS_PAGO:
         raise PedidoError("Estado de pago inválido.")
+    return valor
+
+
+def validar_forma_pago(forma_pago):
+    valor = str(forma_pago or "").strip().lower()
+    if valor not in FORMAS_PAGO:
+        raise PedidoError("Forma de pago inválida.")
     return valor
 
 
@@ -83,6 +271,40 @@ def preparar_actualizacion_estados(
         raise PedidoError("No se indicó ningún estado para actualizar.")
 
     return cambios
+
+
+def preparar_transicion_pedido(estado_actual, accion, ahora=None):
+    """Valida una acción operativa y devuelve el cambio de estado permitido."""
+    estado_actual = validar_estado_pedido(estado_actual)
+    accion = str(accion or "").strip().lower()
+
+    if accion == "avanzar":
+        estado_nuevo = SIGUIENTE_ESTADO_PEDIDO.get(estado_actual)
+        if not estado_nuevo:
+            raise PedidoError("El pedido no puede avanzar desde su estado actual.")
+    elif accion == "retroceder":
+        estado_nuevo = ESTADO_ANTERIOR_PEDIDO.get(estado_actual)
+        if not estado_nuevo:
+            raise PedidoError("El pedido no puede retroceder desde su estado actual.")
+    elif accion == "cancelar":
+        if estado_actual in {"cerrado", "cancelado"}:
+            raise PedidoError("El pedido no puede cancelarse desde su estado actual.")
+        estado_nuevo = "cancelado"
+    else:
+        raise PedidoError("Acción de pedido inválida.")
+
+    return preparar_actualizacion_estados(
+        estado=estado_nuevo,
+        ahora=ahora,
+    )
+
+
+def pedido_es_venta(pedido):
+    """Una venta es un pedido pagado que no fue cancelado."""
+    return (
+        str(pedido.get("estado_pago") or "").strip().lower() == "pagado"
+        and str(pedido.get("estado") or "").strip().lower() != "cancelado"
+    )
 
 
 def _pesos(valor):
@@ -162,10 +384,10 @@ def generar_texto_whatsapp(
 
     lineas.append(
         "Forma de pago: "
-        + ("Efectivo" if forma_pago == "efectivo" else "Transferencia")
+        + ETIQUETAS_FORMAS_PAGO.get(forma_pago, forma_pago.capitalize())
     )
 
-    if forma_pago == "efectivo":
+    if forma_pago == "efectivo" and paga_con is not None:
         lineas.append("Paga con: " + _pesos(paga_con))
         lineas.append("Cambio aproximado: " + _pesos(paga_con - total))
 
@@ -191,9 +413,27 @@ def crear_pedido(
     sesion_id=None,
     cliente_supabase=None,
     origen="clicklocal",
+    aplicar_condiciones_comerciales=True,
+    estado_inicial="pendiente",
+    estado_pago_inicial="pendiente",
+    cotizacion_delivery=None,
+    idempotency_key=None,
+    idempotency_fingerprint=None,
 ):
     """Crea pedidos sobre un modelo único; ClickLocal conserva sus validaciones."""
     db = cliente_supabase or supabase_admin
+
+    if bool(idempotency_key) != bool(idempotency_fingerprint):
+        raise PedidoError("La identificación de la solicitud es inválida.")
+
+    pedido_existente = buscar_pedido_idempotente(
+        comercio_id,
+        idempotency_key,
+        idempotency_fingerprint,
+        cliente_supabase=db,
+    )
+    if pedido_existente:
+        return pedido_existente
 
     origen = str(origen or "").strip().lower()
     if origen not in ORIGENES_PEDIDO:
@@ -202,6 +442,12 @@ def crear_pedido(
     modalidad = str(modalidad or "").strip().lower()
     if modalidad not in TIPOS_ENTREGA:
         raise PedidoError("Tipo de entrega inválido.")
+
+    forma_pago = validar_forma_pago(forma_pago)
+    estados_iniciales = preparar_actualizacion_estados(
+        estado=estado_inicial,
+        estado_pago=estado_pago_inicial,
+    )
 
     nombre = str(nombre or "").strip()
     apellido = str(apellido or "").strip()
@@ -212,6 +458,17 @@ def crear_pedido(
             raise PedidoError("Ingresá tu nombre.")
         if not telefono or not telefono_normalizado:
             raise PedidoError("Ingresá tu WhatsApp.")
+
+    if not isinstance(items, list) or not items:
+        raise PedidoError("El pedido no contiene productos válidos.")
+    if any(not isinstance(item, dict) for item in items):
+        raise PedidoError("El pedido contiene un producto inválido.")
+    for item in items:
+        opciones_item = item.get("opciones") or []
+        if not isinstance(opciones_item, list):
+            raise PedidoError("Las opciones del producto no son válidas.")
+        if any(not isinstance(opcion, dict) for opcion in opciones_item):
+            raise PedidoError("Las opciones del producto no son válidas.")
 
     comercio_res = (
         db.table("comercios")
@@ -230,7 +487,8 @@ def crear_pedido(
         .select(
             "comercio_id,activo,acepta_delivery,acepta_retiro,"
             "pedido_minimo,costo_envio,descuento_efectivo_pct,"
-            "descuento_transferencia_pct"
+            "descuento_transferencia_pct,delivery_distancia_activo,"
+            "delivery_franjas,delivery_origen_direccion"
         )
         .eq("comercio_id", comercio_id)
         .eq("activo", True)
@@ -249,8 +507,6 @@ def crear_pedido(
 
     producto_ids = []
     for item in items:
-        if not isinstance(item, dict):
-            continue
         producto_id = str(item.get("id") or "").strip()
         if producto_id and producto_id not in producto_ids:
             producto_ids.append(producto_id)
@@ -273,17 +529,13 @@ def crear_pedido(
 
     opcion_ids = []
     for item in items:
-        if not isinstance(item, dict):
-            continue
         for opcion in item.get("opciones") or []:
-            if not isinstance(opcion, dict):
-                continue
             opcion_id = str(opcion.get("id") or "").strip()
             if opcion_id and opcion_id not in opcion_ids:
                 opcion_ids.append(opcion_id)
 
     opciones_por_id = {}
-    producto_por_grupo = {}
+    grupos_por_id = {}
     if opcion_ids:
         opciones_res = (
             db.table("gastronomia_opciones")
@@ -292,27 +544,6 @@ def crear_pedido(
             .execute()
         )
         opciones_db = opciones_res.data or []
-        grupo_ids = list({
-            str(opcion.get("grupo_id"))
-            for opcion in opciones_db
-            if opcion.get("grupo_id")
-        })
-        if grupo_ids:
-            grupos_res = (
-                db.table("gastronomia_grupos_opciones")
-                .select("id,producto_id,activo")
-                .in_("id", grupo_ids)
-                .execute()
-            )
-            producto_por_grupo = {
-                str(grupo.get("id")): str(grupo.get("producto_id"))
-                for grupo in (grupos_res.data or [])
-                if (
-                    grupo.get("id")
-                    and grupo.get("producto_id")
-                    and grupo.get("activo") is not False
-                )
-            }
         opciones_por_id = {
             str(opcion.get("id")): opcion
             for opcion in opciones_db
@@ -323,11 +554,30 @@ def crear_pedido(
             )
         }
 
+    grupos_res = (
+        db.table("gastronomia_grupos_opciones")
+        .select("id,producto_id,nombre,minimo,maximo,activo")
+        .in_("producto_id", producto_ids)
+        .execute()
+    )
+    grupos_por_id = {
+        str(grupo.get("id")): grupo
+        for grupo in (grupos_res.data or [])
+        if (
+            grupo.get("id")
+            and grupo.get("producto_id")
+            and grupo.get("activo") is not False
+        )
+    }
+    grupos_por_producto = {}
+    for grupo_id, grupo in grupos_por_id.items():
+        grupos_por_producto.setdefault(
+            str(grupo.get("producto_id")), []
+        ).append((grupo_id, grupo))
+
     detalle_final = []
     subtotal = 0.0
     for item in items:
-        if not isinstance(item, dict):
-            continue
         producto_id = str(item.get("id") or "").strip()
         producto = productos_por_id.get(producto_id)
         if not producto:
@@ -341,8 +591,11 @@ def crear_pedido(
                 "ya no está disponible."
             )
 
+        cantidad_raw = item.get("cantidad")
         try:
-            cantidad = int(item.get("cantidad") or 0)
+            cantidad = int(cantidad_raw)
+            if isinstance(cantidad_raw, bool) or float(cantidad_raw) != cantidad:
+                cantidad = 0
         except (TypeError, ValueError):
             cantidad = 0
         if cantidad <= 0 or cantidad > 99:
@@ -360,16 +613,21 @@ def crear_pedido(
             precio_unitario = 0.0
 
         opciones_finales = []
+        opciones_vistas = set()
+        cantidad_por_grupo = {}
         for opcion_cliente in item.get("opciones") or []:
-            if not isinstance(opcion_cliente, dict):
-                continue
             opcion_id = str(opcion_cliente.get("id") or "").strip()
+            if opcion_id in opciones_vistas:
+                raise PedidoError("Una opción está repetida en el producto.")
+            opciones_vistas.add(opcion_id)
             opcion = opciones_por_id.get(opcion_id)
             if not opcion:
                 raise PedidoError("Una opción del producto ya no está disponible.")
             grupo_id = str(opcion.get("grupo_id") or "")
-            if producto_por_grupo.get(grupo_id) != producto_id:
+            grupo = grupos_por_id.get(grupo_id)
+            if not grupo or str(grupo.get("producto_id")) != producto_id:
                 raise PedidoError("Una opción no corresponde al producto.")
+            cantidad_por_grupo[grupo_id] = cantidad_por_grupo.get(grupo_id, 0) + 1
             try:
                 precio_extra = float(opcion.get("precio_extra") or 0)
             except (TypeError, ValueError):
@@ -380,6 +638,23 @@ def crear_pedido(
                 "nombre": str(opcion.get("nombre") or ""),
                 "precio": precio_extra,
             })
+
+        for grupo_id, grupo in grupos_por_producto.get(producto_id, []):
+            seleccionadas = cantidad_por_grupo.get(grupo_id, 0)
+            try:
+                minimo = max(int(grupo.get("minimo") or 0), 0)
+                maximo = max(int(grupo.get("maximo") or 0), 0)
+            except (TypeError, ValueError):
+                raise PedidoError("La configuración de opciones no es válida.")
+            nombre_grupo = str(grupo.get("nombre") or "Opciones")
+            if seleccionadas < minimo:
+                raise PedidoError(
+                    f"En {nombre_grupo} tenés que elegir al menos {minimo}."
+                )
+            if maximo > 0 and seleccionadas > maximo:
+                raise PedidoError(
+                    f"En {nombre_grupo} podés elegir hasta {maximo}."
+                )
 
         nota = str(item.get("nota") or "").strip()[:180]
         subtotal_item = precio_unitario * cantidad
@@ -400,27 +675,70 @@ def crear_pedido(
     except (TypeError, ValueError):
         pedido_minimo = 0.0
     pedido_minimo = round(pedido_minimo, 2)
-    if pedido_minimo > 0 and subtotal < pedido_minimo:
+    if (
+        aplicar_condiciones_comerciales
+        and pedido_minimo > 0
+        and subtotal < pedido_minimo
+    ):
         raise PedidoError(
             "El pedido mínimo de este comercio es "
             "$" + f"{round(pedido_minimo):,.0f}".replace(",", ".") + "."
         )
 
     costo_envio = 0.0
-    if modalidad == "delivery":
-        try:
-            costo_envio = float(configuracion.get("costo_envio") or 0)
-        except (TypeError, ValueError):
-            costo_envio = 0.0
-        costo_envio = max(round(costo_envio, 2), 0.0)
+    delivery_distancia_m = None
+    if aplicar_condiciones_comerciales and modalidad == "delivery":
+        if configuracion.get("delivery_distancia_activo"):
+            if not isinstance(cotizacion_delivery, dict):
+                raise PedidoError("Calculá el envío antes de confirmar el pedido.")
+            try:
+                delivery_distancia_m = int(
+                    cotizacion_delivery["distancia_m"]
+                )
+                costo_envio = float(
+                    cotizacion_delivery["costo_envio"]
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PedidoError(
+                    "La cotización no es válida. Calculá el envío nuevamente."
+                ) from exc
+            if (
+                delivery_distancia_m < 0
+                or not math.isfinite(costo_envio)
+                or costo_envio < 0
+            ):
+                raise PedidoError(
+                    "La cotización no es válida. Calculá el envío nuevamente."
+                )
+            costo_envio = round(costo_envio, 2)
+            try:
+                franja_actual = seleccionar_franja(
+                    configuracion.get("delivery_franjas"),
+                    delivery_distancia_m,
+                )
+            except (DeliveryError, ValueError) as exc:
+                raise PedidoError("La configuración de delivery no es válida.") from exc
+            if (
+                franja_actual is None
+                or round(float(franja_actual["precio"]), 2) != costo_envio
+            ):
+                raise PedidoError(
+                    "La cotización cambió. Calculá el envío nuevamente."
+                )
+        else:
+            try:
+                costo_envio = float(configuracion.get("costo_envio") or 0)
+            except (TypeError, ValueError):
+                costo_envio = 0.0
+            costo_envio = max(round(costo_envio, 2), 0.0)
 
     descuento_pct_aplicado = 0.0
     try:
-        if forma_pago == "efectivo":
+        if aplicar_condiciones_comerciales and forma_pago == "efectivo":
             descuento_pct_aplicado = float(
                 configuracion.get("descuento_efectivo_pct") or 0
             )
-        elif forma_pago == "transferencia":
+        elif aplicar_condiciones_comerciales and forma_pago == "transferencia":
             descuento_pct_aplicado = float(
                 configuracion.get("descuento_transferencia_pct") or 0
             )
@@ -431,7 +749,7 @@ def crear_pedido(
     total = round(subtotal + costo_envio - descuento, 2)
 
     paga_con_final = None
-    if forma_pago == "efectivo":
+    if forma_pago == "efectivo" and aplicar_condiciones_comerciales:
         try:
             paga_con_final = float(paga_con or 0)
         except (TypeError, ValueError):
@@ -461,18 +779,35 @@ def crear_pedido(
         "paga_con": paga_con_final,
         "subtotal": subtotal,
         "costo_envio": costo_envio,
+        "delivery_distancia_m": delivery_distancia_m,
         "descuento": descuento,
         "total": total,
         "observaciones": observaciones or None,
         "detalle": detalle_final,
         "texto_pedido": texto_pedido,
-        "estado": "pendiente",
-        "estado_pago": "pendiente",
+        "estado": estados_iniciales["estado"],
+        "estado_pago": estados_iniciales["estado_pago"],
     }
+    if estados_iniciales["cerrado_at"] is not None:
+        datos_pedido["cerrado_at"] = estados_iniciales["cerrado_at"]
+    if estados_iniciales["pagado_at"] is not None:
+        datos_pedido["pagado_at"] = estados_iniciales["pagado_at"]
+    if idempotency_key:
+        datos_pedido["idempotency_key"] = idempotency_key
+        datos_pedido["idempotency_fingerprint"] = idempotency_fingerprint
 
     try:
         pedido_res = db.table("gastronomia_pedidos").insert(datos_pedido).execute()
     except Exception as error:
+        if idempotency_key:
+            pedido_existente = buscar_pedido_idempotente(
+                comercio_id,
+                idempotency_key,
+                idempotency_fingerprint,
+                cliente_supabase=db,
+            )
+            if pedido_existente:
+                return pedido_existente
         print(
             "ERROR REGISTRANDO PEDIDO GASTRONOMICO:",
             type(error),
@@ -496,4 +831,5 @@ def crear_pedido(
         "total": total,
         "texto_pedido": texto_pedido,
         "whatsapp_comercio": comercio.get("whatsapp") or "",
+        "idempotent_replay": False,
     }

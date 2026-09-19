@@ -1,0 +1,67 @@
+{% extends "panel.html" %}
+
+{% block retorno_terminos %}gastronomia{% endblock %}
+
+{% block panel_hero_texto %}
+<div>
+  <p class="titulo-chico">GASTRONOMÍA</p>
+  <h1>{{ comercio.nombre_negocio or comercio.nombre or "Mi comercio" }}</h1>
+</div>
+{% endblock %}
+
+{% block panel_menu_principal %}
+{% include "gastronomia/_panel_nav.html" %}
+{% endblock %}
+
+{% block panel_contenido_general %}{% endblock %}
+
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/panel.css') }}">
+
+<header class="mi-negocio-encabezado">
+  <p class="titulo-chico">MI NEGOCIO</p>
+  <h2>Mi plan</h2>
+  <p>Consultá el plan actual y las funciones disponibles para tu comercio.</p>
+</header>
+
+{% if request.args.get('modulo_solicitud') == 'enviada' %}
+  <div style="margin-bottom:16px;padding:14px;border-radius:12px;background:#e8f7ee;color:#166534;font-weight:700;">
+    Solicitud enviada. ClickLocal se pondrá en contacto para coordinar la activación.
+  </div>
+{% elif request.args.get('modulo_solicitud_error') %}
+  <div style="margin-bottom:16px;padding:14px;border-radius:12px;background:#fff1f1;color:#991b1b;font-weight:700;">
+    {% if request.args.get('modulo_solicitud_error') == 'ya_instalado' %}
+      Gastronomía POS ya está instalado para este comercio.
+    {% elif request.args.get('modulo_solicitud_error') == 'modulo_no_disponible' %}
+      Gastronomía POS no está disponible para este comercio.
+    {% else %}
+      No pudimos registrar la solicitud. Intentá nuevamente.
+    {% endif %}
+  </div>
+{% endif %}
+
+<article class="panel-card">
+  <p class="titulo-chico">PLAN ACTUAL</p>
+  <h2>{% if pos_activo %}Gastronomía POS{% else %}Gastronomía Base{% endif %}</h2>
+  {% if pos_activo %}
+    <p class="panel-descripcion">Gastronomía POS está activo para tu comercio.</p>
+  {% else %}
+    <p class="panel-descripcion">Tu comercio cuenta con las funciones base de ClickLocal Gastronomía.</p>
+  {% endif %}
+</article>
+
+{% if not pos_activo and modulo_pos %}
+<article class="panel-card" style="margin-top:18px;">
+  <p class="titulo-chico">AMPLIAR FUNCIONES</p>
+  <h2>{{ modulo_pos.nombre }}</h2>
+  <p class="panel-descripcion">{{ modulo_pos.descripcion_corta }}</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
+    <a class="mi-negocio-btn mi-negocio-btn--secundario" href="{{ url_for('herramienta_detalle', slug='pos') }}">Ver</a>
+    <form method="post" action="{{ url_for('solicitar_instalacion_modulo_panel', slug='pos') }}">
+      <input type="hidden" name="retorno" value="gastronomia">
+      <button type="submit" class="btn-principal mi-negocio-btn mi-negocio-btn--primario">Solicitar activación</button>
+    </form>
+  </div>
+</article>
+{% endif %}
+{% endblock %}
