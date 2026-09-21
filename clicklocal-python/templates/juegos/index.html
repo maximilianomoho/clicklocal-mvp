@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#741f35" />
+  <title>ClickJuegos | ClickLocal Paraná</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='juegos/juegos.css') }}" />
+</head>
+<body>
+  <header class="juegos-header">
+    <a class="juegos-marca" href="{{ url_for('juegos.salida_galeria', desde='portada_juegos') }}" aria-label="Ir a ClickLocal">
+      <span class="juegos-logo" aria-hidden="true">CL</span>
+      <span>
+        <strong>ClickLocal</strong>
+        <small>Paraná</small>
+      </span>
+    </a>
+
+    <nav class="juegos-nav" aria-label="Navegación principal">
+      <button type="button" class="juegos-sonido" data-clickjuegos-sonido aria-pressed="true">🔊 Sonido</button>
+      <a href="{{ url_for('juegos.inicio') }}">Ir a ClickJuegos</a>
+      <a href="{{ url_for('juegos.salida_galeria', desde='portada_juegos') }}">Ir a la Galería ClickLocal</a>
+      <a href="{{ url_for('juegos.salida_gastronomia', desde='portada_juegos') }}">Ir a Gastronomía ClickLocal</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="juegos-hero">
+      <p class="juegos-etiqueta">Diversión local</p>
+      <h1>ClickJuegos</h1>
+      <p class="juegos-subtitulo">Jugá, competí y subí en el ranking.</p>
+    </section>
+
+    <section class="juegos-catalogo" aria-labelledby="juegos-disponibles">
+      <div class="juegos-encabezado">
+        <p class="juegos-etiqueta">Desafíos disponibles</p>
+        <h2 id="juegos-disponibles">Juegos</h2>
+      </div>
+
+      <div class="juegos-principales">
+        <article class="juego-card juego-card-disponible">
+          <div class="juego-icono" aria-hidden="true">◯</div>
+          <div class="juego-contenido">
+            <span class="juego-estado">Disponible</span>
+            <h3>Círculo Perfecto</h3>
+            <p>Dibujá el círculo más perfecto que puedas.</p>
+            <span class="partidas-contador">{{ juegos.get('circulo', {}).get('partidas_texto', '0 partidas jugadas') }}</span>
+            <a class="juego-boton" href="{{ url_for('juegos.circulo') }}">Jugar</a>
+          </div>
+        </article>
+
+        <article class="juego-card juego-card-disponible">
+          <div class="juego-icono" aria-hidden="true">⚡</div>
+          <div class="juego-contenido">
+            <span class="juego-estado">Disponible</span>
+            <h3>Reflejos</h3>
+            <p>Medí tu velocidad de reacción.</p>
+            <span class="partidas-contador">{{ juegos.get('reflejos', {}).get('partidas_texto', '0 partidas jugadas') }}</span>
+            <a class="juego-boton" href="{{ url_for('juegos.reflejos') }}">Jugar</a>
+          </div>
+        </article>
+      </div>
+
+      <div class="proximos-juegos" aria-label="Próximos juegos">
+        <article class="proximo-card">
+          <span aria-hidden="true">⏱</span>
+          <h3>5 segundos</h3>
+          <p>Próximamente</p>
+        </article>
+        <article class="proximo-card">
+          <span aria-hidden="true">🧠</span>
+          <h3>Memoria</h3>
+          <p>Próximamente</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="juegos-footer">
+    <p>Una experiencia de ClickLocal Paraná.</p>
+    <div>
+      <a href="{{ url_for('juegos.inicio') }}">Ir a ClickJuegos</a>
+      <a href="{{ url_for('juegos.salida_galeria', desde='portada_juegos') }}">Ir a la Galería ClickLocal</a>
+      <a href="{{ url_for('juegos.salida_gastronomia', desde='portada_juegos') }}">Ir a Gastronomía ClickLocal</a>
+    </div>
+  </footer>
+  <script src="{{ url_for('static', filename='juegos/motor.js') }}"></script>
+</body>
+</html>

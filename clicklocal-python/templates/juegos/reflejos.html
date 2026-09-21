@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#741f35" />
+  <title>Reflejos | ClickJuegos</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='juegos/juegos.css') }}" />
+</head>
+<body class="reflejos-pagina">
+  <header class="juegos-header reflejos-header">
+    <a class="juegos-marca" href="{{ url_for('juegos.inicio') }}">
+      <span class="juegos-logo" aria-hidden="true">CL</span>
+      <span><strong>ClickJuegos</strong><small>ClickLocal Paraná</small></span>
+    </a>
+    <nav class="juegos-nav" aria-label="Navegación">
+      <button type="button" class="juegos-sonido" data-clickjuegos-sonido aria-pressed="true">🔊 Sonido</button>
+      <a href="{{ url_for('juegos.inicio') }}">Ir a ClickJuegos</a>
+      <a href="{{ url_for('juegos.salida_galeria', desde='reflejos') }}">Ir a la Galería ClickLocal</a>
+      <a href="{{ url_for('juegos.salida_gastronomia', desde='reflejos') }}">Ir a Gastronomía ClickLocal</a>
+    </nav>
+  </header>
+
+  <main class="reflejos-main">
+    <section class="reflejos-layout">
+      <div class="reflejos-info">
+        <p class="juegos-etiqueta">ClickJuegos presenta</p>
+        <h1>¿Qué tan rápidos son tus reflejos?</h1>
+        <p>Tocá la pantalla apenas cambie de color. Si te adelantás, el intento no cuenta.</p>
+        <p class="partidas-contador partidas-contador-juego">{{ partidas_texto }}</p>
+
+        <section id="reflejosResultado" class="reflejos-resultado" hidden>
+          <span class="resultado-etiqueta">Tu reacción</span>
+          <strong id="reflejosScore">—</strong>
+          <p id="reflejosRecordMensaje" class="circulo-record"></p>
+          <div class="resultado-detalles">
+            <p>Tu mejor marca <strong id="reflejosMejor">{{ mejor_score|string + ' ms' if mejor_score is not none else '—' }}</strong></p>
+            <p id="reflejosPuesto"></p>
+          </div>
+        </section>
+
+        <div class="reflejos-acciones">
+          <button id="jugarOtraVez" type="button" class="juego-boton" hidden>Jugar otra vez</button>
+          <button id="verRanking" type="button" class="boton-claro">Ver ranking</button>
+        </div>
+
+        <section id="aliasPanel" class="alias-panel" {% if jugador.alias %}hidden{% endif %}>
+          <span class="panel-icono" aria-hidden="true">★</span>
+          <h2>¿Querés aparecer en el ranking?</h2>
+          <p>Elegí un nombre público y empezá a competir.</p>
+          <form id="aliasForm">
+            <label for="aliasInput">Elegí tu nombre</label>
+            <div><input id="aliasInput" name="alias" minlength="3" maxlength="24" autocomplete="nickname" required /><button type="submit">Guardar</button></div>
+            <p id="aliasEstado" role="status"></p>
+          </form>
+        </section>
+
+        <section id="rankingPanel" class="ranking-panel" hidden>
+          <div class="ranking-cabecera">
+            <h2>Ranking Reflejos</h2>
+            <div class="ranking-tabs" role="group" aria-label="Período">
+              <button type="button" data-periodo="semana" class="activo">Semana</button>
+              <button type="button" data-periodo="mes">Mes</button>
+              <button type="button" data-periodo="historico">Histórico</button>
+            </div>
+          </div>
+          <ol id="rankingLista" class="ranking-lista"></ol>
+          <p id="rankingPosicion" class="ranking-posicion"></p>
+        </section>
+      </div>
+
+      <div class="reflejos-juego-columna">
+        <button id="reflejosArea" class="reflejos-area estado-reposo" type="button" aria-describedby="reflejosInstruccion">
+          <span id="reflejosIcono" class="reflejos-icono" aria-hidden="true">⚡</span>
+          <strong id="reflejosMensaje">¿Qué tan rápidos son tus reflejos?</strong>
+          <span id="reflejosInstruccion">Presioná Empezar para probarlos.</span>
+          <span id="reflejosBotonVisual" class="reflejos-boton-visual">Empezar</span>
+        </button>
+        <p id="reflejosEstado" class="reflejos-estado" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='juegos/motor.js') }}"></script>
+  <script src="{{ url_for('static', filename='juegos/reflejos.js') }}"></script>
+</body>
+</html>

@@ -15,6 +15,29 @@
   <link rel="stylesheet" href="/styles.css" />
 
 <style>
+  .clickjuegos-acceso-portada {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 11px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #b84e00;
+    box-shadow: 0 8px 24px rgba(92, 41, 0, 0.14);
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .clickjuegos-acceso-portada:hover,
+  .clickjuegos-acceso-portada:focus-visible {
+    background: #ffffff;
+    color: #8f3d00;
+  }
+
   .respuesta-buscador {
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -3302,6 +3325,14 @@ html {
         role="status"
         aria-live="polite"
       ></p>
+
+      <a
+        href="{{ url_for('juegos.inicio') }}"
+        class="clickjuegos-acceso-portada"
+      >
+        <span aria-hidden="true">🎮</span>
+        Jugar en ClickJuegos
+      </a>
       <!-- FIN CLICKLOCAL: MICROFONO BUSCADOR V2 -->
 
 <!-- CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 -->

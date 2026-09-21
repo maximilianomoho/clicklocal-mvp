@@ -26,6 +26,7 @@ from config.supabase_config import (
     supabase_admin,
 )
 from gastronomia import gastronomia_bp
+from juegos import juegos_bp
 from turnos import turnos_bp
 from modulos import (
     CATALOGO_MODULOS,
@@ -153,6 +154,7 @@ def formatear_precio(valor):
 app = Flask(__name__)
 app.jinja_env.filters["precio_arg"] = formatear_precio
 app.register_blueprint(gastronomia_bp)
+app.register_blueprint(juegos_bp)
 app.register_blueprint(turnos_bp)
 
 
