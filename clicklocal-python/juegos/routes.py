@@ -1,6 +1,6 @@
 from flask import jsonify, make_response, redirect, render_template, request, url_for
 from datetime import datetime, timezone
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from uuid import UUID
 
 from . import juegos_bp
@@ -8,13 +8,31 @@ from .services import (
     COOKIE_JUGADOR, JuegoError, aplicar_cookie_jugador, consumir_intento,
     contar_partidas_validas, formatear_partidas_jugadas, guardar_alias,
     iniciar_intento, iniciar_intento_reflejos, mejor_marca,
-    obtener_juego_circulo, obtener_juego_reflejos, obtener_ranking,
-    obtener_resumen_juegos, registrar_partida, registrar_partida_reflejos,
+    obtener_juego_5_segundos, obtener_juego_circulo, obtener_juego_reflejos,
+    obtener_ranking, obtener_resumen_juegos, registrar_partida,
+    registrar_partida_5_segundos, registrar_partida_reflejos,
     resolver_o_crear_jugador,
 )
 
 MAX_PAYLOAD_BYTES = 48 * 1024
 ANALYTICS_UTM_CAMPOS = ("utm_source", "utm_medium", "utm_campaign")
+COMPARTIR_JUEGOS = {
+    "circulo": (
+        "¿Qué tan perfecto te sale un círculo? ⭕\n"
+        "Probalo en ClickJuegos de ClickLocal:\n"
+        "https://clicklocal.com.ar/jugar/circulo"
+    ),
+    "reflejos": (
+        "¿Cuánto hacés en Reflejos? ⚡\n"
+        "Probalo en ClickJuegos de ClickLocal:\n"
+        "https://clicklocal.com.ar/jugar/reflejos"
+    ),
+    "5-segundos": (
+        "¿Podés clavar exactamente 5 segundos? ⏱️\n"
+        "Probalo en ClickJuegos de ClickLocal:\n"
+        "https://clicklocal.com.ar/jugar/5-segundos"
+    ),
+}
 
 
 def _identidad_actual():
@@ -128,7 +146,7 @@ def _registrar_evento_clickjuegos(evento, **metadata):
 @juegos_bp.route("/")
 def inicio():
     jugador, token_nuevo = _identidad_actual()
-    juegos = obtener_resumen_juegos(("circulo", "reflejos"))
+    juegos = obtener_resumen_juegos(("circulo", "reflejos", "5-segundos"))
     _registrar_evento_clickjuegos(
         "visita_clickjuegos",
         pagina="/jugar",
@@ -195,6 +213,33 @@ def reflejos():
         return str(error), error.status
 
 
+@juegos_bp.get("/5-segundos")
+def cinco_segundos():
+    try:
+        jugador, token_nuevo = _identidad_actual()
+        juego = obtener_juego_5_segundos()
+        mejor = mejor_marca(
+            jugador["id"], juego["id"], ranking_direction="lower",
+        )
+        partidas_texto = formatear_partidas_jugadas(
+            contar_partidas_validas(juego["id"]),
+        )
+        _registrar_evento_clickjuegos(
+            "juego_abierto", pagina="/jugar/5-segundos",
+            jugador_id=jugador["id"], juego="5-segundos",
+            visitante_nuevo=_visitante_nuevo(),
+            jugador_nuevo=bool(token_nuevo),
+        )
+        respuesta = make_response(render_template(
+            "juegos/5_segundos.html", jugador=jugador,
+            mejor_score=int(float(mejor["score"])) if mejor else None,
+            partidas_texto=partidas_texto,
+        ))
+        return _con_cookie(respuesta, token_nuevo)
+    except JuegoError as error:
+        return str(error), error.status
+
+
 @juegos_bp.post("/api/circulo/intentos")
 def api_iniciar_intento_circulo():
     proteccion = _proteccion_post_json()
@@ -231,6 +276,26 @@ def api_iniciar_intento_reflejos():
             "delay_ms": intento["delay_ms"], "expires_in": 120,
         })
         return _con_cookie(respuesta, token_nuevo)
+    except JuegoError as error:
+        return _json_error(error)
+
+
+@juegos_bp.post("/api/5-segundos/intentos")
+def api_iniciar_intento_5_segundos():
+    proteccion = _proteccion_post_json()
+    if proteccion:
+        return proteccion
+    try:
+        jugador, token_nuevo = _identidad_actual()
+        juego = obtener_juego_5_segundos()
+        nonce = iniciar_intento(jugador["id"], juego["id"])
+        _registrar_evento_clickjuegos(
+            "partida_iniciada", jugador_id=jugador["id"], juego="5-segundos",
+        )
+        return _con_cookie(
+            jsonify({"ok": True, "nonce": nonce, "expires_in": 120}),
+            token_nuevo,
+        )
     except JuegoError as error:
         return _json_error(error)
 
@@ -319,6 +384,53 @@ def api_registrar_partida_reflejos():
         return _json_error(error)
 
 
+@juegos_bp.post("/api/5-segundos/partidas")
+def api_registrar_partida_5_segundos():
+    proteccion = _proteccion_post_json()
+    if proteccion:
+        return proteccion
+    try:
+        jugador, token_nuevo = _identidad_actual()
+        juego = obtener_juego_5_segundos()
+        payload = request.get_json(silent=False)
+        nonce = payload.get("nonce") if isinstance(payload, dict) else None
+        elapsed_ms = payload.get("elapsed_ms") if isinstance(payload, dict) else None
+        ahora = datetime.now(timezone.utc)
+        intento = consumir_intento(
+            jugador["id"], juego["id"], nonce, ahora=ahora,
+            devolver_detalles=True,
+        )
+        resultado = registrar_partida_5_segundos(
+            jugador, juego, elapsed_ms, intento, ahora=ahora,
+        )
+        ranking = obtener_ranking(
+            juego["id"], "semana", jugador_id=jugador["id"],
+            ranking_direction="lower",
+        )
+        _registrar_evento_clickjuegos(
+            "partida_completada", jugador_id=jugador["id"],
+            juego="5-segundos", score=resultado["score"],
+        )
+        if resultado["is_new_record"]:
+            _registrar_evento_clickjuegos(
+                "nuevo_record", jugador_id=jugador["id"],
+                juego="5-segundos", score=resultado["score"],
+            )
+        respuesta = jsonify({
+            "ok": True,
+            "score": resultado["score"],
+            "elapsed_ms": resultado["elapsed_ms"],
+            "difference_ms": resultado["difference_ms"],
+            "personal_best": resultado["personal_best"],
+            "is_new_record": resultado["is_new_record"],
+            "weekly_position": ranking["player_position"],
+            "has_alias": bool(jugador.get("alias")),
+        })
+        return _con_cookie(respuesta, token_nuevo)
+    except JuegoError as error:
+        return _json_error(error)
+
+
 @juegos_bp.post("/api/reflejos/intentos/cancelar")
 def api_cancelar_intento_reflejos():
     proteccion = _proteccion_post_json()
@@ -391,6 +503,27 @@ def api_ranking_reflejos():
         return _json_error(error)
 
 
+@juegos_bp.get("/api/5-segundos/ranking")
+def api_ranking_5_segundos():
+    try:
+        jugador, token_nuevo = _identidad_actual()
+        juego = obtener_juego_5_segundos()
+        periodo = str(request.args.get("periodo") or "semana")
+        ranking = obtener_ranking(
+            juego["id"], periodo, jugador_id=jugador["id"],
+            ranking_direction="lower",
+        )
+        _registrar_evento_clickjuegos(
+            "ranking_visto", jugador_id=jugador["id"],
+            juego="5-segundos", periodo=periodo,
+        )
+        return _con_cookie(
+            jsonify({"ok": True, "period": periodo, **ranking}), token_nuevo,
+        )
+    except JuegoError as error:
+        return _json_error(error)
+
+
 @juegos_bp.get("/salir/galeria")
 def salida_galeria():
     _registrar_evento_clickjuegos(
@@ -399,6 +532,19 @@ def salida_galeria():
         destino="galeria",
     )
     return redirect(url_for("inicio"))
+
+
+@juegos_bp.get("/compartir/<juego_slug>")
+def compartir_juego(juego_slug):
+    texto = COMPARTIR_JUEGOS.get(juego_slug)
+    if not texto:
+        return redirect(url_for("juegos.inicio"))
+    _registrar_evento_clickjuegos(
+        "compartir_juego",
+        juego=juego_slug,
+        destino="whatsapp",
+    )
+    return redirect(f"https://wa.me/?text={quote(texto, safe='')}")
 
 
 @juegos_bp.get("/salir/gastronomia")

@@ -53,10 +53,11 @@ def test_formato_publico_singular_plural_y_miles(cantidad, esperado):
     assert services.formatear_partidas_jugadas(cantidad) == esperado
 
 
-def test_portada_muestra_dos_juegos_equilibrados_con_contadores():
+def test_portada_muestra_tres_juegos_equilibrados_con_contadores():
     resumen = {
         "circulo": {"partidas_texto": "1 partida jugada"},
         "reflejos": {"partidas_texto": "1.284 partidas jugadas"},
+        "5-segundos": {"partidas_texto": "24 partidas jugadas"},
     }
     with (
         patch("juegos.routes.resolver_o_crear_jugador", return_value=({"id": "j1"}, None)),
@@ -64,15 +65,17 @@ def test_portada_muestra_dos_juegos_equilibrados_con_contadores():
         patch("juegos.routes._registrar_evento_clickjuegos"),
     ):
         html = app.test_client().get("/jugar").get_data(as_text=True)
-    assert html.count("juego-card juego-card-disponible") == 2
+    assert html.count("juego-card juego-card-disponible") == 3
     assert "1 partida jugada" in html
     assert "1.284 partidas jugadas" in html
-    assert html.count("Próximamente") == 2
+    assert "24 partidas jugadas" in html
+    assert html.count("Próximamente") == 1
 
 
 @pytest.mark.parametrize(("ruta", "juego_getter"), [
     ("/jugar/circulo", "juegos.routes.obtener_juego_circulo"),
     ("/jugar/reflejos", "juegos.routes.obtener_juego_reflejos"),
+    ("/jugar/5-segundos", "juegos.routes.obtener_juego_5_segundos"),
 ])
 def test_cada_juego_muestra_su_contador(ruta, juego_getter):
     with (

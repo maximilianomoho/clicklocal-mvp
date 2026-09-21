@@ -22,6 +22,9 @@ REFLEJOS_DELAY_MIN_MS = 1500
 REFLEJOS_DELAY_MAX_MS = 4500
 REFLEJOS_CONSISTENCY_TOLERANCE_MS = 350
 REFLEJOS_MAX_OVERHEAD_MS = 5000
+CINCO_SEGUNDOS_OBJETIVO_MS = 5000
+CINCO_SEGUNDOS_CONSISTENCY_TOLERANCE_MS = 350
+CINCO_SEGUNDOS_MAX_OVERHEAD_MS = 5000
 PARTIDAS_POR_MINUTO = 8
 RANKING_LIMITE = 20
 ZONA_ARGENTINA = ZoneInfo("America/Argentina/Buenos_Aires")
@@ -91,6 +94,10 @@ def obtener_juego_circulo(db=None):
 
 def obtener_juego_reflejos(db=None):
     return obtener_juego("reflejos", db=db)
+
+
+def obtener_juego_5_segundos(db=None):
+    return obtener_juego("5-segundos", db=db)
 
 
 def contar_partidas_validas(juego_id, db=None):
@@ -383,6 +390,86 @@ def registrar_partida_reflejos(jugador, juego, reaction_ms, intento, db=None,
         "partida": res.data[0], "score": score,
         "personal_best": personal_best,
         "is_new_record": anterior_score is None or score < anterior_score,
+        "metadata": metadata,
+    }
+
+
+def validar_tiempo_5_segundos(elapsed_ms, intento, juego, ahora=None):
+    ahora = ahora or datetime.now(timezone.utc)
+    if isinstance(elapsed_ms, bool):
+        raise JuegoError("El tiempo informado no es válido.")
+    try:
+        elapsed_ms = float(elapsed_ms)
+    except (TypeError, ValueError):
+        raise JuegoError("El tiempo informado no es válido.")
+    if not math.isfinite(elapsed_ms) or elapsed_ms < 0:
+        raise JuegoError("El tiempo informado no es válido.")
+
+    expires_raw = intento.get("intento_expires_at")
+    if not expires_raw:
+        raise JuegoError("El intento no es válido. Iniciá una partida nueva.", 409)
+    expires_at = datetime.fromisoformat(str(expires_raw).replace("Z", "+00:00"))
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    started_at = expires_at - timedelta(seconds=NONCE_TTL_SECONDS)
+    server_elapsed_ms = (ahora - started_at).total_seconds() * 1000
+    if elapsed_ms > server_elapsed_ms + CINCO_SEGUNDOS_CONSISTENCY_TOLERANCE_MS:
+        raise JuegoError("El tiempo informado no coincide con el intento.", 409)
+    if server_elapsed_ms - elapsed_ms > CINCO_SEGUNDOS_MAX_OVERHEAD_MS:
+        raise JuegoError("El tiempo informado no coincide con el intento.", 409)
+
+    elapsed_entero = int(math.floor(elapsed_ms + 0.5))
+    diferencia_ms = elapsed_entero - CINCO_SEGUNDOS_OBJETIVO_MS
+    score = abs(diferencia_ms)
+    minimo = int(float(juego.get("score_min") if juego.get("score_min") is not None else 0))
+    maximo = int(float(juego.get("score_max") if juego.get("score_max") is not None else 10000))
+    if score < minimo or score > maximo:
+        raise JuegoError(
+            f"El error debe estar entre {minimo} y {maximo} ms."
+        )
+    return {
+        "elapsed_ms": elapsed_entero,
+        "difference_ms": diferencia_ms,
+        "score": score,
+    }
+
+
+def registrar_partida_5_segundos(jugador, juego, elapsed_ms, intento, db=None,
+                                 ahora=None):
+    db, ahora = db or supabase_admin, ahora or datetime.now(timezone.utc)
+    verificar_rate_limit(jugador["id"], ahora=ahora, db=db)
+    calculo = validar_tiempo_5_segundos(
+        elapsed_ms, intento, juego, ahora=ahora,
+    )
+    anterior = mejor_marca(
+        jugador["id"], juego["id"], db=db, ranking_direction="lower",
+    )
+    metadata = {
+        "measurement": "performance.now",
+        "server_validation": "attempt_expiry_v1",
+        "elapsed_ms": calculo["elapsed_ms"],
+        "difference_ms": calculo["difference_ms"],
+        "target_ms": CINCO_SEGUNDOS_OBJETIVO_MS,
+    }
+    res = db.table("partidas").insert({
+        "jugador_id": jugador["id"], "juego_id": juego["id"],
+        "score": calculo["score"], "metadata": metadata, "valida": True,
+    }).execute()
+    if not res.data:
+        raise JuegoError("No se pudo guardar la partida.", 503)
+    marcar_rate_limit(jugador["id"], ahora=ahora)
+    anterior_score = int(float(anterior["score"])) if anterior else None
+    personal_best = (
+        calculo["score"] if anterior_score is None
+        else min(calculo["score"], anterior_score)
+    )
+    return {
+        "partida": res.data[0],
+        "score": calculo["score"],
+        "elapsed_ms": calculo["elapsed_ms"],
+        "difference_ms": calculo["difference_ms"],
+        "personal_best": personal_best,
+        "is_new_record": anterior_score is None or calculo["score"] < anterior_score,
         "metadata": metadata,
     }
 

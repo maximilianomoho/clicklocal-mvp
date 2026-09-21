@@ -456,6 +456,8 @@ a {
 .circulo-acciones .juego-boton { margin-top: 0; }
 .boton-claro { padding: 11px 18px; border: 1px solid #e6c7aa; border-radius: 12px; background: rgba(255,255,255,.9); color: var(--tinta); box-shadow: 0 7px 18px rgba(86,44,13,.07); font: inherit; font-weight: 900; cursor: pointer; transition: transform 160ms ease, border-color 160ms ease; }
 .boton-claro:hover, .boton-claro:focus-visible { border-color: #ed994c; color: var(--naranja-oscuro); transform: translateY(-2px); }
+.boton-compartir { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 18px; border: 1px solid rgba(116,31,53,.28); border-radius: 12px; background: var(--blanco); color: var(--bordo); box-shadow: 0 7px 18px rgba(86,44,13,.07); font-size: .88rem; font-weight: 900; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, background 160ms ease; }
+.boton-compartir:hover, .boton-compartir:focus-visible { border-color: var(--bordo); background: #fff8fa; transform: translateY(-2px); }
 
 .alias-panel, .ranking-panel { position: relative; margin-top: 20px; padding: 20px; overflow: hidden; border: 1px solid var(--borde); border-radius: 24px; background: rgba(255,255,255,.92); box-shadow: var(--sombra-suave); text-align: left; }
 .alias-panel { padding-right: 66px; }
@@ -481,6 +483,12 @@ a {
   .juegos-nav::-webkit-scrollbar { display: none; }
   .juegos-nav a, .juegos-sonido { flex: 0 0 auto; }
   .circulo-main { padding-top: 24px; }
+  .circulo-dibujo-columna { padding-inline: 6px; }
+  .circulo-tarjeta { width: min(100%, 420px); margin-inline: auto; }
+  .reflejos-layout { grid-template-areas: "info" "juego"; }
+  .reflejos-info { grid-area: info; }
+  .reflejos-juego-columna { grid-area: juego; padding-inline: 6px; }
+  .reflejos-area { width: min(100%, 420px); margin-inline: auto; }
 }
 
 @media (max-width: 420px) {
@@ -490,6 +498,9 @@ a {
   .panel-icono { display: none; }
   .alias-panel form > div { align-items: stretch; flex-direction: column; }
   .circulo-acciones > * { flex: 1 1 auto; justify-content: center; }
+  .circulo-lienzo-wrap { width: min(100%, 380px); }
+  .reflejos-juego-columna { padding-inline: 6px; }
+  .reflejos-area { min-height: min(46svh, 400px); border-radius: 24px; }
 }
 
 @media (min-width: 900px) {
@@ -557,6 +568,120 @@ a {
 }
 
 /* =========================================================
+   5 SEGUNDOS — misma familia visual, sin pistas temporales
+   ========================================================= */
+.cinco-pagina {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 8% 14%, rgba(255, 168, 82, 0.22), transparent 24rem),
+    radial-gradient(circle at 92% 84%, rgba(255, 214, 171, 0.3), transparent 28rem),
+    #fff8f1;
+}
+.cinco-main { padding: 30px 14px 64px; }
+.cinco-layout { display: grid; width: min(100%, 1120px); margin: 0 auto; gap: 22px; }
+.cinco-info { min-width: 0; color: var(--tinta); }
+.cinco-info > .juegos-etiqueta { color: var(--naranja-oscuro); }
+.cinco-info > h1 { margin: 0; font-size: clamp(2.05rem, 9vw, 4rem); line-height: .98; letter-spacing: -.052em; }
+.cinco-info > p:not(.partidas-contador) { max-width: 610px; margin: 16px 0 0; color: var(--texto); line-height: 1.6; }
+.cinco-juego-columna { min-width: 0; }
+.cinco-area {
+  display: flex;
+  width: 100%;
+  min-height: min(58vh, 540px);
+  padding: 30px 22px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid rgba(235, 203, 174, .9);
+  border-radius: 30px;
+  background: radial-gradient(circle at 50% 42%, #fff 0 55%, #fff7ef 100%);
+  color: var(--tinta);
+  box-shadow: 0 28px 75px rgba(105, 52, 13, .18), 0 8px 24px rgba(105, 52, 13, .08);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 120ms linear, transform 120ms ease;
+}
+.cinco-area:active { transform: scale(.992); }
+.cinco-area strong { max-width: 620px; font-size: clamp(2rem, 9vw, 4.4rem); line-height: 1; letter-spacing: -.045em; }
+.cinco-area > span:not(.cinco-icono):not(.cinco-boton-visual) { max-width: 510px; font-size: 1rem; opacity: .9; }
+.cinco-icono { color: var(--naranja); font-size: clamp(2.3rem, 12vw, 4.6rem); }
+.cinco-boton-visual { margin-top: 10px; padding: 12px 24px; border-radius: 14px; background: var(--naranja); color: #fff; font-weight: 900; box-shadow: 0 10px 24px rgba(255,122,0,.24); }
+.cinco-area.estado-preparando, .cinco-area.estado-procesando, .cinco-area.estado-corriendo { background: linear-gradient(145deg, var(--bordo), var(--bordo-oscuro)); color: #fff; }
+.cinco-area.estado-preparando .cinco-icono, .cinco-area.estado-procesando .cinco-icono, .cinco-area.estado-corriendo .cinco-icono { color: #ffd1a6; }
+.cinco-area.estado-resultado { border-color: #e0c4aa; }
+.cinco-area.estado-error { border-color: #d9aaa0; background: linear-gradient(145deg, #fff8f5, #f4ded8); color: #7b2e29; }
+.cinco-estado { min-height: 1.4em; margin: 10px 4px 0; color: var(--texto); text-align: center; }
+.cinco-resultado { margin-top: 22px; padding: 20px; border: 1px solid #f0d7c0; border-radius: 24px; background: linear-gradient(145deg, #fff, #fff8f1); box-shadow: var(--sombra-suave); }
+.cinco-resultado > strong { display: block; color: var(--bordo); font-size: clamp(3rem, 14vw, 5rem); line-height: .95; letter-spacing: -.06em; }
+.cinco-diferencia { margin: 8px 0 0; color: var(--naranja-oscuro); font-size: 1.05rem; font-weight: 900; }
+.cinco-acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+.cinco-acciones .juego-boton { margin-top: 0; }
+
+@media (max-width: 760px) {
+  .cinco-layout { grid-template-areas: "info" "juego"; }
+  .cinco-info { grid-area: info; }
+  .cinco-juego-columna { grid-area: juego; padding-inline: 6px; }
+  .cinco-area { width: min(100%, 420px); min-height: min(46svh, 400px); margin-inline: auto; }
+}
+
+@media (max-width: 420px) {
+  .cinco-acciones > * { flex: 1 1 auto; justify-content: center; }
+  .cinco-area { min-height: min(43svh, 370px); padding: 22px 16px; border-radius: 24px; }
+}
+
+@media (min-width: 900px) {
+  .juegos-principales { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cinco-pagina { height: 100svh; overflow: hidden; }
+  .cinco-header { min-height: 64px; padding-top: 9px; padding-bottom: 9px; }
+  .cinco-main { height: calc(100svh - 64px); padding: 8px 28px 12px; overflow: hidden; }
+  .cinco-layout { height: 100%; grid-template-columns: minmax(350px, .86fr) minmax(470px, 1.14fr); align-items: start; gap: clamp(30px, 4vw, 58px); }
+  .cinco-info { max-height: 100%; padding-top: 1px; }
+  .cinco-juego-columna { align-self: center; }
+  .cinco-info > .juegos-etiqueta { margin-bottom: 3px; }
+  .cinco-info > h1 { font-size: clamp(1.98rem, 2.8vw, 2.68rem); line-height: .91; }
+  .cinco-info > p:not(.partidas-contador) { margin-top: 3px; font-size: .84rem; line-height: 1.26; }
+  .cinco-info > .partidas-contador-juego { margin-top: 4px; padding-top: 4px; padding-bottom: 4px; }
+  .cinco-area { height: min(66vh, 510px); min-height: 420px; max-height: calc(100svh - 120px); padding: 24px 20px; gap: 9px; }
+  .cinco-area strong { font-size: clamp(2.3rem, 4.2vw, 3.8rem); }
+  .cinco-icono { font-size: clamp(2.4rem, 4.5vw, 4rem); }
+  .cinco-boton-visual { margin-top: 6px; padding: 10px 21px; }
+  .cinco-estado { margin-top: 6px; font-size: .84rem; }
+  .cinco-resultado { margin-top: 4px; padding: 6px 13px; border-radius: 18px; }
+  .cinco-resultado > strong { font-size: clamp(2.7rem, 4vw, 3.6rem); }
+  .cinco-diferencia { margin-top: 2px; font-size: .9rem; }
+  .cinco-resultado .circulo-record { margin-top: 2px; }
+  .cinco-resultado .resultado-detalles { margin-top: 3px; padding-top: 3px; font-size: .8rem; }
+  .cinco-acciones { margin-top: 3px; gap: 6px; }
+  .cinco-acciones .juego-boton, .cinco-acciones .boton-claro, .cinco-acciones .boton-compartir { min-height: 34px; padding: 7px 12px; }
+  .cinco-info .alias-panel, .cinco-info .ranking-panel { margin-top: 3px; padding: 6px 11px; border-radius: 17px; }
+  .cinco-info .alias-panel { padding-right: 48px; }
+  .cinco-info .alias-panel h2, .cinco-info .ranking-panel h2 { margin-bottom: 2px; font-size: .96rem; }
+  .cinco-info .alias-panel > p { margin: 1px 0 3px; font-size: .76rem; }
+  .cinco-info .alias-panel input, .cinco-info .alias-panel button { padding-top: 7px; padding-bottom: 7px; }
+  .cinco-info .ranking-panel:not([hidden]) { display: flex; height: min(38vh, 295px); min-height: 0; flex-direction: column; }
+  .cinco-info .ranking-lista { min-height: 0; margin-top: 4px; overflow-y: auto; overscroll-behavior: contain; }
+  .cinco-info .ranking-lista li { padding: 4px 3px; font-size: .77rem; }
+  .cinco-info .ranking-posicion { margin: 3px 0 0; font-size: .77rem; }
+}
+
+@media (min-width: 900px) and (max-height: 700px) {
+  .cinco-main { padding-top: 5px; padding-bottom: 7px; }
+  .cinco-layout { gap: clamp(24px, 3vw, 42px); }
+  .cinco-info > h1 { font-size: clamp(1.82rem, 2.5vw, 2.2rem); }
+  .cinco-info > p:not(.partidas-contador) { margin-top: 2px; font-size: .78rem; line-height: 1.2; }
+  .cinco-area { height: min(59vh, 425px); min-height: 365px; padding: 18px; }
+  .cinco-resultado { margin-top: 5px; padding: 7px 11px; }
+  .cinco-resultado > strong { font-size: 2.55rem; }
+  .cinco-acciones { margin-top: 5px; }
+  .cinco-info .alias-panel, .cinco-info .ranking-panel { margin-top: 2px; padding-top: 5px; padding-bottom: 5px; }
+  .cinco-info .ranking-panel:not([hidden]) { height: min(32vh, 220px); }
+}
+
+/* =========================================================
    REFLEJOS — experiencia táctil mobile-first
    ========================================================= */
 .reflejos-pagina {
@@ -615,7 +740,6 @@ a {
 .reflejos-info .alias-panel, .reflejos-info .ranking-panel { color: var(--tinta); }
 
 @media (max-width: 420px) {
-  .reflejos-area { min-height: 54vh; border-radius: 24px; }
   .reflejos-acciones > * { flex: 1 1 auto; justify-content: center; }
 }
 
@@ -680,4 +804,92 @@ a {
   .reflejos-info .alias-panel,
   .reflejos-info .ranking-panel { margin-top: 5px; padding-top: 8px; padding-bottom: 8px; }
   .reflejos-info .ranking-panel:not([hidden]) { max-height: 118px; }
+}
+
+/* =========================================================
+   CLICKJUEGOS — proporciones compartidas en desktop
+   ========================================================= */
+@media (min-width: 900px) {
+  .circulo-juego,
+  .reflejos-layout,
+  .cinco-layout {
+    width: min(100%, 1120px);
+  }
+
+  .circulo-layout,
+  .reflejos-layout,
+  .cinco-layout {
+    grid-template-columns: minmax(350px, .86fr) minmax(470px, 1.14fr);
+    column-gap: clamp(30px, 4vw, 58px);
+    align-items: start;
+  }
+
+  .circulo-dibujo-columna,
+  .reflejos-juego-columna,
+  .cinco-juego-columna {
+    align-self: center;
+    justify-self: stretch;
+  }
+
+  .circulo-tarjeta,
+  .reflejos-area,
+  .cinco-area {
+    width: min(100%, 580px);
+    height: min(62vh, 480px);
+    min-height: 400px;
+    margin-inline: auto;
+    border-radius: 30px;
+    box-shadow: 0 28px 75px rgba(105, 52, 13, .18), 0 8px 24px rgba(105, 52, 13, .08);
+  }
+
+  .circulo-tarjeta {
+    display: flex;
+    padding: 12px;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .circulo-tarjeta-cabecera,
+  .circulo-tarjeta-pie {
+    flex: 0 0 auto;
+  }
+
+  .circulo-lienzo-wrap {
+    width: min(100%, 405px);
+    flex: 0 0 auto;
+  }
+
+  .circulo-intro h1,
+  .reflejos-info > h1,
+  .cinco-info > h1 {
+    font-size: clamp(2.05rem, 3vw, 3rem);
+    line-height: .94;
+  }
+
+  .circulo-ayuda,
+  .reflejos-info > p:not(.partidas-contador),
+  .cinco-info > p:not(.partidas-contador) {
+    margin-top: 6px;
+    font-size: .84rem;
+    line-height: 1.3;
+  }
+}
+
+@media (min-width: 900px) and (max-height: 700px) {
+  .circulo-tarjeta,
+  .reflejos-area,
+  .cinco-area {
+    height: min(58vh, 400px);
+    min-height: 360px;
+  }
+
+  .circulo-lienzo-wrap {
+    width: min(100%, 330px);
+  }
+
+  .circulo-intro h1,
+  .reflejos-info > h1,
+  .cinco-info > h1 {
+    font-size: clamp(1.9rem, 2.65vw, 2.45rem);
+  }
 }

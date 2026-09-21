@@ -60,14 +60,20 @@
             <a class="juego-boton" href="{{ url_for('juegos.reflejos') }}">Jugar</a>
           </div>
         </article>
+
+        <article class="juego-card juego-card-disponible">
+          <div class="juego-icono" aria-hidden="true">⏱</div>
+          <div class="juego-contenido">
+            <span class="juego-estado">Disponible</span>
+            <h3>5 segundos</h3>
+            <p>Calculá exactamente 5 segundos sin mirar un reloj.</p>
+            <span class="partidas-contador">{{ juegos.get('5-segundos', {}).get('partidas_texto', '0 partidas jugadas') }}</span>
+            <a class="juego-boton" href="{{ url_for('juegos.cinco_segundos') }}">Jugar</a>
+          </div>
+        </article>
       </div>
 
       <div class="proximos-juegos" aria-label="Próximos juegos">
-        <article class="proximo-card">
-          <span aria-hidden="true">⏱</span>
-          <h3>5 segundos</h3>
-          <p>Próximamente</p>
-        </article>
         <article class="proximo-card">
           <span aria-hidden="true">🧠</span>
           <h3>Memoria</h3>

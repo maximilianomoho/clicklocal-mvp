@@ -58,6 +58,9 @@
           <div class="circulo-acciones">
             <button id="jugarOtraVez" type="button" class="juego-boton" hidden>Jugar otra vez</button>
             <button id="verRanking" type="button" class="boton-claro">Ver ranking</button>
+            <a class="boton-compartir" href="{{ url_for('juegos.compartir_juego', juego_slug='circulo') }}" target="_blank" rel="noopener noreferrer" aria-label="Compartir Círculo Perfecto por WhatsApp">
+              <span aria-hidden="true">↗</span> Compartir juego
+            </a>
           </div>
           <section id="aliasPanel" class="alias-panel" {% if jugador.alias %}hidden{% endif %}>
             <span class="panel-icono" aria-hidden="true">★</span>

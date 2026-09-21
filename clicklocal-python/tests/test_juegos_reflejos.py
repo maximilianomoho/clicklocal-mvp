@@ -231,7 +231,7 @@ def test_rutas_reflejos_emiten_analytics_requerido():
 def test_portada_activa_reflejos_y_mantiene_proximos_restantes():
     template = (ROOT / "templates/juegos/index.html").read_text(encoding="utf-8")
     assert "url_for('juegos.reflejos')" in template
-    assert template.count("Próximamente") == 2
+    assert template.count("Próximamente") == 1
     assert "5 segundos" in template and "Memoria" in template
 
 
