@@ -30,6 +30,16 @@
       <p class="juegos-etiqueta">Diversión local</p>
       <h1>ClickJuegos</h1>
       <p class="juegos-subtitulo">Jugá, competí y subí en el ranking.</p>
+      <div class="juegos-hero-acciones">
+        <button
+          type="button"
+          class="boton-compartir-galeria"
+          data-compartir
+          data-share-title="ClickJuegos | ClickLocal"
+          data-share-text="Probá los juegos de ClickJuegos en ClickLocal 🎮"
+          data-share-url="https://clicklocal.com.ar/jugar/"
+        ><span aria-hidden="true">↗</span> Compartir ClickJuegos</button>
+      </div>
     </section>
 
     <section class="juegos-catalogo" aria-labelledby="juegos-disponibles">
@@ -92,5 +102,6 @@
     </div>
   </footer>
   <script src="{{ url_for('static', filename='juegos/motor.js') }}"></script>
+  <script src="{{ url_for('static', filename='compartir.js') }}"></script>
 </body>
 </html>

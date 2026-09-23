@@ -148,6 +148,10 @@ a {
   line-height: 1.5;
 }
 
+.juegos-hero-acciones { display: flex; justify-content: center; margin-top: 20px; }
+.boton-compartir-galeria { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 11px 18px; border: 1px solid rgba(255,255,255,.4); border-radius: 12px; background: rgba(255,255,255,.96); color: var(--bordo); box-shadow: 0 10px 26px rgba(39,8,18,.18); font: inherit; font-size: .88rem; font-weight: 900; cursor: pointer; transition: transform 160ms ease, background 160ms ease; }
+.boton-compartir-galeria:hover, .boton-compartir-galeria:focus-visible { background: #fff; transform: translateY(-2px); }
+
 .juegos-catalogo {
   width: min(100% - 28px, 980px);
   margin: 0 auto;
@@ -484,11 +488,11 @@ a {
   .juegos-nav a, .juegos-sonido { flex: 0 0 auto; }
   .circulo-main { padding-top: 24px; }
   .circulo-dibujo-columna { padding-inline: 6px; }
-  .circulo-tarjeta { width: min(100%, 420px); margin-inline: auto; }
+  .circulo-tarjeta { width: min(100%, 330px); margin-inline: auto; }
+  .circulo-lienzo-wrap { width: min(100%, 300px); aspect-ratio: 1; margin-inline: auto; }
   .reflejos-layout { grid-template-areas: "info" "juego"; }
   .reflejos-info { grid-area: info; }
   .reflejos-juego-columna { grid-area: juego; padding-inline: 6px; }
-  .reflejos-area { width: min(100%, 420px); margin-inline: auto; }
 }
 
 @media (max-width: 420px) {
@@ -498,9 +502,7 @@ a {
   .panel-icono { display: none; }
   .alias-panel form > div { align-items: stretch; flex-direction: column; }
   .circulo-acciones > * { flex: 1 1 auto; justify-content: center; }
-  .circulo-lienzo-wrap { width: min(100%, 380px); }
   .reflejos-juego-columna { padding-inline: 6px; }
-  .reflejos-area { min-height: min(46svh, 400px); border-radius: 24px; }
 }
 
 @media (min-width: 900px) {
@@ -625,12 +627,11 @@ a {
   .cinco-layout { grid-template-areas: "info" "juego"; }
   .cinco-info { grid-area: info; }
   .cinco-juego-columna { grid-area: juego; padding-inline: 6px; }
-  .cinco-area { width: min(100%, 420px); min-height: min(46svh, 400px); margin-inline: auto; }
 }
 
 @media (max-width: 420px) {
   .cinco-acciones > * { flex: 1 1 auto; justify-content: center; }
-  .cinco-area { min-height: min(43svh, 370px); padding: 22px 16px; border-radius: 24px; }
+  .cinco-area { padding: 22px 16px; }
 }
 
 @media (min-width: 900px) {
@@ -806,10 +807,19 @@ a {
   .reflejos-info .ranking-panel:not([hidden]) { max-height: 118px; }
 }
 
+@media (max-width: 760px) {
+  .reflejos-area,
+  .cinco-area { width: min(100%, 340px); min-height: clamp(290px, 38svh, 340px); margin-inline: auto; border-radius: 24px; }
+}
+
 /* =========================================================
    CLICKJUEGOS — proporciones compartidas en desktop
    ========================================================= */
 @media (min-width: 900px) {
+  .circulo-main,
+  .reflejos-main,
+  .cinco-main { height: calc(100svh - 64px); padding: 8px 28px 12px; overflow: hidden; }
+
   .circulo-juego,
   .reflejos-layout,
   .cinco-layout {
@@ -873,9 +883,68 @@ a {
     font-size: .84rem;
     line-height: 1.3;
   }
+
+  .circulo-intro > .partidas-contador-juego,
+  .reflejos-info > .partidas-contador-juego,
+  .cinco-info > .partidas-contador-juego { margin-top: 4px; padding-top: 4px; padding-bottom: 4px; }
+
+  .circulo-resultado,
+  .reflejos-resultado,
+  .cinco-resultado { margin-top: 4px; padding: 6px 13px; border-radius: 18px; }
+
+  .circulo-acciones,
+  .reflejos-acciones,
+  .cinco-acciones { margin-top: 3px; gap: 6px; }
+
+  .circulo-acciones .juego-boton,
+  .circulo-acciones .boton-claro,
+  .circulo-acciones .boton-compartir,
+  .reflejos-acciones .juego-boton,
+  .reflejos-acciones .boton-claro,
+  .reflejos-acciones .boton-compartir,
+  .cinco-acciones .juego-boton,
+  .cinco-acciones .boton-claro,
+  .cinco-acciones .boton-compartir { min-height: 34px; padding: 7px 12px; }
+
+  .circulo-feedback .alias-panel,
+  .circulo-feedback .ranking-panel,
+  .reflejos-info .alias-panel,
+  .reflejos-info .ranking-panel,
+  .cinco-info .alias-panel,
+  .cinco-info .ranking-panel { margin-top: 3px; padding: 6px 11px; border-radius: 17px; }
+
+  .circulo-feedback .alias-panel,
+  .reflejos-info .alias-panel,
+  .cinco-info .alias-panel { padding-right: 48px; }
+
+  .circulo-feedback .alias-panel h2,
+  .circulo-feedback .ranking-panel h2,
+  .reflejos-info .alias-panel h2,
+  .reflejos-info .ranking-panel h2,
+  .cinco-info .alias-panel h2,
+  .cinco-info .ranking-panel h2 { margin-bottom: 2px; font-size: .96rem; }
+
+  .circulo-feedback .alias-panel > p,
+  .reflejos-info .alias-panel > p,
+  .cinco-info .alias-panel > p { margin: 1px 0 3px; font-size: .76rem; }
+
+  .circulo-feedback .alias-panel input,
+  .circulo-feedback .alias-panel button,
+  .reflejos-info .alias-panel input,
+  .reflejos-info .alias-panel button,
+  .cinco-info .alias-panel input,
+  .cinco-info .alias-panel button { padding-top: 7px; padding-bottom: 7px; }
 }
 
 @media (min-width: 900px) and (max-height: 700px) {
+  .circulo-main,
+  .reflejos-main,
+  .cinco-main { padding-top: 5px; padding-bottom: 7px; }
+
+  .circulo-layout,
+  .reflejos-layout,
+  .cinco-layout { gap: clamp(24px, 3vw, 42px); }
+
   .circulo-tarjeta,
   .reflejos-area,
   .cinco-area {

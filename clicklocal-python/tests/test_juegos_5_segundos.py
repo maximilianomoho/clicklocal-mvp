@@ -44,7 +44,8 @@ def test_pagina_medicion_sonido_layout_mobile_y_compartir():
     assert respuesta.status_code == 200
     assert "24 partidas jugadas" in html
     assert template.index('class="cinco-info"') < template.index('class="cinco-juego-columna"')
-    assert "padding-inline: 6px" in css and "width: min(100%, 420px)" in css
+    assert "padding-inline: 6px" in css and "width: min(100%, 340px)" in css
+    assert "min-height: clamp(290px, 38svh, 340px)" in css
     assert js.index("startedAt = performance.now()") < js.index("ClickJuegos.audio.playReady()")
     assert "playSuccess()" in js and "playRecord()" in js
     assert "juego_slug='5-segundos'" in template

@@ -54,10 +54,24 @@ def test_mobile_reflejos_deja_informacion_antes_del_area_interactiva():
     assert ".reflejos-juego-columna { grid-area: juego;" in css
 
 
-def test_mobile_agrega_gutters_y_reduce_area_sin_cambiar_touch_action():
+def test_mobile_compacta_areas_sin_cambiar_touch_action():
     css = (ROOT / "static/juegos/juegos.css").read_text(encoding="utf-8")
     assert ".circulo-dibujo-columna { padding-inline: 6px; }" in css
     assert ".reflejos-juego-columna { grid-area: juego; padding-inline: 6px; }" in css
-    assert "min-height: min(46svh, 400px)" in css
+    assert ".circulo-tarjeta { width: min(100%, 330px); margin-inline: auto; }" in css
+    assert ".circulo-lienzo-wrap { width: min(100%, 300px); aspect-ratio: 1; margin-inline: auto; }" in css
+    assert ".cinco-area { width: min(100%, 420px)" not in css
+    assert "width: min(100%, 340px); min-height: clamp(290px, 38svh, 340px);" in css
     assert ".circulo-lienzo-wrap" in css and "touch-action: none" in css
     assert "touch-action: manipulation" in css
+
+
+def test_desktop_conserva_contrato_visual_compartido():
+    css = (ROOT / "static/juegos/juegos.css").read_text(encoding="utf-8")
+    assert "width: min(100%, 1120px);" in css
+    assert "grid-template-columns: minmax(350px, .86fr) minmax(470px, 1.14fr);" in css
+    assert "width: min(100%, 580px);" in css
+    assert "height: min(62vh, 480px);" in css
+    assert "min-height: 400px;" in css
+    assert "height: min(58vh, 400px);" in css
+    assert "min-height: 360px;" in css
