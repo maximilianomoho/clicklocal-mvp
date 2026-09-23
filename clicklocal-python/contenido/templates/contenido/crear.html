@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crear para redes | ClickLocal Contenido</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='contenido/contenido.css') }}" />
+</head>
+<body class="contenido-pagina">
+  <main class="contenido-contenedor contenido-editor" data-contenido-editor>
+    <nav class="contenido-navegacion" aria-label="Navegación de Contenido">
+      <a class="contenido-volver" href="{{ url_for('contenido.panel_contenido') }}">← Volver</a>
+      <a class="contenido-enlace-secundario" href="{{ url_for('contenido.panel_contenido') }}#publicaciones">Cambiar publicación</a>
+    </nav>
+
+    <header class="contenido-editor-cabecera">
+      <p class="contenido-etiqueta">CREAR PARA REDES</p>
+      <h1>{{ publicacion.nombre }}</h1>
+      <p>Elegí una foto y un formato para previsualizar la futura pieza.</p>
+    </header>
+
+    <div class="contenido-editor-layout">
+      <aside class="contenido-controles">
+        <section class="contenido-control" id="seleccion-foto">
+          <h2>1. Elegí una foto</h2>
+          {% if publicacion.imagenes_disponibles %}
+            <div class="contenido-fotos" role="group" aria-label="Fotos de la publicación">
+              {% for imagen in publicacion.imagenes_disponibles %}
+                <button
+                  type="button"
+                  class="contenido-foto-opcion{% if loop.first %} is-active{% endif %}"
+                  data-contenido-imagen="{{ imagen }}"
+                  aria-pressed="{{ 'true' if loop.first else 'false' }}"
+                >
+                  <img src="{{ imagen }}" alt="Foto {{ loop.index }} de {{ publicacion.nombre }}" />
+                </button>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p>Esta publicación todavía no tiene fotos disponibles.</p>
+          {% endif %}
+        </section>
+
+        <section class="contenido-control" id="seleccion-formato">
+          <h2>2. Elegí un formato</h2>
+          <div class="contenido-opciones-formato">
+            {% for formato in formatos %}
+              <label class="contenido-formato-opcion">
+                <input
+                  type="radio"
+                  name="formato"
+                  value="{{ formato.slug }}"
+                  {% if loop.first %}checked{% endif %}
+                />
+                <span>{{ formato.nombre }}</span>
+                <small>{{ formato.medidas }}</small>
+              </label>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="contenido-control">
+          <label class="contenido-texto-label" for="contenido-texto">Texto para compartir</label>
+          <textarea id="contenido-texto" rows="9" data-contenido-texto>{{ texto_inicial }}</textarea>
+          <button class="contenido-boton-secundario" type="button" data-copiar-texto>Copiar texto</button>
+          <span class="contenido-copia-estado" data-copia-estado aria-live="polite"></span>
+        </section>
+      </aside>
+
+      <section class="contenido-preview-columna" aria-labelledby="preview-titulo">
+        <div class="contenido-preview-encabezado">
+          <div>
+            <p class="contenido-etiqueta">PREVISUALIZACIÓN</p>
+            <h2 id="preview-titulo">Así podría verse</h2>
+          </div>
+          <span data-formato-nombre>Post · 1080 × 1080</span>
+        </div>
+
+        <div class="contenido-preview-marco">
+          <article class="contenido-preview contenido-preview--post" data-contenido-preview>
+            {% if publicacion.imagen_mostrar %}
+              <img
+                src="{{ publicacion.imagen_mostrar }}"
+                alt="Vista previa de {{ publicacion.nombre }}"
+                data-preview-imagen
+              />
+            {% else %}
+              <div class="contenido-preview-sin-foto" data-preview-sin-foto>Sin foto disponible</div>
+            {% endif %}
+            <div class="contenido-preview-degradado"></div>
+            <div class="contenido-preview-texto">
+              <p class="contenido-preview-comercio">{{ comercio.nombre_negocio or comercio.nombre or 'Mi comercio' }}</p>
+              <h2>{{ publicacion.nombre }}</h2>
+              {% if precio_mostrar %}<strong>{{ precio_mostrar }}</strong>{% endif %}
+              {% if publicacion.descripcion %}<p>{{ publicacion.descripcion }}</p>{% endif %}
+              <small>Creado con ClickLocal</small>
+            </div>
+          </article>
+        </div>
+
+        <div class="contenido-acciones-editor">
+          <button type="button" class="contenido-boton-secundario" data-cambiar-foto>Cambiar foto</button>
+          <button type="button" class="contenido-boton-secundario" data-cambiar-formato>Cambiar formato</button>
+          <button type="button" class="contenido-cta contenido-cta--inactiva" disabled>Descargar imagen</button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="{{ url_for('static', filename='contenido/contenido.js') }}" defer></script>
+</body>
+</html>

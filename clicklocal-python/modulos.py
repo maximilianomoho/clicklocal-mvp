@@ -11,6 +11,27 @@ from config.supabase_config import supabase_admin
 
 
 CATALOGO_MODULOS = {
+    "contenido": {
+        "slug": "contenido",
+        "nombre": "ClickLocal Contenido",
+        "descripcion_corta": (
+            "Convertí las publicaciones de tu comercio en contenido "
+            "listo para compartir en redes."
+        ),
+        "descripcion_detalle": (
+            "Prepará contenido para redes a partir de las publicaciones "
+            "y fotos que ya cargaste en ClickLocal."
+        ),
+        "beneficios": [
+            "Reutilizá las publicaciones de tu comercio.",
+            "Prepará contenido en formatos para post e historia.",
+            "Descargá piezas para compartirlas manualmente.",
+        ],
+        "precio": "Consultá el precio y las condiciones de activación.",
+        "endpoint_operativo": "contenido.panel_contenido",
+        "disponible": True,
+        "imagenes": [],
+    },
     "pos": {
         "slug": "pos",
         "nombre": "Gastronomía POS",

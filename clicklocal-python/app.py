@@ -28,6 +28,7 @@ from config.supabase_config import (
 from gastronomia import gastronomia_bp
 from juegos import juegos_bp
 from turnos import turnos_bp
+from contenido import contenido_bp
 from modulos import (
     CATALOGO_MODULOS,
     activar_renovar_modulo,
@@ -156,6 +157,7 @@ app.jinja_env.filters["precio_arg"] = formatear_precio
 app.register_blueprint(gastronomia_bp)
 app.register_blueprint(juegos_bp)
 app.register_blueprint(turnos_bp)
+app.register_blueprint(contenido_bp)
 
 
 # Clave temporal para session en desarrollo local
@@ -8964,6 +8966,28 @@ def _url_retorno_accion_comercio(**parametros):
 
 
 def _url_retorno_accion_modulo(**parametros):
+    if request.form.get("origen_admin") == "modulo_detalle":
+        slug = str(
+            (request.view_args or {}).get("slug") or ""
+        ).strip().lower()
+        if slug_modulo_valido(slug):
+            comercio_contexto_id = str(
+                request.form.get("comercio_contexto_id") or ""
+            ).strip()
+            try:
+                comercio_contexto_id = str(
+                    uuid.UUID(comercio_contexto_id)
+                )
+            except (ValueError, TypeError, AttributeError):
+                comercio_contexto_id = ""
+            if comercio_contexto_id:
+                parametros["comercio_id"] = comercio_contexto_id
+            return url_for(
+                "admin_modulo_detalle",
+                slug=slug,
+                **parametros,
+            )
+
     endpoint = (
         "admin_modulos"
         if request.form.get("origen_admin") == "modulos"
@@ -8984,6 +9008,20 @@ def _slug_solicitud_modulo(consulta):
         if motivo == _motivo_solicitud_modulo(datos_modulo).casefold():
             return slug
     return None
+
+
+def _url_retorno_solicitud_modulo_admin(slug=None, **parametros):
+    slug = str(slug or "").strip().lower()
+    if (
+        request.form.get("origen_admin") == "modulo_detalle"
+        and slug_modulo_valido(slug)
+    ):
+        return url_for(
+            "admin_modulo_detalle",
+            slug=slug,
+            **parametros,
+        )
+    return url_for("admin_modulos", **parametros)
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -10024,6 +10062,102 @@ def admin_comercios():
 @app.route("/admin/modulos")
 @admin_requerido
 def admin_modulos():
+    datos = _cargar_datos_admin_modulos()
+    comercios_raw = datos["comercios"]
+    relaciones_raw = datos["relaciones"]
+    solicitudes_raw = datos["solicitudes"]
+    error = datos["error"]
+
+    comercios_por_id = {
+        str(comercio.get("id")): comercio
+        for comercio in comercios_raw
+        if comercio.get("id")
+    }
+    comercio_contexto_id, comercio_contexto_estado = (
+        _resolver_comercio_contexto_admin(comercios_por_id)
+    )
+    comercio_contexto = comercios_por_id.get(comercio_contexto_id)
+
+    solicitudes_por_slug = {}
+    solicitudes_no_identificadas = []
+    for solicitud in solicitudes_raw:
+        slug_solicitud = _slug_solicitud_modulo(solicitud)
+        if slug_solicitud and slug_solicitud in CATALOGO_MODULOS:
+            solicitudes_por_slug.setdefault(slug_solicitud, []).append(
+                solicitud
+            )
+        else:
+            solicitudes_no_identificadas.append(
+                _presentar_solicitud_modulo(
+                    solicitud,
+                    comercios_por_id,
+                    None,
+                )
+            )
+
+    modulos_catalogo = []
+    for slug, datos_catalogo in CATALOGO_MODULOS.items():
+        if not datos_catalogo.get("disponible"):
+            continue
+        if (
+            comercio_contexto
+            and not modulo_disponible_para_comercio(
+                slug,
+                comercio_contexto,
+            )
+        ):
+            continue
+
+        relaciones_modulo = [
+            relacion
+            for relacion in relaciones_raw
+            if str(relacion.get("modulo") or "").strip().lower()
+            == slug
+        ]
+        cantidad_activa = 0
+        cantidad_limitada = 0
+        for relacion in relaciones_modulo:
+            comercio_id = relacion.get("comercio_id")
+            if not comercio_id:
+                continue
+            vigencia = evaluar_vigencia_modulo(comercio_id, slug)
+            if vigencia.get("acceso_operativo"):
+                cantidad_activa += 1
+            if (
+                vigencia.get("estado_vigencia") == "vencido"
+                or not vigencia.get("habilitado_manual")
+            ):
+                cantidad_limitada += 1
+
+        modulo = dict(datos_catalogo)
+        modulo.update({
+            "slug": slug,
+            "cantidad_instalada": len(relaciones_modulo),
+            "cantidad_activa": cantidad_activa,
+            "cantidad_limitada": cantidad_limitada,
+            "solicitudes_pendientes": len(
+                solicitudes_por_slug.get(slug, [])
+            ),
+        })
+        modulos_catalogo.append(modulo)
+
+    modulos_catalogo.sort(
+        key=lambda modulo: str(modulo.get("nombre") or "").casefold()
+    )
+
+    return render_template(
+        "admin_modulos.html",
+        modulos_catalogo=modulos_catalogo,
+        solicitudes_no_identificadas=solicitudes_no_identificadas,
+        comercio_contexto=comercio_contexto,
+        comercio_contexto_id=comercio_contexto_id,
+        comercio_contexto_estado=comercio_contexto_estado,
+        error=error,
+        admin_user=session.get("admin_user"),
+    )
+
+
+def _cargar_datos_admin_modulos():
     error = None
     comercios_raw = []
     relaciones_raw = []
@@ -10066,126 +10200,218 @@ def admin_modulos():
         mensaje = f"No se pudieron cargar las solicitudes: {excepcion}"
         error = f"{error} | {mensaje}" if error else mensaje
 
+    return {
+        "comercios": comercios_raw,
+        "relaciones": relaciones_raw,
+        "solicitudes": solicitudes_raw,
+        "error": error,
+    }
+
+
+def _resolver_comercio_contexto_admin(comercios_por_id):
+    comercio_id_raw = str(
+        request.args.get("comercio_id") or ""
+    ).strip()
+    if not comercio_id_raw:
+        return "", None
+    try:
+        comercio_id = str(uuid.UUID(comercio_id_raw))
+    except (ValueError, TypeError, AttributeError):
+        return "", "invalido"
+    if comercio_id not in comercios_por_id:
+        return "", "no_encontrado"
+    return comercio_id, "valido"
+
+
+def _presentar_solicitud_modulo(
+    solicitud,
+    comercios_por_id,
+    slug,
+):
+    comercio = comercios_por_id.get(
+        str(solicitud.get("comercio_id") or ""),
+        {},
+    )
+    datos_modulo = CATALOGO_MODULOS.get(slug) or {}
+    modulo_elegible = bool(
+        slug
+        and modulo_disponible_para_comercio(slug, comercio)
+    )
+    return {
+        "id": solicitud.get("id"),
+        "comercio_id": solicitud.get("comercio_id"),
+        "comercio_nombre": (
+            comercio.get("nombre_negocio")
+            or solicitud.get("nombre")
+            or "Comercio no identificado"
+        ),
+        "modulo_solicitado": (
+            datos_modulo.get("nombre")
+            if modulo_elegible
+            else "Módulo no identificado"
+        ),
+        "slug_modulo": slug if modulo_elegible else None,
+    }
+
+
+def _presentar_relacion_modulo_admin(
+    relacion,
+    comercio,
+    slug,
+):
+    comercio_id = str(relacion.get("comercio_id") or "")
+    vigencia = evaluar_vigencia_modulo(comercio_id, slug)
+    motivo_bloqueo = vigencia.get("motivo_bloqueo")
+
+    if motivo_bloqueo in ("error_consulta", "datos_invalidos"):
+        etiqueta_estado = "No disponible"
+    elif vigencia.get("estado_vigencia") == "vencido":
+        etiqueta_estado = "Vencido"
+    elif not vigencia.get("habilitado_manual"):
+        etiqueta_estado = "Suspendido"
+    elif motivo_bloqueo == "vigencia_no_iniciada":
+        etiqueta_estado = "Pendiente de inicio"
+    elif vigencia.get("estado_vigencia") == "en_gracia":
+        etiqueta_estado = "En gracia"
+    elif vigencia.get("estado_vigencia") == "por_vencer":
+        etiqueta_estado = "Por vencer"
+    elif vigencia.get("acceso_operativo"):
+        etiqueta_estado = "Activo"
+    else:
+        etiqueta_estado = "No disponible"
+
+    fecha_activacion = vigencia.get("fecha_activacion")
+    fecha_vencimiento = vigencia.get("fecha_vencimiento")
+    if vigencia.get("estado_vigencia") == "en_gracia":
+        dias_texto = "En gracia · {} días".format(
+            vigencia.get("dias_gracia_restantes", 0)
+        )
+    elif vigencia.get("estado_vigencia") == "vencido":
+        dias_texto = "Vencido"
+    elif vigencia.get("dias_restantes") is not None:
+        dias_texto = f"{vigencia.get('dias_restantes')} días"
+    else:
+        dias_texto = "-"
+
+    return {
+        "comercio_id": comercio_id,
+        "comercio_nombre": (
+            comercio.get("nombre_negocio")
+            or "Comercio no identificado"
+        ),
+        "categoria": comercio.get("categoria") or "-",
+        "whatsapp": comercio.get("whatsapp") or "-",
+        "activo": relacion.get("activo") is True,
+        "etiqueta_estado": etiqueta_estado,
+        "fecha_activacion_mostrar": (
+            fecha_activacion.strftime("%d/%m/%Y")
+            if fecha_activacion else "-"
+        ),
+        "fecha_vencimiento_mostrar": (
+            fecha_vencimiento.strftime("%d/%m/%Y")
+            if fecha_vencimiento else "-"
+        ),
+        "dias_restantes_texto": dias_texto,
+    }
+
+
+@app.route("/admin/modulos/<slug>")
+@admin_requerido
+def admin_modulo_detalle(slug):
+    slug = str(slug or "").strip().lower()
+    modulo = obtener_modulo(slug)
+    if not modulo or not modulo.get("disponible"):
+        return "Módulo no encontrado.", 404
+
+    datos = _cargar_datos_admin_modulos()
+    comercios_raw = datos["comercios"]
+    relaciones_raw = datos["relaciones"]
+    solicitudes_raw = datos["solicitudes"]
     comercios_por_id = {
         str(comercio.get("id")): comercio
         for comercio in comercios_raw
         if comercio.get("id")
     }
-    relaciones_por_comercio = {}
-    for relacion in relaciones_raw:
-        comercio_id = str(relacion.get("comercio_id") or "")
-        slug = str(relacion.get("modulo") or "").strip().lower()
-        if comercio_id and slug:
-            relaciones_por_comercio.setdefault(comercio_id, {})[slug] = relacion
+    comercio_contexto_id, comercio_contexto_estado = (
+        _resolver_comercio_contexto_admin(comercios_por_id)
+    )
+    comercio_contexto = comercios_por_id.get(comercio_contexto_id)
 
-    modulos_comercios = []
-    for comercio_id, comercio in comercios_por_id.items():
-        for slug, datos_catalogo in CATALOGO_MODULOS.items():
-            if not modulo_disponible_para_comercio(slug, comercio):
-                continue
-
-            relacion = relaciones_por_comercio.get(comercio_id, {}).get(slug)
-            vigencia = (
-                evaluar_vigencia_modulo(comercio_id, slug)
-                if relacion
-                else {"existe": False}
-            )
-            motivo_bloqueo = vigencia.get("motivo_bloqueo")
-
-            if not relacion:
-                etiqueta_estado = "No instalado"
-            elif motivo_bloqueo in ("error_consulta", "datos_invalidos"):
-                etiqueta_estado = "No disponible"
-            elif vigencia.get("estado_vigencia") == "vencido":
-                etiqueta_estado = "Vencido"
-            elif not vigencia.get("habilitado_manual"):
-                etiqueta_estado = "Inactivo"
-            elif motivo_bloqueo == "vigencia_no_iniciada":
-                etiqueta_estado = "Pendiente de inicio"
-            elif vigencia.get("estado_vigencia") == "en_gracia":
-                etiqueta_estado = "En gracia"
-            elif vigencia.get("estado_vigencia") == "por_vencer":
-                etiqueta_estado = "Por vencer"
-            elif vigencia.get("acceso_operativo"):
-                etiqueta_estado = "Activo"
-            else:
-                etiqueta_estado = "No disponible"
-
-            fecha_activacion = vigencia.get("fecha_activacion")
-            fecha_vencimiento = vigencia.get("fecha_vencimiento")
-            if vigencia.get("estado_vigencia") == "en_gracia":
-                dias_texto = "En gracia · {} días".format(
-                    vigencia.get("dias_gracia_restantes", 0)
-                )
-            elif vigencia.get("estado_vigencia") == "vencido":
-                dias_texto = "Vencido"
-            elif vigencia.get("dias_restantes") is not None:
-                dias_texto = f"{vigencia.get('dias_restantes')} días"
-            else:
-                dias_texto = "-"
-
-            modulos_comercios.append({
-                "comercio_id": comercio_id,
-                "comercio_nombre": (
-                    comercio.get("nombre_negocio") or "Comercio sin nombre"
-                ),
-                "categoria": comercio.get("categoria") or "-",
-                "whatsapp": comercio.get("whatsapp") or "-",
-                "slug": slug,
-                "nombre_modulo": datos_catalogo.get("nombre") or slug,
-                "existe": bool(relacion),
-                "activo": bool(relacion and relacion.get("activo") is True),
-                "estado_vigencia": vigencia.get("estado_vigencia"),
-                "etiqueta_estado": etiqueta_estado,
-                "fecha_activacion_mostrar": (
-                    fecha_activacion.strftime("%d/%m/%Y")
-                    if fecha_activacion else "-"
-                ),
-                "fecha_vencimiento_mostrar": (
-                    fecha_vencimiento.strftime("%d/%m/%Y")
-                    if fecha_vencimiento else "-"
-                ),
-                "dias_restantes_texto": dias_texto,
-            })
-
-    modulos_comercios.sort(key=lambda modulo: (
-        str(modulo.get("comercio_nombre") or "").lower(),
-        str(modulo.get("nombre_modulo") or "").lower(),
-    ))
-
-    solicitudes_modulos = []
-    for solicitud in solicitudes_raw:
-        slug = _slug_solicitud_modulo(solicitud)
-        comercio = comercios_por_id.get(
-            str(solicitud.get("comercio_id") or ""),
-            {},
-        )
-        datos_modulo = CATALOGO_MODULOS.get(slug) or {}
-        modulo_elegible = modulo_disponible_para_comercio(
+    relaciones_modulo = [
+        relacion
+        for relacion in relaciones_raw
+        if str(relacion.get("modulo") or "").strip().lower()
+        == slug
+    ]
+    ids_instalados = {
+        str(relacion.get("comercio_id") or "")
+        for relacion in relaciones_modulo
+        if relacion.get("comercio_id")
+    }
+    comercios_instalados = [
+        _presentar_relacion_modulo_admin(
+            relacion,
+            comercios_por_id.get(
+                str(relacion.get("comercio_id") or ""),
+                {},
+            ),
             slug,
-            comercio,
         )
-        solicitudes_modulos.append({
-            "id": solicitud.get("id"),
-            "comercio_id": solicitud.get("comercio_id"),
-            "comercio_nombre": (
-                comercio.get("nombre_negocio")
-                or solicitud.get("nombre")
-                or "Comercio no identificado"
-            ),
-            "modulo_solicitado": (
-                datos_modulo.get("nombre")
-                if modulo_elegible else None
-                or "Módulo no identificado"
-            ),
-            "slug_modulo": slug if modulo_elegible else None,
-        })
+        for relacion in relaciones_modulo
+    ]
+    comercios_instalados.sort(
+        key=lambda item: str(
+            item.get("comercio_nombre") or ""
+        ).casefold()
+    )
+
+    comercios_disponibles = [
+        comercio
+        for comercio_id, comercio in comercios_por_id.items()
+        if comercio_id not in ids_instalados
+        and modulo_disponible_para_comercio(slug, comercio)
+    ]
+    comercios_disponibles.sort(
+        key=lambda comercio: str(
+            comercio.get("nombre_negocio") or ""
+        ).casefold()
+    )
+
+    comercio_preseleccionado_id = ""
+    if comercio_contexto:
+        if comercio_contexto_id in ids_instalados:
+            comercio_contexto_estado = "ya_instalado"
+        elif not modulo_disponible_para_comercio(
+            slug,
+            comercio_contexto,
+        ):
+            comercio_contexto_estado = "no_elegible"
+        else:
+            comercio_preseleccionado_id = comercio_contexto_id
+
+    solicitudes_modulo = []
+    for solicitud in solicitudes_raw:
+        if _slug_solicitud_modulo(solicitud) != slug:
+            continue
+        solicitudes_modulo.append(
+            _presentar_solicitud_modulo(
+                solicitud,
+                comercios_por_id,
+                slug,
+            )
+        )
 
     return render_template(
-        "admin_modulos.html",
-        modulos_comercios=modulos_comercios,
-        solicitudes_modulos=solicitudes_modulos,
-        error=error,
+        "admin_modulo_detalle.html",
+        modulo=modulo,
+        comercios_instalados=comercios_instalados,
+        comercios_disponibles=comercios_disponibles,
+        solicitudes_modulo=solicitudes_modulo,
+        comercio_contexto=comercio_contexto,
+        comercio_contexto_id=comercio_contexto_id,
+        comercio_contexto_estado=comercio_contexto_estado,
+        comercio_preseleccionado_id=comercio_preseleccionado_id,
+        error=datos["error"],
         admin_user=session.get("admin_user"),
     )
 
@@ -10202,18 +10428,17 @@ def admin_modulos():
 )
 @admin_requerido
 def admin_instalar_modulo_solicitado(consulta_id):
+    slug = None
     try:
         consulta_id = str(uuid.UUID(str(consulta_id)))
     except (ValueError, TypeError, AttributeError):
-        return redirect(url_for(
-            "admin_modulos",
+        return redirect(_url_retorno_solicitud_modulo_admin(
             modulo_solicitud_error="consulta_invalida",
         ))
 
     duracion_raw = str(request.form.get("duracion_meses") or "").strip()
     if duracion_raw not in ("1", "3", "6"):
-        return redirect(url_for(
-            "admin_modulos",
+        return redirect(_url_retorno_solicitud_modulo_admin(
             modulo_solicitud_error="duracion_invalida",
         ))
 
@@ -10227,8 +10452,7 @@ def admin_instalar_modulo_solicitado(consulta_id):
         )
         consultas = respuesta.data or []
         if not consultas:
-            return redirect(url_for(
-                "admin_modulos",
+            return redirect(_url_retorno_solicitud_modulo_admin(
                 modulo_solicitud_error="consulta_no_encontrada",
             ))
 
@@ -10239,15 +10463,13 @@ def admin_instalar_modulo_solicitado(consulta_id):
             or str(consulta.get("origen") or "").strip().casefold()
             != "catalogo_modulos"
         ):
-            return redirect(url_for(
-                "admin_modulos",
+            return redirect(_url_retorno_solicitud_modulo_admin(
                 modulo_solicitud_error="consulta_invalida",
             ))
 
         slug = _slug_solicitud_modulo(consulta)
         if not slug:
-            return redirect(url_for(
-                "admin_modulos",
+            return redirect(_url_retorno_solicitud_modulo_admin(
                 modulo_solicitud_error="modulo_invalido",
             ))
 
@@ -10260,8 +10482,8 @@ def admin_instalar_modulo_solicitado(consulta_id):
             .execute()
         )
         if not (comercio_res.data or []):
-            return redirect(url_for(
-                "admin_modulos",
+            return redirect(_url_retorno_solicitud_modulo_admin(
+                slug,
                 modulo_solicitud_error="comercio_no_encontrado",
             ))
 
@@ -10269,8 +10491,8 @@ def admin_instalar_modulo_solicitado(consulta_id):
             slug,
             comercio_res.data[0],
         ):
-            return redirect(url_for(
-                "admin_modulos",
+            return redirect(_url_retorno_solicitud_modulo_admin(
+                slug,
                 modulo_solicitud_error="modulo_no_disponible",
             ))
 
@@ -10293,8 +10515,8 @@ def admin_instalar_modulo_solicitado(consulta_id):
             and vigencia_final.get("habilitado_manual")
             and vigencia_final.get("acceso_operativo")
         ):
-            return redirect(url_for(
-                "admin_modulos",
+            return redirect(_url_retorno_solicitud_modulo_admin(
+                slug,
                 modulo_solicitud_error="activacion_incompleta",
             ))
 
@@ -10313,12 +10535,12 @@ def admin_instalar_modulo_solicitado(consulta_id):
             .execute()
         )
         if not (solicitud_resuelta.data or []):
-            return redirect(url_for(
-                "admin_modulos",
+            return redirect(_url_retorno_solicitud_modulo_admin(
+                slug,
                 modulo_solicitud_error="no_resuelta",
             ))
-        return redirect(url_for(
-            "admin_modulos",
+        return redirect(_url_retorno_solicitud_modulo_admin(
+            slug,
             modulo_solicitud_instalada="1",
         ))
     except Exception as error:
@@ -10328,8 +10550,8 @@ def admin_instalar_modulo_solicitado(consulta_id):
             error,
             flush=True,
         )
-        return redirect(url_for(
-            "admin_modulos",
+        return redirect(_url_retorno_solicitud_modulo_admin(
+            slug,
             modulo_solicitud_error="servidor",
         ))
 

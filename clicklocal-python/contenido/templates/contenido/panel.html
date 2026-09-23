@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClickLocal Contenido</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='contenido/contenido.css') }}" />
+</head>
+<body class="contenido-pagina">
+  <main class="contenido-contenedor">
+    <a class="contenido-volver" href="{{ url_for('panel') }}">← Volver al panel</a>
+
+    <section class="contenido-portada">
+      <p class="contenido-etiqueta">HERRAMIENTA CLICKLOCAL</p>
+      <h1>ClickLocal Contenido</h1>
+      <p class="contenido-bajada">
+        Convertí las publicaciones de tu comercio en contenido listo para compartir en redes.
+      </p>
+      <a class="contenido-cta" href="#publicaciones">Crear para redes</a>
+    </section>
+
+    <section class="contenido-formatos" aria-labelledby="formatos-titulo">
+      <div>
+        <p class="contenido-etiqueta">FORMATOS PREVISTOS</p>
+        <h2 id="formatos-titulo">Preparado para tus canales</h2>
+      </div>
+      <ul>
+        <li>Post</li>
+        <li>Historia</li>
+        <li>Estado de WhatsApp</li>
+      </ul>
+    </section>
+
+    <section id="publicaciones" class="contenido-publicaciones" aria-labelledby="publicaciones-titulo">
+      <p class="contenido-etiqueta">TUS PUBLICACIONES</p>
+      <h2 id="publicaciones-titulo">Crear desde una publicación</h2>
+      {% if publicaciones %}
+        <div class="contenido-grilla-publicaciones">
+          {% for publicacion in publicaciones %}
+            <article class="contenido-publicacion-card">
+              {% if publicacion.imagen_mostrar %}
+                <img src="{{ publicacion.imagen_mostrar }}" alt="{{ publicacion.nombre }}" />
+              {% else %}
+                <div class="contenido-publicacion-sin-foto">Sin foto</div>
+              {% endif %}
+              <div class="contenido-publicacion-cuerpo">
+                <h3>{{ publicacion.nombre }}</h3>
+                {% if publicacion.precio is not none %}
+                  <p class="contenido-publicacion-precio">$ {{ publicacion.precio }}</p>
+                {% endif %}
+                {% if publicacion.descripcion %}
+                  <p class="contenido-publicacion-descripcion">{{ publicacion.descripcion }}</p>
+                {% endif %}
+                <a
+                  class="contenido-cta"
+                  href="{{ url_for('contenido.crear_desde_publicacion', publicacion_id=publicacion.id) }}"
+                >Crear para redes</a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Cuando cargues publicaciones en ClickLocal, vas a poder elegirlas desde acá.</p>
+      {% endif %}
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='contenido/contenido.js') }}" defer></script>
+</body>
+</html>

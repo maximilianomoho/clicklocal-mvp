@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ modulo.nombre }} · ClickLocal Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .modulo-main{width:min(1450px,calc(100% - 28px));margin:32px auto}.modulo-volver{display:inline-block;margin-bottom:14px;color:#24566d;font-weight:700;text-decoration:none}.modulo-cabecera,.modulo-seccion{padding:22px;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(0,0,0,.08)}.modulo-cabecera{margin-bottom:20px}.modulo-cabecera h1,.modulo-seccion h2{margin:4px 0 8px}.modulo-descripcion,.modulo-vacio{color:#66717c}.modulo-aviso,.modulo-error{margin:0 0 18px;padding:13px;border-radius:11px}.modulo-aviso{background:#eaf5ff;color:#164e63}.modulo-error{background:#ffe5e5;color:#8a0000}.modulo-seccion{margin-top:20px}.modulo-tabla-contenedor{overflow-x:auto}.modulo-tabla{width:100%;min-width:980px;border-collapse:collapse}.modulo-tabla th,.modulo-tabla td{padding:11px 9px;border-bottom:1px solid #eee;text-align:left;vertical-align:middle;font-size:13px}.modulo-tabla tr.is-contexto{background:#eff8ff;box-shadow:inset 4px 0 #24566d}.modulo-estado{display:inline-block;padding:4px 9px;border-radius:999px;background:#eef2ff;font-weight:700;white-space:nowrap}.modulo-acciones{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.modulo-acciones form{margin:0}.modulo-boton,.modulo-select{padding:8px 10px;border:0;border-radius:8px;font-size:12px;font-weight:700}.modulo-boton{cursor:pointer}.modulo-select{border:1px solid #d4d9dd;background:#fff}.modulo-renovar,.modulo-instalar{background:#dcfce7;color:#166534}.modulo-toggle{background:#ffedd5;color:#9a3412}.modulo-desinstalar{background:#fee2e2;color:#991b1b}.modulo-form-instalar{display:grid;grid-template-columns:minmax(220px,1fr) 150px auto;gap:10px;align-items:end;max-width:850px}.modulo-campo{display:grid;gap:6px}.modulo-campo label{font-weight:700}.modulo-solicitudes{width:100%;border-collapse:collapse}.modulo-solicitudes th,.modulo-solicitudes td{padding:11px 9px;border-bottom:1px solid #eee;text-align:left}@media(max-width:720px){.modulo-form-instalar{grid-template-columns:1fr}.modulo-main{width:calc(100% - 20px)}}
+  </style>
+</head>
+<body>
+  {% include "_admin_nav.html" %}
+  <main class="modulo-main">
+    <a class="modulo-volver" href="{{ url_for('admin_modulos', comercio_id=comercio_contexto_id or None) }}">← Volver a módulos</a>
+    <section class="modulo-cabecera"><p class="titulo-chico">ADMINISTRACIÓN DE MÓDULO</p><h1>{{ modulo.nombre }}</h1><p class="modulo-descripcion">{{ modulo.descripcion_corta }}</p></section>
+
+    {% if error %}<div class="modulo-error">{{ error }}</div>{% endif %}
+    {% if comercio_contexto_estado in ['invalido','no_encontrado'] %}<div class="modulo-error">El comercio indicado no es válido o ya no existe.</div>
+    {% elif comercio_contexto_estado == 'ya_instalado' %}<div class="modulo-aviso"><strong>{{ comercio_contexto.nombre_negocio }}</strong> ya tiene este módulo instalado. Su fila está destacada.</div>
+    {% elif comercio_contexto_estado == 'no_elegible' %}<div class="modulo-aviso"><strong>{{ comercio_contexto.nombre_negocio }}</strong> no es elegible para este módulo.</div>
+    {% elif comercio_preseleccionado_id %}<div class="modulo-aviso"><strong>{{ comercio_contexto.nombre_negocio }}</strong> quedó preseleccionado para la instalación.</div>{% endif %}
+
+    <section class="modulo-seccion">
+      <h2>Comercios con {{ modulo.nombre }}</h2>
+      {% if comercios_instalados %}
+        <div class="modulo-tabla-contenedor"><table class="modulo-tabla"><thead><tr><th>Comercio</th><th>Estado</th><th>Activación</th><th>Vencimiento</th><th>Días restantes</th><th>Período</th><th>Acciones</th></tr></thead><tbody>
+          {% for comercio in comercios_instalados %}
+            {% set formulario_renovar = 'renovar-' ~ comercio.comercio_id ~ '-' ~ modulo.slug %}
+            <tr{% if comercio.comercio_id == comercio_contexto_id %} class="is-contexto"{% endif %}>
+              <td><strong>{{ comercio.comercio_nombre }}</strong><br><small>{{ comercio.categoria }} · {{ comercio.whatsapp }}</small></td><td><span class="modulo-estado">{{ comercio.etiqueta_estado }}</span></td><td>{{ comercio.fecha_activacion_mostrar }}</td><td>{{ comercio.fecha_vencimiento_mostrar }}</td><td>{{ comercio.dias_restantes_texto }}</td>
+              <td><select name="duracion_meses" class="modulo-select" form="{{ formulario_renovar }}"><option value="1">1 mes</option><option value="3">3 meses</option><option value="6">6 meses</option></select></td>
+              <td><div class="modulo-acciones">
+                <form id="{{ formulario_renovar }}" method="POST" action="{{ url_for('admin_activar_renovar_modulo', comercio_id=comercio.comercio_id, slug=modulo.slug) }}" onsubmit="return confirm('¿Renovar el período de {{ modulo.nombre }} para {{ comercio.comercio_nombre }}?');"><input type="hidden" name="origen_admin" value="modulo_detalle" /><input type="hidden" name="comercio_contexto_id" value="{{ comercio_contexto_id }}" /><button type="submit" class="modulo-boton modulo-renovar">Renovar</button></form>
+                <form method="POST" action="{{ url_for('admin_toggle_modulo', comercio_id=comercio.comercio_id, slug=modulo.slug) }}" onsubmit="return confirm('{{ '¿Suspender' if comercio.activo else '¿Reactivar' }} {{ modulo.nombre }} para {{ comercio.comercio_nombre }}?');"><input type="hidden" name="origen_admin" value="modulo_detalle" /><input type="hidden" name="comercio_contexto_id" value="{{ comercio_contexto_id }}" /><button type="submit" class="modulo-boton modulo-toggle">{{ 'Suspender' if comercio.activo else 'Reactivar' }}</button></form>
+                <form method="POST" action="{{ url_for('admin_desinstalar_modulo', comercio_id=comercio.comercio_id, slug=modulo.slug) }}" onsubmit="return confirm('¿Desinstalar {{ modulo.nombre }} de {{ comercio.comercio_nombre }}? Los datos operativos se conservarán.');"><input type="hidden" name="origen_admin" value="modulo_detalle" /><input type="hidden" name="comercio_contexto_id" value="{{ comercio_contexto_id }}" /><button type="submit" class="modulo-boton modulo-desinstalar">Desinstalar</button></form>
+              </div></td>
+            </tr>
+          {% endfor %}
+        </tbody></table></div>
+      {% else %}<p class="modulo-vacio">Todavía no hay comercios con este módulo instalado.</p>{% endif %}
+    </section>
+
+    <section class="modulo-seccion">
+      <h2>Activar este módulo en otro comercio</h2>
+      {% if comercios_disponibles %}
+        <form class="modulo-form-instalar" method="POST" data-form-instalacion data-action-template="{{ url_for('admin_instalar_modulo', comercio_id='COMERCIO_ID', slug=modulo.slug) }}">
+          <input type="hidden" name="origen_admin" value="modulo_detalle" /><input type="hidden" name="comercio_contexto_id" value="{{ comercio_contexto_id }}" />
+          <div class="modulo-campo"><label for="comercio-instalacion">Comercio</label><select id="comercio-instalacion" name="comercio_id_visual" class="modulo-select" data-selector-comercio required>{% for comercio in comercios_disponibles %}<option value="{{ comercio.id }}"{% if comercio.id == comercio_preseleccionado_id %} selected{% endif %}>{{ comercio.nombre_negocio or 'Comercio sin nombre' }} · {{ comercio.categoria or 'Sin categoría' }}</option>{% endfor %}</select></div>
+          <div class="modulo-campo"><label for="duracion-instalacion">Período</label><select id="duracion-instalacion" name="duracion_meses" class="modulo-select"><option value="1">1 mes</option><option value="3">3 meses</option><option value="6">6 meses</option></select></div>
+          <button type="submit" class="modulo-boton modulo-instalar">Instalar</button>
+        </form>
+      {% else %}<p class="modulo-vacio">No hay comercios elegibles pendientes de instalación.</p>{% endif %}
+    </section>
+
+    {% if solicitudes_modulo %}
+      <section class="modulo-seccion"><h2>Solicitudes pendientes</h2><div class="modulo-tabla-contenedor"><table class="modulo-solicitudes"><thead><tr><th>Comercio</th><th>Período</th><th>Acción</th></tr></thead><tbody>
+        {% for solicitud in solicitudes_modulo %}{% set formulario_solicitud = 'solicitud-' ~ solicitud.id %}<tr><td><strong>{{ solicitud.comercio_nombre }}</strong></td>{% if solicitud.slug_modulo and solicitud.id %}<td><select name="duracion_meses" class="modulo-select" form="{{ formulario_solicitud }}"><option value="1">1 mes</option><option value="3">3 meses</option><option value="6">6 meses</option></select></td><td><form id="{{ formulario_solicitud }}" method="POST" action="{{ url_for('admin_instalar_modulo_solicitado', consulta_id=solicitud.id) }}" onsubmit="return confirm('¿Activar {{ modulo.nombre }} para {{ solicitud.comercio_nombre }} y resolver la solicitud?');"><input type="hidden" name="origen_admin" value="modulo_detalle" /><button type="submit" class="modulo-boton modulo-instalar">Activar y resolver</button></form></td>{% else %}<td>-</td><td><span class="modulo-estado">Comercio no elegible</span></td>{% endif %}</tr>{% endfor %}
+      </tbody></table></div></section>
+    {% endif %}
+  </main>
+  <script>
+    (function(){const form=document.querySelector('[data-form-instalacion]');if(!form)return;const selector=form.querySelector('[data-selector-comercio]');const actualizar=function(){form.action=form.dataset.actionTemplate.replace('COMERCIO_ID',encodeURIComponent(selector.value));};selector.addEventListener('change',actualizar);actualizar();})();
+  </script>
+</body>
+</html>

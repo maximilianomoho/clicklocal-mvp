@@ -638,7 +638,7 @@ def test_instalar_rechaza_duracion_invalida(monkeypatch):
 
 
 def test_admin_no_ofrece_instalacion_sin_duracion():
-    plantilla = Path("templates/admin_modulos.html").read_text(encoding="utf-8")
+    plantilla = Path("templates/admin_modulo_detalle.html").read_text(encoding="utf-8")
     assert "'admin_instalar_modulo'" in plantilla
     assert 'name="duracion_meses"' in plantilla
     assert '<option value="1">1 mes</option>' in plantilla

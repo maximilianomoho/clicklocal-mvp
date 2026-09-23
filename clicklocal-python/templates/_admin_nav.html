@@ -165,8 +165,8 @@
 
     <a
       href="{{ url_for('admin_modulos') }}"
-      class="admin-nav-uniforme__enlace{% if endpoint_admin == 'admin_modulos' %} is-active{% endif %}"
-      {% if endpoint_admin == 'admin_modulos' %}aria-current="page"{% endif %}
+      class="admin-nav-uniforme__enlace{% if endpoint_admin in ['admin_modulos', 'admin_modulo_detalle'] %} is-active{% endif %}"
+      {% if endpoint_admin in ['admin_modulos', 'admin_modulo_detalle'] %}aria-current="page"{% endif %}
     >
       Módulos / Verticales
     </a>

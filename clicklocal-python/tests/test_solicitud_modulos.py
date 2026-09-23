@@ -95,22 +95,22 @@ def test_modulo_asignado_no_permite_solicitud(monkeypatch):
 
 def test_solicitudes_modulos_se_excluyen_de_soporte_general():
     contenido_admin = open("templates/admin.html", encoding="utf-8").read()
-    contenido_modulos = open(
-        "templates/admin_modulos.html",
+    contenido_detalle = open(
+        "templates/admin_modulo_detalle.html",
         encoding="utf-8",
     ).read()
     assert "admin_instalar_modulo_solicitado" not in contenido_admin
-    assert "admin_instalar_modulo_solicitado" in contenido_modulos
+    assert "admin_instalar_modulo_solicitado" in contenido_detalle
 
 
 def test_admin_usa_accion_activar_y_resolver():
     contenido = open("templates/admin.html", encoding="utf-8").read()
-    contenido_modulos = open(
-        "templates/admin_modulos.html",
+    contenido_detalle = open(
+        "templates/admin_modulo_detalle.html",
         encoding="utf-8",
     ).read()
-    assert "Activar y resolver" in contenido_modulos
-    assert "admin_instalar_modulo_solicitado" in contenido_modulos
+    assert "Activar y resolver" in contenido_detalle
+    assert "admin_instalar_modulo_solicitado" in contenido_detalle
     assert "<th>Módulos</th>" not in contenido
     assert "admin_toggle_modulo" not in contenido
     assert "admin_instalar_modulo" not in contenido
@@ -120,6 +120,7 @@ def test_templates_panel_y_admin_compilan():
     app_module.app.jinja_env.get_template("panel.html")
     app_module.app.jinja_env.get_template("admin.html")
     app_module.app.jinja_env.get_template("admin_modulos.html")
+    app_module.app.jinja_env.get_template("admin_modulo_detalle.html")
 
 
 class ConsultaResolucionFalsa:
@@ -299,7 +300,7 @@ class SupabaseModulosAdminFalso:
         return ConsultaModulosAdminFalsa(tabla)
 
 
-def test_admin_modulos_incluye_comercio_sin_modulos(monkeypatch):
+def test_admin_modulos_muestra_catalogo_sin_matriz_por_comercio(monkeypatch):
     contexto = {}
     monkeypatch.setattr(
         app_module,
@@ -317,10 +318,240 @@ def test_admin_modulos_incluye_comercio_sin_modulos(monkeypatch):
         respuesta = app_module.admin_modulos()
 
     assert respuesta == "admin_modulos.html"
-    filas = contexto["modulos_comercios"]
-    assert any(
-        fila["comercio_id"] == "comercio-sin-modulos"
-        and fila["slug"] == "turnos"
-        and fila["etiqueta_estado"] == "No instalado"
-        for fila in filas
+    modulos_catalogo = contexto["modulos_catalogo"]
+    assert {modulo["slug"] for modulo in modulos_catalogo} == {
+        slug
+        for slug, modulo in modulos.CATALOGO_MODULOS.items()
+        if modulo.get("disponible")
+    }
+    assert all(modulo["cantidad_instalada"] == 0 for modulo in modulos_catalogo)
+    assert "modulos_comercios" not in contexto
+
+
+def test_admin_modulos_incorpora_catalogo_nuevo_dinamicamente(monkeypatch):
+    monkeypatch.setitem(modulos.CATALOGO_MODULOS, "prueba", {
+        "slug": "prueba",
+        "nombre": "Módulo dinámico",
+        "descripcion_corta": "Prueba",
+        "disponible": True,
+    })
+    contexto = {}
+    monkeypatch.setattr(app_module, "CATALOGO_MODULOS", modulos.CATALOGO_MODULOS)
+    monkeypatch.setattr(app_module, "supabase_admin", SupabaseModulosAdminFalso())
+    monkeypatch.setattr(
+        app_module,
+        "render_template",
+        lambda template, **kwargs: contexto.update(kwargs) or template,
     )
+    with app_module.app.test_request_context("/admin/modulos"):
+        app_module.session["admin_logueado"] = True
+        app_module.admin_modulos()
+
+    assert any(
+        modulo["slug"] == "prueba"
+        for modulo in contexto["modulos_catalogo"]
+    )
+
+
+class ConsultaVistaModulosFalsa:
+    def __init__(self, db, tabla):
+        self.db = db
+        self.tabla = tabla
+        self.filtros = []
+
+    def select(self, *args, **kwargs):
+        return self
+
+    def eq(self, campo, valor):
+        self.filtros.append((campo, valor))
+        return self
+
+    def execute(self):
+        filas = [dict(fila) for fila in self.db.datos.get(self.tabla, [])]
+        for campo, valor in self.filtros:
+            filas = [fila for fila in filas if fila.get(campo) == valor]
+        return SimpleNamespace(data=filas)
+
+
+class SupabaseVistaModulosFalso:
+    def __init__(self, comercios, relaciones=None, solicitudes=None):
+        self.datos = {
+            "comercios": comercios,
+            "comercio_modulos": relaciones or [],
+            "consultas_soporte": solicitudes or [],
+        }
+
+    def table(self, tabla):
+        return ConsultaVistaModulosFalsa(self, tabla)
+
+
+COMERCIO_A = "11111111-1111-1111-1111-111111111111"
+COMERCIO_B = "22222222-2222-2222-2222-222222222222"
+
+
+def _vigencia_activa(*_args):
+    from datetime import date
+    return {
+        "existe": True,
+        "habilitado_manual": True,
+        "estado_vigencia": "activo",
+        "fecha_activacion": date(2026, 9, 1),
+        "fecha_vencimiento": date(2026, 10, 1),
+        "dias_restantes": 8,
+        "acceso_operativo": True,
+        "motivo_bloqueo": None,
+    }
+
+
+def _capturar_detalle(monkeypatch, db, ruta="/admin/modulos/turnos"):
+    contexto = {}
+    monkeypatch.setattr(app_module, "supabase_admin", db)
+    monkeypatch.setattr(app_module, "evaluar_vigencia_modulo", _vigencia_activa)
+    monkeypatch.setattr(
+        app_module,
+        "render_template",
+        lambda template, **kwargs: contexto.update(kwargs) or template,
+    )
+    with app_module.app.test_request_context(ruta):
+        app_module.session["admin_logueado"] = True
+        respuesta = app_module.admin_modulo_detalle("turnos")
+    return respuesta, contexto
+
+
+def test_detalle_muestra_solo_relaciones_del_modulo(monkeypatch):
+    comercios = [
+        {"id": COMERCIO_A, "nombre_negocio": "A", "categoria": "Servicios"},
+        {"id": COMERCIO_B, "nombre_negocio": "B", "categoria": "Servicios"},
+    ]
+    relaciones = [
+        {"comercio_id": COMERCIO_A, "modulo": "turnos", "activo": True},
+        {"comercio_id": COMERCIO_B, "modulo": "contenido", "activo": True},
+    ]
+    _, contexto = _capturar_detalle(
+        monkeypatch,
+        SupabaseVistaModulosFalso(comercios, relaciones),
+    )
+
+    assert [fila["comercio_id"] for fila in contexto["comercios_instalados"]] == [COMERCIO_A]
+    assert [comercio["id"] for comercio in contexto["comercios_disponibles"]] == [COMERCIO_B]
+
+
+def test_comercio_contexto_preselecciona_o_destaca(monkeypatch):
+    comercios = [
+        {"id": COMERCIO_A, "nombre_negocio": "A", "categoria": "Servicios"},
+        {"id": COMERCIO_B, "nombre_negocio": "B", "categoria": "Servicios"},
+    ]
+    db = SupabaseVistaModulosFalso(comercios)
+    _, contexto = _capturar_detalle(
+        monkeypatch,
+        db,
+        f"/admin/modulos/turnos?comercio_id={COMERCIO_B}",
+    )
+    assert contexto["comercio_preseleccionado_id"] == COMERCIO_B
+
+    db_instalado = SupabaseVistaModulosFalso(comercios, [{
+        "comercio_id": COMERCIO_A,
+        "modulo": "turnos",
+        "activo": True,
+    }])
+    _, contexto = _capturar_detalle(
+        monkeypatch,
+        db_instalado,
+        f"/admin/modulos/turnos?comercio_id={COMERCIO_A}",
+    )
+    assert contexto["comercio_contexto_estado"] == "ya_instalado"
+    assert COMERCIO_A not in {
+        comercio["id"] for comercio in contexto["comercios_disponibles"]
+    }
+
+
+def test_comercio_contexto_invalido_no_se_usa(monkeypatch):
+    _, contexto = _capturar_detalle(
+        monkeypatch,
+        SupabaseVistaModulosFalso([]),
+        "/admin/modulos/turnos?comercio_id=no-es-uuid",
+    )
+    assert contexto["comercio_contexto_id"] == ""
+    assert contexto["comercio_contexto_estado"] == "invalido"
+
+
+def test_pos_respeta_elegibilidad_de_categoria(monkeypatch):
+    comercios = [
+        {"id": COMERCIO_A, "nombre_negocio": "Gastro", "categoria": "Gastronomía"},
+        {"id": COMERCIO_B, "nombre_negocio": "Servicio", "categoria": "Servicios"},
+    ]
+    contexto = {}
+    monkeypatch.setattr(
+        app_module,
+        "supabase_admin",
+        SupabaseVistaModulosFalso(comercios),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "render_template",
+        lambda template, **kwargs: contexto.update(kwargs) or template,
+    )
+    with app_module.app.test_request_context("/admin/modulos/pos"):
+        app_module.session["admin_logueado"] = True
+        app_module.admin_modulo_detalle("pos")
+    assert [comercio["id"] for comercio in contexto["comercios_disponibles"]] == [COMERCIO_A]
+
+
+def test_solicitudes_se_agrupan_y_no_identificadas_se_conservan(monkeypatch):
+    comercios = [{
+        "id": COMERCIO_A,
+        "nombre_negocio": "A",
+        "categoria": "Servicios",
+    }]
+    solicitudes = [
+        {"id": "s1", "estado": "pendiente", "origen": "catalogo_modulos", "motivo": "Activación de Gestión de turnos", "comercio_id": COMERCIO_A},
+        {"id": "s2", "estado": "pendiente", "origen": "catalogo_modulos", "motivo": "Activación de Módulo retirado", "comercio_id": COMERCIO_A},
+    ]
+    contexto = {}
+    monkeypatch.setattr(
+        app_module,
+        "supabase_admin",
+        SupabaseVistaModulosFalso(comercios, solicitudes=solicitudes),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "render_template",
+        lambda template, **kwargs: contexto.update(kwargs) or template,
+    )
+    with app_module.app.test_request_context("/admin/modulos"):
+        app_module.session["admin_logueado"] = True
+        app_module.admin_modulos()
+    turnos = next(
+        modulo for modulo in contexto["modulos_catalogo"]
+        if modulo["slug"] == "turnos"
+    )
+    assert turnos["solicitudes_pendientes"] == 1
+    assert [s["id"] for s in contexto["solicitudes_no_identificadas"]] == ["s2"]
+
+
+def test_admin_comercios_enlaza_al_mismo_flujo_de_modulos():
+    plantilla = open("templates/admin_comercios.html", encoding="utf-8").read()
+    assert "url_for('admin_modulos', comercio_id=c.id)" in plantilla
+    assert ">Módulos</a>" in plantilla
+
+
+def test_rutas_get_modulos_requieren_admin():
+    cliente = app_module.app.test_client()
+    assert cliente.get("/admin/modulos").status_code == 302
+    assert cliente.get("/admin/modulos/turnos").status_code == 302
+
+
+def test_retorno_controlado_de_acciones_vuelve_al_detalle():
+    for ruta in (
+        f"/admin/comercios/{COMERCIO_A}/modulos/turnos/activar-renovar",
+        f"/admin/comercios/{COMERCIO_A}/modulos/turnos/toggle",
+        f"/admin/comercios/{COMERCIO_A}/modulos/turnos/desinstalar",
+    ):
+        with app_module.app.test_request_context(
+            ruta,
+            method="POST",
+            data={"origen_admin": "modulo_detalle"},
+        ):
+            app_module.app.preprocess_request()
+            destino = app_module._url_retorno_accion_modulo(ok="1")
+        assert destino == "/admin/modulos/turnos?ok=1"
