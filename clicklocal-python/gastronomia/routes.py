@@ -38,7 +38,7 @@ from .services.pedidos import (
 )
 
 
-LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA = 30
+LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA = 70
 
 
 def _limite_productos_gastronomia_alcanzado(cantidad_activos):
@@ -2870,7 +2870,8 @@ def panel_gastronomia(panel_seccion="productos"):
 
     if request.args.get("limite_productos") == "1":
         error_producto = (
-            "Gastronomía permite hasta 30 productos activos. "
+            "Gastronomía permite hasta "
+            f"{LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA} productos activos. "
             "Pausá otro producto para activar uno nuevo."
         )
 
@@ -2919,7 +2920,8 @@ def panel_gastronomia(panel_seccion="productos"):
             )
         ):
             error_producto = (
-                "Gastronomía permite hasta 30 productos activos. "
+                "Gastronomía permite hasta "
+                f"{LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA} productos activos. "
                 "Pausá otro producto para activar uno nuevo."
             )
 

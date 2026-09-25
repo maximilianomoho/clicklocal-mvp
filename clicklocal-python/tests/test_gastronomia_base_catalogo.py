@@ -85,20 +85,43 @@ def _reactivar_con(cantidad_activos):
     return respuesta, db
 
 
-def test_base_permite_reactivar_producto_numero_30():
-    assert not _limite_productos_gastronomia_alcanzado(29)
-    respuesta, db = _reactivar_con(29)
+def test_base_permite_llegar_al_limite_de_productos_activos():
+    cantidad_previa = LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA - 1
+    assert not _limite_productos_gastronomia_alcanzado(cantidad_previa)
+    respuesta, db = _reactivar_con(cantidad_previa)
     assert respuesta.status_code == 302
     assert "limite_productos" not in respuesta.location
     assert db.actualizacion == {"activo": True}
 
 
-def test_base_rechaza_superar_30_productos_activos():
-    assert _limite_productos_gastronomia_alcanzado(30)
-    respuesta, db = _reactivar_con(30)
+def test_base_bloquea_creacion_y_reactivacion_al_alcanzar_limite():
+    assert _limite_productos_gastronomia_alcanzado(
+        LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA
+    )
+    respuesta, db = _reactivar_con(
+        LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA
+    )
     assert respuesta.status_code == 302
     assert "limite_productos=1" in respuesta.location
     assert db.actualizacion is None
+
+    rutas = Path("gastronomia/routes.py").read_text(encoding="utf-8")
+    bloque_panel = rutas.split("def panel_gastronomia(", 1)[1]
+    bloque_creacion = bloque_panel.split(
+        'if request.method == "POST":', 1
+    )[1].split("if not error_producto:", 1)[0]
+    assert "_limite_productos_gastronomia_alcanzado(" in bloque_creacion
+    assert "cantidad_productos_activos" in bloque_creacion
+
+
+def test_limite_cuenta_activos_y_no_pausados_sin_mirar_disponibilidad():
+    rutas = Path("gastronomia/routes.py").read_text(encoding="utf-8")
+    bloque_conteo = rutas.split(
+        "cantidad_productos_activos = sum(", 1
+    )[1].split("for producto in productos:", 1)[0]
+
+    assert 'if bool(producto.get("activo"))' in bloque_conteo
+    assert "disponible" not in bloque_conteo
 
 
 def test_modelo_catalogo_gastronomico_no_conserva_premium():
@@ -106,7 +129,7 @@ def test_modelo_catalogo_gastronomico_no_conserva_premium():
     rutas = (raiz / "gastronomia/routes.py").read_text(encoding="utf-8")
     panel = (raiz / "templates/gastronomia/panel.html").read_text(encoding="utf-8")
 
-    assert LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA == 30
+    assert LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA == 70
     for texto in (
         "Gastronomía Premium",
         "Tu plan actual: Gratis",
