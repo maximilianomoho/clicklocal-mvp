@@ -349,9 +349,10 @@ def inicio():
             .table("comercios")
             .select(
                 "id,nombre_negocio,categoria,descripcion,"
-                "logo_url,direccion,whatsapp"
+                "logo_url,direccion,whatsapp,activo"
             )
             .in_("id", comercio_ids)
+            .eq("activo", True)
             .execute()
         )
 
@@ -378,15 +379,12 @@ def inicio():
         # ====================================================
         # CLICKLOCAL GASTRONOMIA - TEXTO BUSCABLE POR COMERCIO
         # Permite encontrar un comercio por cualquiera de sus
-        # productos activos y disponibles.
+        # productos activos.
         # ====================================================
 
         productos_busqueda_por_comercio = {}
 
         for producto in productos:
-            if not producto.get("disponible"):
-                continue
-
             comercio_id_producto = str(
                 producto.get("comercio_id") or ""
             )
@@ -460,6 +458,28 @@ def inicio():
         str(comercio.get("id")): comercio.get("nombre_negocio")
         for comercio in comercios_gastronomicos
     }
+
+    productos_busqueda = []
+
+    for producto in productos if comercio_ids else []:
+        comercio_id = str(producto.get("comercio_id") or "")
+        comercio_nombre = nombre_comercio_por_id.get(comercio_id)
+
+        if not comercio_nombre:
+            continue
+
+        productos_busqueda.append({
+            "id": producto.get("id"),
+            "comercio_id": comercio_id,
+            "comercio_nombre": comercio_nombre,
+            "nombre": producto.get("nombre"),
+            "descripcion": producto.get("descripcion"),
+            "imagen_url": producto.get("imagen_url"),
+            "precio_mostrar": _formatear_precio(
+                producto.get("precio")
+            ),
+            "disponible": bool(producto.get("disponible")),
+        })
 
     destacados_gastronomicos = []
     promos_gastronomicas = []
@@ -565,6 +585,7 @@ def inicio():
     return render_template(
         "gastronomia/inicio.html",
         comercios_gastronomicos=comercios_gastronomicos,
+        productos_busqueda=productos_busqueda,
         destacados_gastronomicos=destacados_gastronomicos,
         promos_gastronomicas=promos_gastronomicas,
         busqueda=busqueda,

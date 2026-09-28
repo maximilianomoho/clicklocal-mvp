@@ -934,6 +934,20 @@ input{
   color:var(--muted);
 }
 
+.menu-search-empty{
+  margin-bottom:18px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:17px;
+  padding:18px;
+  color:var(--muted);
+  text-align:center;
+}
+
+.menu-search-empty[hidden]{
+  display:none;
+}
+
 
 
 /* ==========================================================
@@ -2660,6 +2674,16 @@ input{
 
       </div>
 
+      <div
+        id="menuSearchEmpty"
+        class="menu-search-empty"
+        role="status"
+        aria-live="polite"
+        hidden
+      >
+        No encontramos productos con esa búsqueda.
+      </div>
+
 
       {% if ns.destacados %}
 
@@ -3235,6 +3259,7 @@ input{
 {% endfor %}
 
 
+<script src="{{ url_for('static', filename='gastronomia/busqueda.js') }}"></script>
 <script>
 
 const carrito = {};
@@ -6441,27 +6466,35 @@ function compartirPagina(){
 
 
 const buscador = document.getElementById("menuSearch");
+const mensajeBusquedaVacia =
+  document.getElementById("menuSearchEmpty");
+const busquedaMenu = window.GastronomiaBusqueda;
 
-if(buscador){
+if(buscador && busquedaMenu){
 
   buscador.addEventListener("input", function(){
 
-    const texto = this.value
-      .trim()
-      .toLowerCase();
+    const texto = busquedaMenu.normalizar(this.value);
 
     const productos =
       document.querySelectorAll("[data-product]");
 
+    let coincidencias = 0;
+
     productos.forEach(function(producto){
 
-      const nombre =
-        producto.dataset.name || "";
+      const mostrar =
+        busquedaMenu.coincide(
+          texto,
+          producto.dataset.name || ""
+        );
 
       producto.style.display =
-        !texto || nombre.includes(texto)
-          ? ""
-          : "none";
+        mostrar ? "" : "none";
+
+      if(mostrar){
+        coincidencias += 1;
+      }
 
     });
 
@@ -6486,6 +6519,11 @@ if(buscador){
         }
 
       });
+
+    if(mensajeBusquedaVacia){
+      mensajeBusquedaVacia.hidden =
+        !texto || coincidencias > 0;
+    }
 
   });
 

@@ -287,6 +287,36 @@
       line-height: 1.5;
     }
 
+    .gastro-compartir {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 18px;
+      padding: 10px 16px;
+      border: 1px solid var(--bordo);
+      border-radius: 12px;
+      background: rgba(255,255,255,.92);
+      color: var(--bordo);
+      box-shadow: 0 8px 22px rgba(83,35,16,.08);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease;
+    }
+
+    .gastro-compartir:hover,
+    .gastro-compartir:focus-visible {
+      border-color: var(--bordo-oscuro);
+      color: var(--bordo-oscuro);
+      transform: translateY(-2px);
+    }
+
+    .gastro-compartir-feedback {
+      min-width: 0;
+    }
+
 
     .buscador {
       max-width: 570px;
@@ -723,6 +753,33 @@
       font-size: 14px;
     }
 
+    .resultados-productos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .resultado-producto {
+      box-shadow: 0 5px 15px rgba(51,35,25,.045);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .resultado-producto:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(51,35,25,.10);
+    }
+
+    .resultado-producto-placeholder {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #eee2d6, #d9c7b7);
+      color: var(--bordo);
+      font-size: 38px;
+      font-weight: 900;
+    }
+
 
     /* =========================================================
        PROMOS REALES
@@ -947,6 +1004,10 @@
         display: none;
       }
 
+      .gastro-compartir {
+        margin-top: 14px;
+      }
+
 
       .buscador {
         margin-top: 20px;
@@ -1037,6 +1098,11 @@
       .comercios-grid {
         grid-template-columns: 1fr;
 
+        gap: 14px;
+      }
+
+      .resultados-productos-grid {
+        grid-template-columns: 1fr;
         gap: 14px;
       }
 
@@ -1467,6 +1533,15 @@
             su menú antes de elegir.
           </p>
 
+          <button
+            type="button"
+            class="gastro-compartir"
+            data-compartir
+            data-share-title="Gastronomía | ClickLocal"
+            data-share-text="Descubrí la gastronomía de Paraná en ClickLocal 🍔🍕"
+            data-share-url="https://clicklocal.com.ar/gastronomia/"
+          ><span aria-hidden="true">↗</span> <span class="gastro-compartir-feedback" aria-live="polite">Compartir</span></button>
+
 
           <form
             id="gastroSearchForm"
@@ -1575,7 +1650,7 @@
          FILTROS VISUALES
          ===================================================== -->
 
-    <div class="filtros">
+    <div class="filtros" data-gastro-normal>
 
       <span class="filtro activo">
         Todos
@@ -1613,6 +1688,107 @@
 
 
     <!-- =====================================================
+         RESULTADOS DE PRODUCTOS
+         ===================================================== -->
+
+    <section
+      class="seccion"
+      id="resultadosProductos"
+      hidden
+    >
+
+      <div class="seccion-header">
+
+        <div>
+
+          <p class="seccion-eyebrow">
+            RESULTADOS EN MENÚS
+          </p>
+
+          <h2 class="seccion-titulo">
+            Productos encontrados
+          </h2>
+
+          <p class="seccion-bajada">
+            Entrá al comercio para ver su menú completo.
+          </p>
+
+        </div>
+
+      </div>
+
+      <div
+        class="resultados-productos-grid"
+        id="resultadosProductosGrid"
+      >
+
+        {% for producto in productos_busqueda %}
+
+          <a
+            class="promo resultado-producto"
+            data-producto-resultado
+            data-comercio-id="{{ producto.comercio_id }}"
+            data-producto-search="{{ (producto.nombre ~ ' ' ~ (producto.descripcion or '')) | e }}"
+            href="{{ url_for(
+              'gastronomia.comercio_gastronomico',
+              comercio_id=producto.comercio_id
+            ) }}"
+          >
+
+            <div class="promo-foto">
+
+              {% if producto.imagen_url %}
+
+                <img
+                  src="{{ producto.imagen_url }}"
+                  alt="{{ producto.nombre }}"
+                  loading="lazy"
+                >
+
+              {% else %}
+
+                <div class="resultado-producto-placeholder" aria-hidden="true">
+                  {{ (producto.nombre or 'P')[:1] | upper }}
+                </div>
+
+              {% endif %}
+
+            </div>
+
+            <div class="promo-cuerpo">
+
+              <p class="promo-negocio">
+                {{ producto.comercio_nombre }}
+              </p>
+
+              <h3 class="promo-nombre">
+                {{ producto.nombre }}
+              </h3>
+
+              <div class="promo-precio">
+                {{ producto.precio_mostrar }}
+              </div>
+
+            </div>
+
+          </a>
+
+        {% endfor %}
+
+      </div>
+
+      <div
+        class="gastro-sin-resultados-busqueda"
+        id="productosSinResultados"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <!-- =====================================================
          COMERCIOS REALES
          ===================================================== -->
 
@@ -1620,6 +1796,7 @@
     <section
       class="seccion"
       id="lugares"
+      data-gastro-normal
     >
 
       <div class="seccion-header">
@@ -1770,6 +1947,7 @@
       <section
         class="seccion"
         id="destacados"
+        data-gastro-normal
       >
 
         <div class="seccion-header">
@@ -1856,6 +2034,7 @@
       <section
         class="seccion"
         id="promos"
+        data-gastro-normal
       >
 
         <div class="seccion-header">
@@ -1951,6 +2130,7 @@
 
 
 
+<script src="{{ url_for('static', filename='gastronomia/busqueda.js') }}"></script>
 <script>
 /* CLICKLOCAL GASTRONOMIA - BUSCADOR REAL + VOZ V1 JS */
 document.addEventListener("DOMContentLoaded", function(){
@@ -1967,83 +2147,116 @@ document.addEventListener("DOMContentLoaded", function(){
   const estadoVoz =
     document.getElementById("gastroVoiceStatus");
 
-  const grilla =
-    document.querySelector(".comercios-grid");
+  const seccionResultados =
+    document.getElementById("resultadosProductos");
 
-  if(!formulario || !entrada || !grilla){
+  const grillaResultados =
+    document.getElementById("resultadosProductosGrid");
+
+  const mensajeSinResultados =
+    document.getElementById("productosSinResultados");
+
+  const contenidoNormal =
+    Array.from(document.querySelectorAll("[data-gastro-normal]"));
+
+  const tarjetasProductos =
+    Array.from(document.querySelectorAll("[data-producto-resultado]"));
+
+  const busqueda = window.GastronomiaBusqueda;
+
+  if(
+    !formulario ||
+    !entrada ||
+    !seccionResultados ||
+    !grillaResultados ||
+    !mensajeSinResultados ||
+    !busqueda
+  ){
     return;
   }
 
-  function normalizar(texto){
-    return String(texto || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim();
-  }
+  function intercalarPorComercio(tarjetas){
+    const grupos = new Map();
 
-  let mensajeSinResultados = null;
+    tarjetas.forEach(function(tarjeta){
+      const comercioId = tarjeta.dataset.comercioId || "";
+
+      if(!grupos.has(comercioId)){
+        grupos.set(comercioId, []);
+      }
+
+      grupos.get(comercioId).push(tarjeta);
+    });
+
+    const gruposProductos = Array.from(grupos.values());
+    const intercaladas = [];
+    const maximoPorComercio = Math.max(
+      0,
+      ...gruposProductos.map(function(grupo){
+        return grupo.length;
+      })
+    );
+
+    for(let vuelta = 0; vuelta < maximoPorComercio; vuelta += 1){
+      gruposProductos.forEach(function(grupo){
+        if(grupo[vuelta]){
+          intercaladas.push(grupo[vuelta]);
+        }
+      });
+    }
+
+    return intercaladas;
+  }
 
   function filtrarGastronomia(){
 
-    const texto = normalizar(entrada.value);
+    const texto = busqueda.normalizar(entrada.value);
+    const buscando = Boolean(texto);
 
-    const tarjetas =
-      Array.from(
-        document.querySelectorAll(
-          ".comercio-card[data-gastro-search]"
-        )
-      );
-
-    let visibles = 0;
-
-    tarjetas.forEach(function(tarjeta){
-
-      const contenido =
-        normalizar(
-          tarjeta.dataset.gastroSearch || ""
-        );
-
-      const mostrar =
-        !texto || contenido.includes(texto);
-
-      tarjeta.style.display =
-        mostrar ? "" : "none";
-
-      if(mostrar){
-        visibles += 1;
-      }
-
+    contenidoNormal.forEach(function(elemento){
+      elemento.style.display = buscando ? "none" : "";
     });
 
-    if(!mensajeSinResultados){
-      mensajeSinResultados =
-        document.createElement("div");
+    seccionResultados.hidden = !buscando;
 
-      mensajeSinResultados.className =
-        "gastro-sin-resultados-busqueda";
-
+    if(!buscando){
+      tarjetasProductos.forEach(function(tarjeta){
+        tarjeta.style.display = "";
+      });
       mensajeSinResultados.hidden = true;
+      return;
+    }
 
-      grilla.appendChild(
-        mensajeSinResultados
+    const coincidentes = tarjetasProductos.filter(function(tarjeta){
+      return busqueda.coincide(
+        texto,
+        tarjeta.dataset.productoSearch || ""
       );
-    }
+    });
 
-    if(texto && visibles === 0){
+    const coincidentesSet = new Set(coincidentes);
+    const intercaladas = intercalarPorComercio(coincidentes);
+    const noCoincidentes = tarjetasProductos.filter(function(tarjeta){
+      return !coincidentesSet.has(tarjeta);
+    });
 
-      mensajeSinResultados.textContent =
-        'No encontramos "' +
-        entrada.value.trim() +
-        '" en los menús disponibles.';
+    tarjetasProductos.forEach(function(tarjeta){
+      tarjeta.style.display = coincidentesSet.has(tarjeta)
+        ? ""
+        : "none";
+    });
 
-      mensajeSinResultados.hidden = false;
+    grillaResultados.replaceChildren(
+      ...intercaladas,
+      ...noCoincidentes
+    );
 
-    }else{
+    mensajeSinResultados.textContent =
+      'No encontramos "' +
+      entrada.value.trim() +
+      '" en los menús disponibles.';
 
-      mensajeSinResultados.hidden = true;
-
-    }
+    mensajeSinResultados.hidden = coincidentes.length > 0;
   }
 
   entrada.addEventListener(
@@ -2051,22 +2264,16 @@ document.addEventListener("DOMContentLoaded", function(){
     filtrarGastronomia
   );
 
-  // Si llegamos desde el buscador general con ?q=,
-  // aplicamos también el filtro a las tarjetas de comercios.
+  // Si llegamos con ?q=, mostramos directamente los productos.
   if(entrada.value.trim()){
     filtrarGastronomia();
 
-    const lugares =
-      document.getElementById("lugares");
-
-    if(lugares){
-      setTimeout(function(){
-        lugares.scrollIntoView({
-          behavior:"smooth",
-          block:"start"
-        });
-      }, 100);
-    }
+    setTimeout(function(){
+      seccionResultados.scrollIntoView({
+        behavior:"smooth",
+        block:"start"
+      });
+    }, 100);
   }
 
   formulario.addEventListener(
@@ -2241,6 +2448,80 @@ document.addEventListener("DOMContentLoaded", function(){
   };
 
 });
+</script>
+
+<script>
+(function(){
+  var boton = document.querySelector("[data-compartir]");
+  if(!boton){
+    return;
+  }
+
+  var feedback = boton.querySelector(".gastro-compartir-feedback");
+  var textoOriginal = feedback.textContent;
+  var temporizadorFeedback;
+
+  function mostrarFeedback(texto){
+    window.clearTimeout(temporizadorFeedback);
+    feedback.textContent = texto;
+    temporizadorFeedback = window.setTimeout(function(){
+      feedback.textContent = textoOriginal;
+    }, 2200);
+  }
+
+  async function copiarEnlace(url){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      try {
+        await navigator.clipboard.writeText(url);
+        return;
+      } catch(error) {
+        // Algunos navegadores exponen la API pero bloquean su uso.
+      }
+    }
+
+    var campoTemporal = document.createElement("textarea");
+    campoTemporal.value = url;
+    campoTemporal.setAttribute("readonly", "");
+    campoTemporal.style.position = "fixed";
+    campoTemporal.style.opacity = "0";
+    document.body.appendChild(campoTemporal);
+    campoTemporal.select();
+    campoTemporal.setSelectionRange(0, campoTemporal.value.length);
+
+    var copiado = document.execCommand("copy");
+    campoTemporal.remove();
+
+    if(!copiado){
+      throw new Error("No se pudo copiar el enlace");
+    }
+  }
+
+  boton.addEventListener("click", async function(){
+    var datos = {
+      title: boton.dataset.shareTitle || document.title,
+      text: boton.dataset.shareText || "",
+      url: boton.dataset.shareUrl || window.location.href
+    };
+
+    if(navigator.share){
+      try {
+        await navigator.share(datos);
+        return;
+      } catch(error) {
+        if(error && error.name === "AbortError"){
+          return;
+        }
+      }
+    }
+
+    try {
+      await copiarEnlace(datos.url);
+      mostrarFeedback("Enlace copiado");
+    } catch(error) {
+      mostrarFeedback("No se pudo copiar");
+    }
+  });
+})();
 </script>
 
 </body>

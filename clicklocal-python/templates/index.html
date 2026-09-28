@@ -15,12 +15,21 @@
   <link rel="stylesheet" href="/styles.css" />
 
 <style>
-  .clickjuegos-acceso-portada {
+  .accesos-directos-portada {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .clickjuegos-acceso-portada,
+  .gastronomia-acceso-portada {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-top: 18px;
     padding: 11px 16px;
     border: 1px solid rgba(255, 255, 255, 0.72);
     border-radius: 999px;
@@ -33,9 +42,31 @@
   }
 
   .clickjuegos-acceso-portada:hover,
-  .clickjuegos-acceso-portada:focus-visible {
+  .clickjuegos-acceso-portada:focus-visible,
+  .gastronomia-acceso-portada:hover,
+  .gastronomia-acceso-portada:focus-visible {
     background: #ffffff;
     color: #8f3d00;
+  }
+
+  .gastronomia-acceso-portada {
+    border-color: #7A1F2B;
+    background: #7A1F2B;
+    color: #ffffff;
+  }
+
+  .gastronomia-acceso-portada:hover,
+  .gastronomia-acceso-portada:focus-visible {
+    border-color: #5B1720;
+    background: #5B1720;
+    color: #ffffff;
+  }
+
+  @media (max-width: 430px) {
+    .accesos-directos-portada {
+      align-items: stretch;
+      flex-direction: column;
+    }
   }
 
   .respuesta-buscador {
@@ -3326,13 +3357,23 @@ html {
         aria-live="polite"
       ></p>
 
-      <a
-        href="{{ url_for('juegos.inicio') }}"
-        class="clickjuegos-acceso-portada"
-      >
-        <span aria-hidden="true">🎮</span>
-        Jugar en ClickJuegos
-      </a>
+      <div class="accesos-directos-portada">
+        <a
+          href="{{ url_for('gastronomia.inicio') }}"
+          class="gastronomia-acceso-portada"
+        >
+          <span aria-hidden="true">🍴</span>
+          Ver Gastronomía
+        </a>
+
+        <a
+          href="{{ url_for('juegos.inicio') }}"
+          class="clickjuegos-acceso-portada"
+        >
+          <span aria-hidden="true">🎮</span>
+          Jugar en ClickJuegos
+        </a>
+      </div>
       <!-- FIN CLICKLOCAL: MICROFONO BUSCADOR V2 -->
 
 <!-- CLICKLOCAL: MACROCATEGORIAS CHIPS B1 V1 -->
