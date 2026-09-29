@@ -6,6 +6,8 @@
 .mi-negocio-lateral-link{display:block;box-sizing:border-box;width:100%;padding:13px 15px;border-radius:12px;color:#374151;font-weight:800;line-height:1.25;text-decoration:none;overflow-wrap:anywhere}
 .mi-negocio-lateral-link:hover{background:#eaf6ff;color:#0369a1}
 .mi-negocio-lateral-link--publico{border-bottom:1px solid #e5e7eb;border-radius:12px 12px 4px 4px;padding-bottom:16px}
+.mi-negocio-lateral-link--promocionar{appearance:none;border:0;background:#f4e9e5;color:#681823;font:inherit;text-align:left;cursor:pointer}
+.mi-negocio-lateral-link--promocionar:hover{background:#ead6d9;color:#53131c}
 .mi-negocio-nav{width:100%;border:1px solid #e0d7d3;border-radius:12px;background:#fff;overflow:hidden}
 .mi-negocio-nav summary{cursor:pointer;font-weight:900;padding:13px 16px;list-style:none}
 .mi-negocio-nav summary::-webkit-details-marker{display:none}
@@ -43,6 +45,23 @@
 .gastro-config-grupo>h3{margin-top:0}
 .gastro-productos .acciones-publicacion{align-items:flex-start}
 .gastro-productos .acciones-publicacion form:last-child button{color:#9b1c2c;border-color:#d9a8ae}
+.promocionar-menu-abierto{overflow:hidden}
+.promocionar-menu-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
+.promocionar-menu-modal[hidden]{display:none}
+.promocionar-menu-modal__fondo{position:absolute;inset:0;background:rgba(35,31,32,.64)}
+.promocionar-menu-modal__contenido{position:relative;z-index:1;box-sizing:border-box;width:min(560px,100%);max-height:calc(100vh - 40px);overflow-y:auto;border:1px solid #e0d7d3;border-radius:18px;background:#fff;padding:24px;box-shadow:0 24px 70px rgba(35,31,32,.28)}
+.promocionar-menu-modal__encabezado{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.promocionar-menu-modal__encabezado h2{margin:4px 0 0;color:#231f20;font-size:clamp(22px,4vw,28px)}
+.promocionar-menu-modal__cerrar{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:38px;height:38px;border:1px solid #d8cfcb;border-radius:50%;background:#fff;color:#4f4542;font:inherit;font-size:26px;line-height:1;cursor:pointer}
+.promocionar-menu-modal__cerrar:hover{background:#f8f5f4;color:#681823}
+.promocionar-menu-modal__cerrar:focus-visible{outline:3px solid rgba(104,24,35,.2);outline-offset:2px}
+.promocionar-menu-modal__descripcion{margin:14px 0 20px;color:#6b6461;line-height:1.5}
+.promocionar-menu-modal__acciones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.promocionar-menu-instagram{margin-top:22px;padding-top:20px;border-top:1px solid #e5e0de}
+.promocionar-menu-instagram h3{margin:0 0 8px;color:#231f20}
+.promocionar-menu-instagram p{margin:0 0 16px;color:#6b6461;line-height:1.55}
+.promocionar-menu-modal__feedback{min-height:24px;margin:16px 0 0;color:#166534;font-weight:800;text-align:center}
+.promocionar-menu-modal__pie{display:flex;justify-content:flex-end;margin-top:4px}
 @media(max-width:760px){
   .panel-menu>.mi-negocio-lateral{flex:0 0 100%;width:100%}
   .mi-negocio-lateral{gap:6px}
@@ -52,4 +71,9 @@
   .gastro-nav{overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
   .gastro-nav .panel-menu-link{flex:0 0 auto;white-space:nowrap}
   .gastro-nav-publico{align-self:flex-start;padding-left:2px}
+  .promocionar-menu-modal{align-items:flex-end;padding:12px}
+  .promocionar-menu-modal__contenido{max-height:calc(100vh - 24px);padding:20px;border-radius:18px 18px 12px 12px}
+  .promocionar-menu-modal__acciones{grid-template-columns:1fr}
+  .promocionar-menu-modal__acciones .mi-negocio-btn,.promocionar-menu-instagram .mi-negocio-btn,.promocionar-menu-modal__pie .mi-negocio-btn{width:100%}
+  .promocionar-menu-modal__pie{justify-content:stretch}
 }

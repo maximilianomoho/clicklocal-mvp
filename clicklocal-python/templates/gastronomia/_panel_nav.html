@@ -1,8 +1,16 @@
+{% set menu_publico_url = 'https://clicklocal.com.ar' ~ url_for('gastronomia.comercio_gastronomico', comercio_id=comercio.id) %}
+
 {% if panel_seccion in ('productos', 'configuracion', 'plan', 'pedidos', 'ventas') %}
 <div class="mi-negocio-lateral">
   <a href="{{ url_for('gastronomia.comercio_gastronomico', comercio_id=comercio.id) }}"
      class="mi-negocio-lateral-link mi-negocio-lateral-link--publico"
      target="_blank" rel="noopener noreferrer">Ver menú público ↗</a>
+
+  <button
+    type="button"
+    class="mi-negocio-lateral-link mi-negocio-lateral-link--promocionar"
+    data-promocionar-menu-abrir
+  >📣 Promocionar mi menú</button>
 
   <details class="mi-negocio-nav pedidos-nav"{% if panel_seccion == 'pedidos' %} open{% endif %}>
     <summary>Pedidos</summary>
@@ -62,6 +70,11 @@
      class="gastro-nav-publico" target="_blank" rel="noopener noreferrer">
     Ver menú público ↗
   </a>
+  <button
+    type="button"
+    class="mi-negocio-lateral-link mi-negocio-lateral-link--promocionar"
+    data-promocionar-menu-abrir
+  >📣 Promocionar mi menú</button>
 </div>
 
 <details class="mi-negocio-nav"{% if panel_seccion in ('productos', 'configuracion', 'plan') %} open{% endif %}>
@@ -79,3 +92,177 @@
   </nav>
 </details>
 {% endif %}
+
+<div
+  id="promocionarMenuModal"
+  class="promocionar-menu-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="promocionarMenuTitulo"
+  hidden
+>
+  <div class="promocionar-menu-modal__fondo" data-promocionar-menu-cerrar></div>
+
+  <section class="promocionar-menu-modal__contenido">
+    <div class="promocionar-menu-modal__encabezado">
+      <div>
+        <p class="titulo-chico">DIFUNDÍ TU NEGOCIO</p>
+        <h2 id="promocionarMenuTitulo">📣 Promocionar mi menú</h2>
+      </div>
+
+      <button
+        type="button"
+        class="promocionar-menu-modal__cerrar"
+        data-promocionar-menu-cerrar
+        aria-label="Cerrar"
+      >×</button>
+    </div>
+
+    <p class="promocionar-menu-modal__descripcion">
+      Compartí tu menú para que tus clientes puedan verlo y hacer su pedido.
+    </p>
+
+    <div class="promocionar-menu-modal__acciones">
+      <button
+        type="button"
+        class="mi-negocio-btn mi-negocio-btn--primario"
+        data-promocionar-copiar="enlace"
+      >🔗 Copiar enlace</button>
+
+      <button
+        type="button"
+        class="mi-negocio-btn mi-negocio-btn--secundario"
+        data-promocionar-copiar="texto"
+      >✍️ Copiar texto para redes</button>
+    </div>
+
+    <section class="promocionar-menu-instagram" aria-labelledby="promocionarInstagramTitulo">
+      <h3 id="promocionarInstagramTitulo">📸 Instagram</h3>
+      <p>
+        Usá el enlace de tu menú en el enlace de tu perfil de Instagram o agregalo a una historia con el sticker “Enlace”.
+      </p>
+      <button
+        type="button"
+        class="mi-negocio-btn mi-negocio-btn--secundario"
+        data-promocionar-copiar="instagram"
+      >Copiar enlace para Instagram</button>
+    </section>
+
+    <p
+      class="promocionar-menu-modal__feedback"
+      data-promocionar-menu-feedback
+      aria-live="polite"
+    ></p>
+
+    <div class="promocionar-menu-modal__pie">
+      <button
+        type="button"
+        class="mi-negocio-btn mi-negocio-btn--secundario"
+        data-promocionar-menu-cerrar
+      >Cerrar</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const modal = document.getElementById("promocionarMenuModal");
+  const botonesAbrir = document.querySelectorAll("[data-promocionar-menu-abrir]");
+
+  if(!modal || !botonesAbrir.length){
+    return;
+  }
+
+  const urlMenu = {{ menu_publico_url | tojson }};
+  const nombreComercio = {{ (comercio.nombre_negocio or comercio.nombre or 'Mi comercio') | tojson }};
+  const textoRedes =
+    "🍽️ Pedí en " + nombreComercio + "\n\n" +
+    "Mirá nuestro menú, elegí lo que querés y armá tu pedido.\n\n" +
+    "👇 Hacé tu pedido acá:\n" + urlMenu;
+  const feedback = modal.querySelector("[data-promocionar-menu-feedback]");
+  let botonQueAbrio = null;
+  let temporizadorFeedback = null;
+
+  async function copiarContenido(texto){
+    if(navigator.clipboard && window.isSecureContext){
+      try{
+        await navigator.clipboard.writeText(texto);
+        return;
+      }catch(error){
+        // Continúa con el método compatible para navegadores antiguos.
+      }
+    }
+
+    const campoTemporal = document.createElement("textarea");
+    campoTemporal.value = texto;
+    campoTemporal.setAttribute("readonly", "");
+    campoTemporal.style.position = "fixed";
+    campoTemporal.style.left = "-9999px";
+    campoTemporal.style.opacity = "0";
+    document.body.appendChild(campoTemporal);
+    campoTemporal.select();
+    campoTemporal.setSelectionRange(0, campoTemporal.value.length);
+
+    const copiado = document.execCommand("copy");
+    campoTemporal.remove();
+
+    if(!copiado){
+      throw new Error("No se pudo copiar el contenido.");
+    }
+  }
+
+  function mostrarFeedback(texto){
+    window.clearTimeout(temporizadorFeedback);
+    feedback.textContent = texto;
+    temporizadorFeedback = window.setTimeout(function(){
+      feedback.textContent = "";
+    }, 2200);
+  }
+
+  function abrirModal(evento){
+    botonQueAbrio = evento.currentTarget;
+    feedback.textContent = "";
+    modal.hidden = false;
+    document.body.classList.add("promocionar-menu-abierto");
+    modal.querySelector("[data-promocionar-copiar]").focus();
+  }
+
+  function cerrarModal(){
+    modal.hidden = true;
+    document.body.classList.remove("promocionar-menu-abierto");
+    feedback.textContent = "";
+    window.clearTimeout(temporizadorFeedback);
+
+    if(botonQueAbrio){
+      botonQueAbrio.focus();
+    }
+  }
+
+  botonesAbrir.forEach(function(boton){
+    boton.addEventListener("click", abrirModal);
+  });
+
+  modal.querySelectorAll("[data-promocionar-menu-cerrar]").forEach(function(boton){
+    boton.addEventListener("click", cerrarModal);
+  });
+
+  modal.querySelectorAll("[data-promocionar-copiar]").forEach(function(boton){
+    boton.addEventListener("click", async function(){
+      const esTextoRedes = boton.dataset.promocionarCopiar === "texto";
+
+      try{
+        await copiarContenido(esTextoRedes ? textoRedes : urlMenu);
+        mostrarFeedback(esTextoRedes ? "Texto copiado" : "Enlace copiado");
+      }catch(error){
+        mostrarFeedback("No se pudo copiar");
+      }
+    });
+  });
+
+  document.addEventListener("keydown", function(evento){
+    if(evento.key === "Escape" && !modal.hidden){
+      cerrarModal();
+    }
+  });
+})();
+</script>
