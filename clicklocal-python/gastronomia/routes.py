@@ -1,8 +1,10 @@
 from datetime import date, datetime, timedelta, timezone
+from io import BytesIO
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from flask import abort, current_app, g, jsonify, redirect, render_template, request, session, url_for
+import qrcode
+from flask import abort, current_app, g, jsonify, redirect, render_template, request, send_file, session, url_for
 
 from config.supabase_config import supabase_admin
 from modulos import obtener_modulo, pos_activo_para_comercio
@@ -39,6 +41,7 @@ from .services.pedidos import (
 
 
 LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA = 70
+CLICKLOCAL_PUBLIC_ORIGIN_GASTRONOMIA = "https://clicklocal.com.ar"
 
 
 def _limite_productos_gastronomia_alcanzado(cantidad_activos):
@@ -740,6 +743,34 @@ def _comercio_panel_gastronomia():
         return None
 
     return comercio
+
+
+def _url_menu_publico_gastronomia(comercio_id):
+    return (
+        f"{CLICKLOCAL_PUBLIC_ORIGIN_GASTRONOMIA}"
+        f"{url_for('gastronomia.comercio_gastronomico', comercio_id=comercio_id)}"
+    )
+
+
+@gastronomia_bp.get("/panel/qr-menu.png")
+def qr_menu_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return redirect(url_for("login", next="/gastronomia/panel"))
+
+    url_menu = _url_menu_publico_gastronomia(comercio["id"])
+    imagen = qrcode.make(url_menu)
+    archivo = BytesIO()
+    imagen.save(archivo, format="PNG")
+    archivo.seek(0)
+
+    return send_file(
+        archivo,
+        mimetype="image/png",
+        as_attachment=request.args.get("descargar") == "1",
+        download_name="clicklocal-menu-qr.png",
+        max_age=0,
+    )
 
 
 ESTADOS_PEDIDO_ACTIVOS = (

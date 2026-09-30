@@ -134,7 +134,38 @@
         class="mi-negocio-btn mi-negocio-btn--secundario"
         data-promocionar-copiar="texto"
       >✍️ Copiar texto para redes</button>
+
+      <button
+        type="button"
+        class="mi-negocio-btn mi-negocio-btn--secundario"
+        data-qr-menu-abrir
+      >▦ QR del menú</button>
     </div>
+
+    <section class="qr-menu" data-qr-menu-contenido hidden>
+      <h3>QR del menú</h3>
+      <img
+        class="qr-menu__imagen"
+        data-qr-menu-imagen
+        alt="Código QR para abrir el menú público"
+        width="280"
+        height="280"
+      >
+      <p>Al escanearlo, tus clientes abrirán directamente tu menú público.</p>
+      <div class="qr-menu__acciones">
+        <a
+          class="mi-negocio-btn mi-negocio-btn--secundario"
+          href="{{ url_for('gastronomia.qr_menu_gastronomia', descargar=1) }}"
+          download="clicklocal-menu-qr.png"
+        >Descargar QR</a>
+        <button
+          type="button"
+          class="mi-negocio-btn mi-negocio-btn--secundario"
+          data-qr-menu-compartir
+        >Compartir QR</button>
+      </div>
+      <p class="qr-menu__estado" data-qr-menu-estado role="status" aria-live="polite"></p>
+    </section>
 
     <section class="promocionar-menu-instagram" aria-labelledby="promocionarInstagramTitulo">
       <h3 id="promocionarInstagramTitulo">📸 Instagram</h3>
@@ -174,6 +205,7 @@
   }
 
   const urlMenu = {{ menu_publico_url | tojson }};
+  const urlQrMenu = {{ url_for('gastronomia.qr_menu_gastronomia') | tojson }};
   const nombreComercio = {{ (comercio.nombre_negocio or comercio.nombre or 'Mi comercio') | tojson }};
   const textoRedes =
     "🍽️ Pedí en " + nombreComercio + "\n\n" +
@@ -182,6 +214,71 @@
   const feedback = modal.querySelector("[data-promocionar-menu-feedback]");
   let botonQueAbrio = null;
   let temporizadorFeedback = null;
+
+  const botonAbrirQr = modal.querySelector("[data-qr-menu-abrir]");
+  const contenidoQr = modal.querySelector("[data-qr-menu-contenido]");
+  const imagenQr = modal.querySelector("[data-qr-menu-imagen]");
+  const botonCompartirQr = modal.querySelector("[data-qr-menu-compartir]");
+  const estadoQr = modal.querySelector("[data-qr-menu-estado]");
+
+  function descargarArchivoQr(archivo){
+    const enlaceTemporal = document.createElement("a");
+    const urlTemporal = URL.createObjectURL(archivo);
+    enlaceTemporal.href = urlTemporal;
+    enlaceTemporal.download = archivo.name;
+    document.body.appendChild(enlaceTemporal);
+    enlaceTemporal.click();
+    enlaceTemporal.remove();
+    window.setTimeout(function(){
+      URL.revokeObjectURL(urlTemporal);
+    }, 1000);
+  }
+
+  async function obtenerArchivoQr(){
+    const respuesta = await fetch(urlQrMenu, { credentials: "same-origin" });
+    const tipoContenido = respuesta.headers.get("content-type") || "";
+    if(!respuesta.ok || !tipoContenido.includes("image/png")){
+      throw new Error("La respuesta del QR no es una imagen PNG válida.");
+    }
+    const blob = await respuesta.blob();
+    return new File([blob], "clicklocal-menu-qr.png", { type: "image/png" });
+  }
+
+  async function compartirQrMenu(){
+    botonCompartirQr.disabled = true;
+    estadoQr.textContent = "Preparando QR…";
+    let archivo = null;
+    try{
+      archivo = await obtenerArchivoQr();
+      if(
+        navigator.share
+        && navigator.canShare
+        && navigator.canShare({ files: [archivo] })
+      ){
+        await navigator.share({
+          files: [archivo],
+          title: "Menú de " + nombreComercio
+        });
+        estadoQr.textContent = "QR compartido.";
+        return;
+      }
+      descargarArchivoQr(archivo);
+      estadoQr.textContent = "QR descargado. Podés compartirlo desde Fotos o Archivos.";
+    }catch(error){
+      if(error && error.name === "AbortError"){
+        estadoQr.textContent = "";
+        return;
+      }
+      if(archivo){
+        descargarArchivoQr(archivo);
+        estadoQr.textContent = "QR descargado. Podés compartirlo desde Fotos o Archivos.";
+        return;
+      }
+      estadoQr.textContent = "No se pudo preparar el QR. Intentá nuevamente.";
+    }finally{
+      botonCompartirQr.disabled = false;
+    }
+  }
 
   async function copiarContenido(texto){
     if(navigator.clipboard && window.isSecureContext){
@@ -241,6 +338,16 @@
   botonesAbrir.forEach(function(boton){
     boton.addEventListener("click", abrirModal);
   });
+
+  botonAbrirQr.addEventListener("click", function(){
+    contenidoQr.hidden = false;
+    if(!imagenQr.getAttribute("src")){
+      imagenQr.setAttribute("src", urlQrMenu);
+    }
+    contenidoQr.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  botonCompartirQr.addEventListener("click", compartirQrMenu);
 
   modal.querySelectorAll("[data-promocionar-menu-cerrar]").forEach(function(boton){
     boton.addEventListener("click", cerrarModal);

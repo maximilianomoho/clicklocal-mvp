@@ -57,6 +57,13 @@
 .promocionar-menu-modal__cerrar:focus-visible{outline:3px solid rgba(104,24,35,.2);outline-offset:2px}
 .promocionar-menu-modal__descripcion{margin:14px 0 20px;color:#6b6461;line-height:1.5}
 .promocionar-menu-modal__acciones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.qr-menu{margin-top:22px;padding-top:20px;border-top:1px solid #e5e0de;text-align:center}
+.qr-menu[hidden]{display:none}
+.qr-menu h3{margin:0 0 14px;color:#231f20}
+.qr-menu__imagen{display:block;width:min(280px,100%);height:auto;margin:0 auto 12px;border:1px solid #e5e0de;border-radius:12px;background:#fff}
+.qr-menu p{color:#6b6461;line-height:1.5}
+.qr-menu__acciones{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.qr-menu__estado{min-height:24px;margin:12px 0 0;font-weight:800}
 .promocionar-menu-instagram{margin-top:22px;padding-top:20px;border-top:1px solid #e5e0de}
 .promocionar-menu-instagram h3{margin:0 0 8px;color:#231f20}
 .promocionar-menu-instagram p{margin:0 0 16px;color:#6b6461;line-height:1.55}
