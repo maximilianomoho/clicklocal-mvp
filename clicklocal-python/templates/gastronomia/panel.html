@@ -378,19 +378,35 @@
         id="delivery-distancia"
         style="grid-column:1/-1;border:1px solid #ddd;border-radius:12px;padding:16px;"
       >
-        <h3 style="margin:0 0 14px;">Delivery por distancia</h3>
+        <h3 style="margin:0 0 14px;">Costo de Delivery</h3>
 
-        <label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-          <input
-            type="checkbox"
-            name="delivery_distancia_activo"
-            id="deliveryDistanciaActivo"
-            {% if configuracion.delivery_distancia_activo %}checked{% endif %}
-          >
-          <strong>Calcular envío por distancia</strong>
-        </label>
+        <fieldset class="delivery-modalidad-selector">
+          <legend>Modalidad del costo de envío</legend>
+          <label>
+            <input
+              type="radio"
+              name="delivery_modalidad"
+              value="fijo"
+              {% if not configuracion.delivery_distancia_activo %}checked{% endif %}
+            >
+            <span><strong>Costo fijo</strong></span>
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="delivery_modalidad"
+              value="distancia"
+              id="deliveryDistanciaActivo"
+              {% if configuracion.delivery_distancia_activo %}checked{% endif %}
+            >
+            <span><strong>Calcular por distancia</strong></span>
+          </label>
+        </fieldset>
 
-        <div id="deliveryDistanciaCampos">
+        <div id="deliveryDistanciaCampos"{% if not configuracion.delivery_distancia_activo %} hidden{% endif %}>
+          <p class="delivery-modalidad-ayuda">
+            El costo se calculará según la distancia desde el comercio.
+          </p>
           {% if request.args.get("ubicacion_delivery_ok") == "1" %}
             <div style="margin-bottom:14px;padding:12px;border-radius:10px;background:#e8f7ee;color:#166534;font-weight:700;">
               Ubicación de salida guardada correctamente.
@@ -454,9 +470,9 @@
       </section>
 
 
-      <label>
+      <label id="deliveryCostoFijoCampos"{% if configuracion.delivery_distancia_activo %} hidden{% endif %}>
         <strong>
-          Costo de envío
+          Costo de envío fijo
         </strong>
 
         <input
@@ -1927,9 +1943,44 @@
   font-weight:700;
 }
 
+.delivery-modalidad-selector{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin:0 0 14px;
+  padding:0;
+  border:0;
+}
+.delivery-modalidad-selector legend{
+  grid-column:1/-1;
+  margin-bottom:8px;
+  font-weight:800;
+}
+.delivery-modalidad-selector label{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:12px;
+  border:1px solid #d7d0cc;
+  border-radius:10px;
+  background:#fff;
+  cursor:pointer;
+}
+.delivery-modalidad-selector label:has(input:checked){
+  border-color:#681823;
+  background:#f8eef0;
+}
+.delivery-modalidad-ayuda{
+  margin:0 0 14px;
+  color:#666;
+}
+
 @media (max-width:700px){
   .gastronomia-metricas-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .delivery-modalidad-selector{
+    grid-template-columns:1fr;
   }
 }
 </style>
@@ -1939,20 +1990,25 @@
 <script>
 (function(){
   const activo = document.getElementById("deliveryDistanciaActivo");
+  const modalidades = document.querySelectorAll('input[name="delivery_modalidad"]');
   const campos = document.getElementById("deliveryDistanciaCampos");
+  const costoFijo = document.getElementById("deliveryCostoFijoCampos");
   const franjas = document.getElementById("deliveryFranjas");
   const agregar = document.getElementById("agregarFranjaDelivery");
-  if(!activo || !campos || !franjas || !agregar){ return; }
+  if(!activo || !modalidades.length || !campos || !costoFijo || !franjas || !agregar){ return; }
 
   function actualizar(){
     campos.hidden = !activo.checked;
+    costoFijo.hidden = activo.checked;
     franjas.querySelectorAll(".quitar-franja").forEach(function(boton){
       boton.disabled = franjas.children.length <= 1;
     });
     agregar.disabled = franjas.children.length >= 5;
   }
 
-  activo.addEventListener("change", actualizar);
+  modalidades.forEach(function(modalidad){
+    modalidad.addEventListener("change", actualizar);
+  });
   agregar.addEventListener("click", function(){
     if(franjas.children.length >= 5){ return; }
     const fila = document.createElement("div");

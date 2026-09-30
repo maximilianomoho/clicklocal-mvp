@@ -1,6 +1,7 @@
 import json
 import math
 import re
+import time
 import unicodedata
 from urllib import error as urllib_error
 from urllib import parse as urllib_parse
@@ -11,15 +12,15 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from config.delivery import NOMINATIM_BASE_URL, OSRM_BASE_URL, OSM_USER_AGENT
 
-MENSAJE_RUTA_INVALIDA = (
-    "No pudimos encontrar una ruta para esa dirección. "
-    "Revisá la calle y el número."
-)
 MENSAJE_DIRECCION_NO_ENCONTRADA = (
-    "No pudimos encontrar esa dirección. Revisá calle y número."
+    "No pudimos ubicar esa dirección. Revisá la calle y el número."
 )
 MENSAJE_ALTURA_NO_ENCONTRADA = (
     "No pudimos ubicar ese número. Revisá la calle y la altura."
+)
+MENSAJE_SERVICIO_TEMPORAL = (
+    "No pudimos calcular el envío en este momento. "
+    "Intentá nuevamente en unos segundos."
 )
 CACHE_PRECISION_VERSION = "altura-v1"
 MAX_FRANJAS_DELIVERY = 5
@@ -28,10 +29,11 @@ COTIZACION_MAX_AGE_SECONDS = 10 * 60
 
 
 class DeliveryError(Exception):
-    def __init__(self, mensaje, status_code=400):
+    def __init__(self, mensaje, status_code=400, codigo="delivery_error"):
         super().__init__(mensaje)
         self.mensaje = mensaje
         self.status_code = status_code
+        self.codigo = codigo
 
 
 def normalizar_direccion(valor):
@@ -71,6 +73,13 @@ def extraer_altura_direccion(direccion):
         texto,
     )
     return normalizar_altura(coincidencia.group(1)) if coincidencia else None
+
+
+def direccion_calle_altura(direccion):
+    """Separa contexto escrito después de una coma sin inventar domicilios."""
+    direccion = re.sub(r"\s+", " ", str(direccion or "").strip())
+    primera_parte = direccion.split(",", 1)[0].strip()
+    return primera_parte if extraer_altura_direccion(primera_parte) else direccion
 
 
 def clave_cache_delivery(origen_normalizado):
@@ -168,12 +177,49 @@ def clave_origen_coordenadas(latitud, longitud):
 
 
 def _leer_json(peticion, timeout, servicio):
-    try:
-        with urllib_request.urlopen(peticion, timeout=timeout) as respuesta:
-            return json.loads(respuesta.read().decode("utf-8"))
-    except (urllib_error.HTTPError, urllib_error.URLError, TimeoutError, json.JSONDecodeError):
-        current_app.logger.exception("Error controlado consultando %s", servicio)
-        raise DeliveryError(MENSAJE_RUTA_INVALIDA, 422)
+    for intento in range(2):
+        codigo = f"{servicio.casefold()}_respuesta_invalida"
+        transitorio = False
+        try:
+            with urllib_request.urlopen(peticion, timeout=timeout) as respuesta:
+                return json.loads(respuesta.read().decode("utf-8"))
+        except urllib_error.HTTPError as error:
+            transitorio = 500 <= int(error.code or 0) <= 599
+            codigo = (
+                f"{servicio.casefold()}_http_5xx"
+                if transitorio
+                else f"{servicio.casefold()}_http_4xx"
+            )
+        except urllib_error.URLError as error:
+            razon = getattr(error, "reason", None)
+            es_timeout = isinstance(razon, TimeoutError)
+            codigo = (
+                f"{servicio.casefold()}_timeout"
+                if es_timeout
+                else f"{servicio.casefold()}_red"
+            )
+            transitorio = True
+        except TimeoutError:
+            codigo = f"{servicio.casefold()}_timeout"
+            transitorio = True
+        except json.JSONDecodeError:
+            codigo = f"{servicio.casefold()}_json_invalido"
+
+        if transitorio and intento == 0:
+            current_app.logger.warning(
+                "Fallo transitorio consultando %s; reintento único (%s)",
+                servicio,
+                codigo,
+            )
+            time.sleep(1)
+            continue
+
+        current_app.logger.warning(
+            "Error controlado consultando %s (%s)",
+            servicio,
+            codigo,
+        )
+        raise DeliveryError(MENSAJE_SERVICIO_TEMPORAL, 503, codigo)
 
 
 def geocodificar_direccion_nominatim(
@@ -183,13 +229,21 @@ def geocodificar_direccion_nominatim(
     user_agent=None,
     timeout=8,
 ):
-    direccion = re.sub(r"\s+", " ", str(direccion or "").strip())
+    direccion = direccion_calle_altura(direccion)
     ciudad = re.sub(r"\s+", " ", str(ciudad or "").strip())
     if not direccion or not ciudad:
-        raise DeliveryError(MENSAJE_DIRECCION_NO_ENCONTRADA, 422)
+        raise DeliveryError(
+            MENSAJE_DIRECCION_NO_ENCONTRADA,
+            422,
+            "direccion_no_encontrada",
+        )
     altura_solicitada = extraer_altura_direccion(direccion)
     if not altura_solicitada:
-        raise DeliveryError(MENSAJE_ALTURA_NO_ENCONTRADA, 422)
+        raise DeliveryError(
+            MENSAJE_ALTURA_NO_ENCONTRADA,
+            422,
+            "altura_no_encontrada",
+        )
     url = (base_url or NOMINATIM_BASE_URL).rstrip("/") + "/search?" + urllib_parse.urlencode({
         "street": direccion,
         "city": ciudad,
@@ -208,7 +262,11 @@ def geocodificar_direccion_nominatim(
     )
     datos = _leer_json(peticion, timeout, "Nominatim")
     if not isinstance(datos, list) or not datos:
-        raise DeliveryError(MENSAJE_ALTURA_NO_ENCONTRADA, 422)
+        raise DeliveryError(
+            MENSAJE_DIRECCION_NO_ENCONTRADA,
+            422,
+            "direccion_no_encontrada",
+        )
 
     ciudad_esperada = normalizar_direccion(ciudad)
     prefijos_administrativos = (
@@ -270,7 +328,11 @@ def geocodificar_direccion_nominatim(
         except (KeyError, DeliveryError):
             continue
 
-    raise DeliveryError(MENSAJE_ALTURA_NO_ENCONTRADA, 422)
+    raise DeliveryError(
+        MENSAJE_ALTURA_NO_ENCONTRADA,
+        422,
+        "altura_no_encontrada",
+    )
 
 
 def consultar_distancia_osrm(
@@ -289,7 +351,11 @@ def consultar_distancia_osrm(
             destino_latitud, destino_longitud
         )
     except DeliveryError as exc:
-        raise DeliveryError(MENSAJE_RUTA_INVALIDA, 422) from exc
+        raise DeliveryError(
+            MENSAJE_DIRECCION_NO_ENCONTRADA,
+            422,
+            "destino_invalido",
+        ) from exc
     coordenadas = (
         f"{origen_longitud:.6f},{origen_latitud:.6f};"
         f"{destino_longitud:.6f},{destino_latitud:.6f}"
@@ -312,10 +378,19 @@ def consultar_distancia_osrm(
         else None
     )
     if isinstance(distancia, bool) or not isinstance(distancia, (int, float)):
-        raise DeliveryError(MENSAJE_RUTA_INVALIDA, 422)
+        codigo_osrm = str(datos.get("code") or "") if isinstance(datos, dict) else ""
+        raise DeliveryError(
+            MENSAJE_DIRECCION_NO_ENCONTRADA,
+            422,
+            "osrm_no_route" if codigo_osrm == "NoRoute" else "osrm_sin_ruta",
+        )
     distancia = int(round(distancia))
     if distancia < 0:
-        raise DeliveryError(MENSAJE_RUTA_INVALIDA, 422)
+        raise DeliveryError(
+            MENSAJE_DIRECCION_NO_ENCONTRADA,
+            422,
+            "osrm_distancia_invalida",
+        )
     return distancia
 
 

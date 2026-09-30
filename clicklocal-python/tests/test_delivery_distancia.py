@@ -2,6 +2,7 @@ import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
+from urllib import error as urllib_error
 from urllib.parse import parse_qs, urlparse
 
 from flask import Flask
@@ -14,6 +15,7 @@ from gastronomia.services.delivery import (
     completar_direccion_destino,
     consultar_distancia_osm,
     consultar_distancia_osrm,
+    direccion_calle_altura,
     extraer_altura_direccion,
     firmar_cotizacion,
     geocodificar_direccion_nominatim,
@@ -298,6 +300,31 @@ class DeliveryDistanciaTest(unittest.TestCase):
         self.assertIsNone(normalizar_altura("150-152"))
         self.assertIsNone(extraer_altura_direccion("San Martín 150-152"))
         self.assertIsNone(extraer_altura_direccion("San Martín sin número"))
+
+    def test_direccion_completa_usa_solo_calle_y_altura(self):
+        direccion = "Nogoyá 82, Paraná, Entre Ríos, Argentina"
+        self.assertEqual(direccion_calle_altura(direccion), "Nogoyá 82")
+        respuesta = RespuestaHTTPFalsa([self.candidato_altura(numero="82")])
+        with patch(
+            "gastronomia.services.delivery.urllib_request.urlopen",
+            return_value=respuesta,
+        ) as abrir:
+            coordenadas = geocodificar_direccion_nominatim(direccion, "Paraná")
+        self.assertEqual(coordenadas, (-31.725, -60.524))
+        parametros = parse_qs(urlparse(abrir.call_args.args[0].full_url).query)
+        self.assertEqual(parametros["street"], ["Nogoyá 82"])
+        self.assertEqual(parametros["city"], ["Paraná"])
+
+    def test_nogoya_con_y_sin_tilde_geocodifican_igual(self):
+        for direccion in ("Nogoyá 82", "Nogoya 82", "nogoya 82"):
+            with self.subTest(direccion=direccion):
+                self.assertEqual(
+                    self.geocodificar_respuesta(
+                        direccion,
+                        [self.candidato_altura(numero="82")],
+                    ),
+                    (-31.725, -60.524),
+                )
 
     def test_rechaza_sin_house_number_road_ciudad_o_pais_incorrectos(self):
         sin_numero = self.candidato_altura()
@@ -619,6 +646,93 @@ class DeliveryDistanciaTest(unittest.TestCase):
         self.assertNotIn("delivery_origen_latitud", datos)
         self.assertNotIn("delivery_origen_longitud", datos)
 
+    def test_cambiar_a_costo_fijo_conserva_franjas_guardadas(self):
+        db = self.crear_db_cotizacion()
+        app = Flask(__name__)
+        app.secret_key = "secreto-de-prueba"
+        app.register_blueprint(gastronomia_bp, url_prefix="/gastronomia")
+        with patch(
+            "gastronomia.routes._comercio_panel_gastronomia",
+            return_value={"id": "comercio-1"},
+        ), patch("gastronomia.routes.supabase_admin", db):
+            respuesta = app.test_client().post(
+                "/gastronomia/panel/configuracion",
+                data={
+                    "acepta_delivery": "on",
+                    "delivery_modalidad": "fijo",
+                    "pedido_minimo": "",
+                    "costo_envio": "2500",
+                    "tiempo_estimado_min": "30",
+                    "descuento_efectivo_pct": "0",
+                    "descuento_transferencia_pct": "0",
+                },
+            )
+        self.assertEqual(respuesta.status_code, 302)
+        datos = db.updates[-1][1]
+        self.assertFalse(datos["delivery_distancia_activo"])
+        self.assertEqual(datos["delivery_franjas"], self.franjas)
+        self.assertEqual(datos["costo_envio"], 2500)
+
+    def test_cambiar_a_distancia_conserva_costo_fijo(self):
+        db = self.crear_db_cotizacion()
+        app = Flask(__name__)
+        app.secret_key = "secreto-de-prueba"
+        app.register_blueprint(gastronomia_bp, url_prefix="/gastronomia")
+        with patch(
+            "gastronomia.routes._comercio_panel_gastronomia",
+            return_value={"id": "comercio-1"},
+        ), patch("gastronomia.routes.supabase_admin", db):
+            respuesta = app.test_client().post(
+                "/gastronomia/panel/configuracion",
+                data={
+                    "acepta_delivery": "on",
+                    "delivery_modalidad": "distancia",
+                    "pedido_minimo": "",
+                    "costo_envio": "2500",
+                    "tiempo_estimado_min": "30",
+                    "descuento_efectivo_pct": "0",
+                    "descuento_transferencia_pct": "0",
+                    "delivery_hasta_km": ["2", "4", "6"],
+                    "delivery_precio": ["1500", "2500", "3500"],
+                },
+            )
+        self.assertEqual(respuesta.status_code, 302)
+        datos = db.updates[-1][1]
+        self.assertTrue(datos["delivery_distancia_activo"])
+        self.assertEqual(datos["delivery_franjas"], self.franjas)
+        self.assertEqual(datos["costo_envio"], 2500)
+
+    def test_panel_muestra_modalidades_y_solo_controles_relevantes(self):
+        from pathlib import Path
+
+        plantilla = (
+            Path(__file__).resolve().parents[1]
+            / "templates" / "gastronomia" / "panel.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn('name="delivery_modalidad"', plantilla)
+        self.assertIn('value="fijo"', plantilla)
+        self.assertIn('value="distancia"', plantilla)
+        self.assertIn("Costo de envío fijo", plantilla)
+        self.assertIn("Calcular por distancia", plantilla)
+        self.assertIn(
+            'id="deliveryDistanciaCampos"{% if not configuracion.delivery_distancia_activo %} hidden{% endif %}',
+            plantilla,
+        )
+        self.assertIn(
+            'id="deliveryCostoFijoCampos"{% if configuracion.delivery_distancia_activo %} hidden{% endif %}',
+            plantilla,
+        )
+        self.assertIn("campos.hidden = !activo.checked", plantilla)
+        self.assertIn("costoFijo.hidden = activo.checked", plantilla)
+
+        menu = (
+            Path(__file__).resolve().parents[1]
+            / "templates" / "gastronomia" / "menu.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("{% if configuracion.delivery_distancia_activo %}", menu)
+        self.assertIn(">Calcular envío</button>", menu)
+        self.assertIn("!bloque.dataset.deliveryToken", menu)
+
     def test_osrm_usa_driving_y_overview_false(self):
         respuesta = RespuestaHTTPFalsa({"code": "Ok", "routes": [{"distance": 3200.4}]})
         with patch("gastronomia.services.delivery.urllib_request.urlopen", return_value=respuesta) as abrir:
@@ -630,6 +744,82 @@ class DeliveryDistanciaTest(unittest.TestCase):
         url = abrir.call_args.args[0].full_url
         self.assertIn("/route/v1/driving/", url)
         self.assertIn("?overview=false&alternatives=false&steps=false", url)
+
+    def test_timeout_nominatim_reintenta_una_vez_y_muestra_error_temporal(self):
+        with patch(
+            "gastronomia.services.delivery.urllib_request.urlopen",
+            side_effect=TimeoutError(),
+        ) as abrir, patch("gastronomia.services.delivery.time.sleep") as pausa:
+            with self.assertRaises(DeliveryError) as contexto:
+                geocodificar_direccion_nominatim("Nogoyá 82", "Paraná")
+        self.assertEqual(abrir.call_count, 2)
+        pausa.assert_called_once_with(1)
+        self.assertEqual(contexto.exception.status_code, 503)
+        self.assertEqual(contexto.exception.codigo, "nominatim_timeout")
+        self.assertIn("Intentá nuevamente", contexto.exception.mensaje)
+
+    def test_http_5xx_nominatim_reintenta_una_vez(self):
+        error = urllib_error.HTTPError(
+            "https://nominatim.test", 503, "Service Unavailable", {}, None
+        )
+        with patch(
+            "gastronomia.services.delivery.urllib_request.urlopen",
+            side_effect=error,
+        ) as abrir, patch("gastronomia.services.delivery.time.sleep") as pausa:
+            with self.assertRaises(DeliveryError) as contexto:
+                geocodificar_direccion_nominatim("Nogoyá 82", "Paraná")
+        self.assertEqual(abrir.call_count, 2)
+        pausa.assert_called_once_with(1)
+        self.assertEqual(contexto.exception.codigo, "nominatim_http_5xx")
+
+    def test_http_4xx_nominatim_no_reintenta(self):
+        error = urllib_error.HTTPError(
+            "https://nominatim.test", 429, "Too Many Requests", {}, None
+        )
+        with patch(
+            "gastronomia.services.delivery.urllib_request.urlopen",
+            side_effect=error,
+        ) as abrir, patch("gastronomia.services.delivery.time.sleep") as pausa:
+            with self.assertRaises(DeliveryError) as contexto:
+                geocodificar_direccion_nominatim("Nogoyá 82", "Paraná")
+        abrir.assert_called_once()
+        pausa.assert_not_called()
+        self.assertEqual(contexto.exception.codigo, "nominatim_http_4xx")
+
+    def test_timeout_osrm_reintenta_una_vez_y_muestra_error_temporal(self):
+        with patch(
+            "gastronomia.services.delivery.urllib_request.urlopen",
+            side_effect=TimeoutError(),
+        ) as abrir, patch("gastronomia.services.delivery.time.sleep") as pausa:
+            with self.assertRaises(DeliveryError) as contexto:
+                consultar_distancia_osrm(-31.72, -60.52, -31.73, -60.53)
+        self.assertEqual(abrir.call_count, 2)
+        pausa.assert_called_once_with(1)
+        self.assertEqual(contexto.exception.codigo, "osrm_timeout")
+        self.assertIn("Intentá nuevamente", contexto.exception.mensaje)
+
+    def test_osrm_no_route_no_reintenta(self):
+        respuesta = RespuestaHTTPFalsa({"code": "NoRoute", "routes": []})
+        with patch(
+            "gastronomia.services.delivery.urllib_request.urlopen",
+            return_value=respuesta,
+        ) as abrir, patch("gastronomia.services.delivery.time.sleep") as pausa:
+            with self.assertRaises(DeliveryError) as contexto:
+                consultar_distancia_osrm(-31.72, -60.52, -31.73, -60.53)
+        abrir.assert_called_once()
+        pausa.assert_not_called()
+        self.assertEqual(contexto.exception.codigo, "osrm_no_route")
+        self.assertIn("ubicar esa dirección", contexto.exception.mensaje)
+
+    def test_direccion_invalida_no_reintenta(self):
+        with patch(
+            "gastronomia.services.delivery.urllib_request.urlopen"
+        ) as abrir, patch("gastronomia.services.delivery.time.sleep") as pausa:
+            with self.assertRaises(DeliveryError) as contexto:
+                geocodificar_direccion_nominatim("Nogoyá", "Paraná")
+        abrir.assert_not_called()
+        pausa.assert_not_called()
+        self.assertEqual(contexto.exception.codigo, "altura_no_encontrada")
 
     def test_nominatim_y_osrm_sin_resultado_son_errores_controlados(self):
         respuesta = RespuestaHTTPFalsa([])

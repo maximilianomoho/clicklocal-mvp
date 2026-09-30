@@ -393,6 +393,25 @@ class PedidosServiceTest(unittest.TestCase):
         self.assertEqual(resultado["descuento"], 500)
         self.assertEqual(resultado["total"], 11000)
 
+    def test_delivery_costo_fijo_2500_no_exige_cotizacion(self):
+        datos = datos_base()
+        datos["gastronomia_configuracion"][0].update({
+            "delivery_distancia_activo": False,
+            "costo_envio": 2500,
+            "delivery_franjas": [{"hasta_km": 15, "precio": 2000}],
+        })
+        db = SupabaseFalso(datos)
+        resultado = crear(
+            db,
+            modalidad="delivery",
+            direccion="Nogoyá 82",
+            forma_pago="transferencia",
+            cotizacion_delivery=None,
+        )
+        self.assertEqual(resultado["costo_envio"], 2500)
+        self.assertEqual(resultado["total"], 12000)
+        self.assertIsNone(db.insertados[0][1]["delivery_distancia_m"])
+
     def test_producto_con_extra(self):
         datos = datos_base()
         datos["gastronomia_opciones"] = [{

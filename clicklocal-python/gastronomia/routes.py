@@ -2580,8 +2580,13 @@ def guardar_configuracion_negocio():
         request.form.get("descuento_transferencia_pct") or "0"
     ).strip()
 
+    modalidad_delivery = str(
+        request.form.get("delivery_modalidad") or ""
+    ).strip().casefold()
     delivery_distancia_activo = (
-        request.form.get("delivery_distancia_activo") == "on"
+        modalidad_delivery == "distancia"
+        if modalidad_delivery in ("fijo", "distancia")
+        else request.form.get("delivery_distancia_activo") == "on"
     )
     if delivery_distancia_activo and not acepta_delivery:
         return redirect(
@@ -2596,7 +2601,7 @@ def guardar_configuracion_negocio():
         .table("gastronomia_configuracion")
         .select(
             "delivery_origen_direccion,delivery_origen_latitud,"
-            "delivery_origen_longitud"
+            "delivery_origen_longitud,delivery_franjas"
         )
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -2625,20 +2630,28 @@ def guardar_configuracion_negocio():
                 )
                 + "#delivery-distancia"
             )
-    try:
-        delivery_franjas = validar_configuracion_delivery(
-            delivery_distancia_activo,
-            delivery_origen_direccion,
-            request.form.getlist("delivery_hasta_km"),
-            request.form.getlist("delivery_precio"),
-        )
-    except ValueError:
-        return redirect(
-            url_for(
-                "gastronomia.panel_gastronomia",
-                configuracion_error="delivery_distancia",
+    if delivery_distancia_activo:
+        try:
+            delivery_franjas = validar_configuracion_delivery(
+                True,
+                delivery_origen_direccion,
+                request.form.getlist("delivery_hasta_km"),
+                request.form.getlist("delivery_precio"),
             )
-            + "#configuracion-negocio"
+        except ValueError:
+            return redirect(
+                url_for(
+                    "gastronomia.panel_gastronomia",
+                    configuracion_error="delivery_distancia",
+                )
+                + "#configuracion-negocio"
+            )
+    else:
+        franjas_guardadas = configuracion_actual.get("delivery_franjas")
+        delivery_franjas = (
+            franjas_guardadas
+            if isinstance(franjas_guardadas, list)
+            else []
         )
 
     try:
