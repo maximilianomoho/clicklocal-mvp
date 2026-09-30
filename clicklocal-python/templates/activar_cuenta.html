@@ -22,48 +22,180 @@
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm";
     const urlInicial = new URL(window.location.href);
+    const queryInicial = urlInicial.searchParams;
     const fragmentoInicial = new URLSearchParams(urlInicial.hash.slice(1));
-    const eraRedirectRecuperacion = (
-      urlInicial.searchParams.get("type") === "recovery"
-      || fragmentoInicial.get("type") === "recovery"
+    const valorCallback = (nombre) => (
+      queryInicial.get(nombre) || fragmentoInicial.get(nombre) || ""
     );
-    const cliente = createClient({{ supabase_url|tojson }}, {{ supabase_anon_key|tojson }});
+    const callbackType = valorCallback("type");
+    const callbackError = valorCallback("error");
+    const callbackErrorCode = valorCallback("error_code");
+    const callbackErrorDescription = valorCallback("error_description");
+    const accessTokenInicial = fragmentoInicial.get("access_token") || "";
+    const refreshTokenInicial = fragmentoInicial.get("refresh_token") || "";
+    const hayAccessToken = Boolean(accessTokenInicial);
+    const hayRefreshToken = Boolean(refreshTokenInicial);
+    const hayCodigoPkce = Boolean(queryInicial.get("code") || fragmentoInicial.get("code"));
+    const hayFragmento = Boolean(urlInicial.hash);
+    const eraRedirectRecuperacion = (
+      callbackType === "recovery"
+    );
+    const parametrosCallbackPresentes = [...new Set([
+      ...queryInicial.keys(),
+      ...fragmentoInicial.keys(),
+    ])];
+    const diagnosticoSeguro = {
+      callback_type: callbackType || null,
+      presence_of_hash: hayFragmento,
+      parameter_names: parametrosCallbackPresentes,
+      error_code: callbackErrorCode || null,
+      has_access_token: hayAccessToken,
+      has_refresh_token: hayRefreshToken,
+      has_code: hayCodigoPkce,
+    };
+    const cliente = createClient(
+      {{ supabase_url|tojson }},
+      {{ supabase_anon_key|tojson }},
+      {
+        auth: {
+          detectSessionInUrl: true,
+          flowType: "implicit",
+          persistSession: true,
+        },
+      },
+    );
     const estado = document.getElementById("estado");
     const formulario = document.getElementById("formulario");
     let sesion = null;
     let recuperacionConfirmada = false;
+    let eventoRecuperacionRecibido = false;
+    let fallbackSetSessionIntentado = false;
     let procesando = false;
     let activacionCompletada = false;
+    const ESPERA_MAXIMA_AUTENTICACION_MS = 10000;
+    const INTERVALO_COMPROBACION_MS = 250;
+    const DEMORA_FALLBACK_SET_SESSION_MS = 1500;
+
+    function esperar(milisegundos) {
+      return new Promise((resolver) => setTimeout(resolver, milisegundos));
+    }
+
+    function mostrarErrorSeguro(mensaje) {
+      if (recuperacionConfirmada || activacionCompletada) return;
+      estado.textContent = mensaje;
+      estado.classList.add("activar__error");
+      formulario.hidden = true;
+    }
+
+    function mensajeErrorCallback() {
+      const codigo = callbackErrorCode.toLowerCase();
+      const descripcion = callbackErrorDescription.toLowerCase();
+      const pareceExpirado = (
+        codigo === "otp_expired"
+        || codigo.includes("expired")
+        || descripcion.includes("expired")
+        || descripcion.includes("already been used")
+      );
+      if (pareceExpirado) {
+        return "Este enlace ya no es válido. Pedí uno nuevo al administrador.";
+      }
+      return "No pudimos validar este enlace de acceso. Pedí uno nuevo al administrador.";
+    }
 
     function habilitarRecuperacion(sesionRecuperada) {
       if (recuperacionConfirmada || activacionCompletada || !sesionRecuperada?.access_token) return;
       recuperacionConfirmada = true;
       sesion = sesionRecuperada;
+      estado.classList.remove("activar__error");
       estado.textContent = "";
       formulario.hidden = false;
     }
 
     const { data: escuchaAuth } = cliente.auth.onAuthStateChange((evento, sesionEvento) => {
       if (evento === "PASSWORD_RECOVERY" && sesionEvento) {
+        eventoRecuperacionRecibido = true;
         habilitarRecuperacion(sesionEvento);
       }
     });
 
-    async function fallbackRecuperacion() {
-      if (!eraRedirectRecuperacion || recuperacionConfirmada) return;
+    async function recuperarSesionDetectada() {
+      if (!eraRedirectRecuperacion || recuperacionConfirmada) return false;
       const resultado = await cliente.auth.getSession();
       if (!resultado.error && resultado.data.session) {
         habilitarRecuperacion(resultado.data.session);
       }
+      return recuperacionConfirmada;
     }
 
-    setTimeout(async () => {
-      await fallbackRecuperacion();
-      if (!recuperacionConfirmada) {
-        estado.textContent = "El enlace no es válido o venció. Pedí al administrador que lo reenvíe.";
-        formulario.hidden = true;
+    async function fallbackTokensIniciales() {
+      if (
+        fallbackSetSessionIntentado
+        || recuperacionConfirmada
+        || !eraRedirectRecuperacion
+        || !hayAccessToken
+        || !hayRefreshToken
+      ) {
+        return false;
       }
-    }, 1500);
+      fallbackSetSessionIntentado = true;
+      const resultado = await cliente.auth.setSession({
+        access_token: accessTokenInicial,
+        refresh_token: refreshTokenInicial,
+      });
+      if (!resultado.error && resultado.data.session) {
+        habilitarRecuperacion(resultado.data.session);
+      }
+      return recuperacionConfirmada;
+    }
+
+    async function inicializarRecuperacion() {
+      // El objeto queda solo en memoria y contiene presencia/nombres, nunca secretos.
+      void diagnosticoSeguro;
+
+      if (callbackError || callbackErrorCode) {
+        mostrarErrorSeguro(mensajeErrorCallback());
+        return;
+      }
+      if (hayCodigoPkce && !eraRedirectRecuperacion) {
+        mostrarErrorSeguro(
+          "Este enlace usa un tipo de acceso no compatible. Pedí uno nuevo al administrador.",
+        );
+        return;
+      }
+      if (!eraRedirectRecuperacion) {
+        mostrarErrorSeguro(
+          "No encontramos una recuperación de cuenta válida. Pedí un enlace nuevo al administrador.",
+        );
+        return;
+      }
+
+      const inicio = Date.now();
+      while (
+        !recuperacionConfirmada
+        && Date.now() - inicio < ESPERA_MAXIMA_AUTENTICACION_MS
+      ) {
+        await recuperarSesionDetectada();
+        if (recuperacionConfirmada) return;
+
+        if (
+          Date.now() - inicio >= DEMORA_FALLBACK_SET_SESSION_MS
+          && hayAccessToken
+          && hayRefreshToken
+        ) {
+          await fallbackTokensIniciales();
+          if (recuperacionConfirmada) return;
+        }
+        await esperar(INTERVALO_COMPROBACION_MS);
+      }
+
+      if (!recuperacionConfirmada && !eventoRecuperacionRecibido) {
+        mostrarErrorSeguro(
+          "No pudimos validar este enlace de acceso. Pedí uno nuevo al administrador.",
+        );
+      }
+    }
+
+    inicializarRecuperacion();
 
     formulario.addEventListener("submit", async (evento) => {
       evento.preventDefault();

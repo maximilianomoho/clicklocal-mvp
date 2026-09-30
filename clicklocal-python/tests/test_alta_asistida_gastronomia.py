@@ -1,3 +1,6 @@
+import json
+import re
+import subprocess
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
@@ -415,6 +418,262 @@ def test_template_recovery_exige_evento_y_evitar_dobles_envios():
     assert "recuperacionConfirmada" in contenido
     assert "procesando" in contenido
     assert "updateUser({ password })" in contenido
+
+
+def test_recovery_configura_supabase_js_para_callback_implicito():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert "@supabase/supabase-js@2.116.0" in contenido
+    assert "detectSessionInUrl: true" in contenido
+    assert 'flowType: "implicit"' in contenido
+    assert "persistSession: true" in contenido
+
+
+def test_recovery_no_declara_vencido_a_los_1500_ms():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert "ESPERA_MAXIMA_AUTENTICACION_MS = 10000" in contenido
+    assert "DEMORA_FALLBACK_SET_SESSION_MS = 1500" in contenido
+    assert "setTimeout(async () =>" not in contenido
+    assert "while (" in contenido
+    assert "await recuperarSesionDetectada()" in contenido
+
+
+def test_recovery_tardio_y_get_session_lento_permanecen_aceptados():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert "eventoRecuperacionRecibido = true" in contenido
+    assert "habilitarRecuperacion(sesionEvento)" in contenido
+    assert "await cliente.auth.getSession()" in contenido
+    assert "if (recuperacionConfirmada) return" in contenido
+
+
+def test_recovery_perdido_usa_sesion_solo_con_evidencia_de_recovery():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    bloque = contenido.split("async function recuperarSesionDetectada()", 1)[1].split(
+        "async function fallbackTokensIniciales()", 1
+    )[0]
+    assert "!eraRedirectRecuperacion" in bloque
+    assert "cliente.auth.getSession()" in bloque
+    assert "habilitarRecuperacion(resultado.data.session)" in bloque
+
+
+def test_recovery_hash_tiene_fallback_set_session_una_sola_vez():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert 'fragmentoInicial.get("access_token")' in contenido
+    assert 'fragmentoInicial.get("refresh_token")' in contenido
+    assert "fallbackSetSessionIntentado" in contenido
+    assert "cliente.auth.setSession({" in contenido
+    assert "access_token: accessTokenInicial" in contenido
+    assert "refresh_token: refreshTokenInicial" in contenido
+
+
+def test_recovery_diagnostica_errores_sin_exponer_descripcion():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert 'valorCallback("error")' in contenido
+    assert 'valorCallback("error_code")' in contenido
+    assert 'valorCallback("error_description")' in contenido
+    assert 'codigo === "otp_expired"' in contenido
+    assert "Este enlace ya no es válido." in contenido
+    assert "estado.textContent = callbackErrorDescription" not in contenido
+
+
+def test_recovery_reconoce_code_pkce_no_compatible():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert 'queryInicial.get("code")' in contenido
+    assert "hayCodigoPkce && !eraRedirectRecuperacion" in contenido
+    assert "tipo de acceso no compatible" in contenido
+
+
+def test_recovery_no_habilita_una_sesion_ordinaria():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert 'callbackType === "recovery"' in contenido
+    assert "if (!eraRedirectRecuperacion)" in contenido
+    assert "No encontramos una recuperación de cuenta válida" in contenido
+
+
+def test_recovery_no_imprime_ni_persiste_tokens_manualmente():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert "console.log" not in contenido
+    assert "console.error" not in contenido
+    assert "localStorage.setItem" not in contenido
+    assert "sessionStorage.setItem" not in contenido
+    assert "fetch(window.location" not in contenido
+
+
+def test_recovery_email_y_whatsapp_conservan_el_mismo_destino():
+    contenido_app = open("app.py", encoding="utf-8").read()
+    bloque_email = contenido_app.split(
+        "def admin_dar_acceso_gastronomia(comercio_id):", 1
+    )[1].split("def admin_dar_acceso_gastronomia_whatsapp", 1)[0]
+    bloque_whatsapp = contenido_app.split(
+        "def admin_dar_acceso_gastronomia_whatsapp(comercio_id):", 1
+    )[1].split("def activar_cuenta", 1)[0]
+    assert "reset_password_for_email" in bloque_email
+    assert "_url_activar_cuenta_externa()" in bloque_email
+    assert '"type": "recovery"' in bloque_whatsapp
+    assert "_url_activar_cuenta_externa()" in bloque_whatsapp
+
+
+def test_recovery_doble_evento_y_doble_submit_tienen_guardas():
+    contenido = open("templates/activar_cuenta.html", encoding="utf-8").read()
+    assert (
+        "recuperacionConfirmada || activacionCompletada || "
+        "!sesionRecuperada?.access_token"
+    ) in contenido
+    assert "procesando || activacionCompletada" in contenido
+    assert "procesando = true" in contenido
+
+
+def _ejecutar_recovery_javascript(configuracion):
+    with app_module.app.test_request_context("/activar-cuenta"):
+        html = app_module.render_template(
+            "activar_cuenta.html",
+            supabase_url="https://example.supabase.co",
+            supabase_anon_key="anon-test",
+        )
+    script = re.search(
+        r'<script type="module">(.*?)</script>', html, re.DOTALL
+    ).group(1)
+    script = script.replace(
+        'import { createClient } from '
+        '"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm";',
+        "const createClient = globalThis.createClientMock;",
+    )
+    script = script.replace(
+        "ESPERA_MAXIMA_AUTENTICACION_MS = 10000",
+        "ESPERA_MAXIMA_AUTENTICACION_MS = 120",
+    ).replace(
+        "INTERVALO_COMPROBACION_MS = 250",
+        "INTERVALO_COMPROBACION_MS = 5",
+    ).replace(
+        "DEMORA_FALLBACK_SET_SESSION_MS = 1500",
+        "DEMORA_FALLBACK_SET_SESSION_MS = 20",
+    )
+    config_json = json.dumps(configuracion)
+    arnes = f"""
+const config = {config_json};
+const estadoPrueba = {{
+  textContent: "Validando enlace…",
+  classList: {{ add() {{}}, remove() {{}} }},
+}};
+const formularioPrueba = {{
+  hidden: true,
+  addEventListener() {{}},
+  querySelector() {{ return {{ disabled: false }}; }},
+}};
+globalThis.window = {{
+  location: {{ href: config.url, assign() {{}} }},
+}};
+globalThis.document = {{
+  getElementById(id) {{
+    return id === "estado" ? estadoPrueba : formularioPrueba;
+  }},
+}};
+let setSessionCount = 0;
+let opcionesCliente = null;
+const sesionValida = {{ access_token: "SESION_TEST" }};
+globalThis.createClientMock = (_url, _key, opciones) => {{
+  opcionesCliente = opciones;
+  return {{ auth: {{
+    onAuthStateChange(callback) {{
+      for (const demora of config.eventDelays || []) {{
+        setTimeout(() => callback("PASSWORD_RECOVERY", sesionValida), demora);
+      }}
+      return {{ data: {{ subscription: {{ unsubscribe() {{}} }} }} }};
+    }},
+    async getSession() {{
+      await new Promise((resolve) => setTimeout(resolve, config.getSessionDelay || 0));
+      return {{
+        error: null,
+        data: {{ session: config.getSessionSuccess ? sesionValida : null }},
+      }};
+    }},
+    async setSession() {{
+      setSessionCount += 1;
+      return {{
+        error: config.setSessionSuccess ? null : {{ message: "fallo" }},
+        data: {{ session: config.setSessionSuccess ? sesionValida : null }},
+      }};
+    }},
+    async updateUser() {{ return {{ error: null }}; }},
+  }} }};
+}};
+globalThis.fetch = async () => ({{ ok: true, json: async () => ({{ destino: "/" }}) }});
+"""
+    salida = """
+await new Promise((resolve) => setTimeout(resolve, 180));
+process.stdout.write(JSON.stringify({
+  hidden: formularioPrueba.hidden,
+  message: estadoPrueba.textContent,
+  setSessionCount,
+  options: opcionesCliente.auth,
+}));
+"""
+    resultado = subprocess.run(
+        ["node", "--input-type=module"],
+        input=arnes + script + salida,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return json.loads(resultado.stdout)
+
+
+@pytest.mark.parametrize(
+    ("configuracion", "formulario_visible", "texto_esperado", "set_session"),
+    [
+        ({
+            "url": "https://clicklocal.com.ar/activar-cuenta#type=recovery",
+            "eventDelays": [0],
+        }, True, "", 0),
+        ({
+            "url": "https://clicklocal.com.ar/activar-cuenta#type=recovery",
+            "eventDelays": [40],
+        }, True, "", 0),
+        ({
+            "url": "https://clicklocal.com.ar/activar-cuenta#type=recovery",
+            "getSessionDelay": 40,
+            "getSessionSuccess": True,
+        }, True, "", 0),
+        ({
+            "url": "https://clicklocal.com.ar/activar-cuenta#type=recovery",
+            "getSessionSuccess": True,
+        }, True, "", 0),
+        ({
+            "url": (
+                "https://clicklocal.com.ar/activar-cuenta"
+                "#type=recovery&access_token=TEST&refresh_token=TEST"
+            ),
+            "setSessionSuccess": True,
+        }, True, "", 1),
+        ({
+            "url": (
+                "https://clicklocal.com.ar/activar-cuenta"
+                "?error=access_denied&error_code=otp_expired"
+            ),
+        }, False, "Este enlace ya no es válido.", 0),
+        ({
+            "url": "https://clicklocal.com.ar/activar-cuenta?error=access_denied",
+        }, False, "No pudimos validar este enlace", 0),
+        ({
+            "url": "https://clicklocal.com.ar/activar-cuenta",
+            "getSessionSuccess": True,
+        }, False, "No encontramos una recuperación", 0),
+        ({
+            "url": "https://clicklocal.com.ar/activar-cuenta?code=TEST",
+        }, False, "tipo de acceso no compatible", 0),
+    ],
+)
+def test_maquina_recovery_en_javascript(
+    configuracion, formulario_visible, texto_esperado, set_session
+):
+    resultado = _ejecutar_recovery_javascript(configuracion)
+    assert resultado["hidden"] is (not formulario_visible)
+    assert texto_esperado in resultado["message"]
+    assert resultado["setSessionCount"] == set_session
+    assert resultado["options"] == {
+        "detectSessionInUrl": True,
+        "flowType": "implicit",
+        "persistSession": True,
+    }
 
 
 def test_templates_nuevos_compilan():
