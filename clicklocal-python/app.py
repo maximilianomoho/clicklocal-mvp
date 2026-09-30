@@ -8710,6 +8710,28 @@ def _url_activar_cuenta_externa():
     return url_for("activar_cuenta", _external=True, _scheme=esquema)
 
 
+def _numero_whatsapp_acceso_valido(numero_raw):
+    numero = limpiar_numero_whatsapp(numero_raw)
+    return numero if 8 <= len(numero) <= 15 else ""
+
+
+def _comercio_acceso_gastronomia(comercio_id):
+    comercio_id = str(uuid.UUID(str(comercio_id)))
+    respuesta = (
+        supabase_admin.table("comercios")
+        .select("id,user_id,email,whatsapp,categoria")
+        .eq("id", comercio_id).limit(1).execute()
+    )
+    comercio = (respuesta.data or [None])[0]
+    if not comercio or not comercio.get("user_id") or not comercio.get("email"):
+        raise ValueError("El comercio no tiene propietario asociado.")
+    if str(comercio.get("categoria") or "").strip().casefold() not in {
+        "gastronomía", "gastronomia"
+    }:
+        raise ValueError("El comercio no es gastronómico.")
+    return comercio
+
+
 @app.route("/admin/gastronomia/nueva", methods=["GET", "POST"])
 @admin_requerido
 def admin_nueva_gastronomia():
@@ -8831,19 +8853,7 @@ def admin_nueva_gastronomia():
 @admin_requerido
 def admin_dar_acceso_gastronomia(comercio_id):
     try:
-        comercio_id = str(uuid.UUID(str(comercio_id)))
-        respuesta = (
-            supabase_admin.table("comercios")
-            .select("id,user_id,email,categoria")
-            .eq("id", comercio_id).limit(1).execute()
-        )
-        comercio = (respuesta.data or [None])[0]
-        if not comercio or not comercio.get("user_id") or not comercio.get("email"):
-            raise ValueError("El comercio no tiene propietario asociado.")
-        if str(comercio.get("categoria") or "").strip().casefold() not in {
-            "gastronomía", "gastronomia"
-        }:
-            raise ValueError("El comercio no es gastronómico.")
+        comercio = _comercio_acceso_gastronomia(comercio_id)
 
         supabase_auth.auth.reset_password_for_email(
             comercio["email"],
@@ -8853,6 +8863,59 @@ def admin_dar_acceso_gastronomia(comercio_id):
     except Exception as exc:
         print("ERROR ENVIANDO ACCESO PROPIETARIO:", type(exc).__name__, exc, flush=True)
         return redirect(url_for("admin_comercios", acceso_error="1"))
+
+
+@app.post("/admin/gastronomia/<comercio_id>/dar-acceso-whatsapp")
+@admin_requerido
+def admin_dar_acceso_gastronomia_whatsapp(comercio_id):
+    try:
+        comercio = _comercio_acceso_gastronomia(comercio_id)
+        whatsapp = _numero_whatsapp_acceso_valido(comercio.get("whatsapp"))
+        if not whatsapp:
+            raise ValueError("El comercio no tiene un WhatsApp válido.")
+
+        redirect_activacion = _url_activar_cuenta_externa()
+        resultado = supabase_admin.auth.admin.generate_link({
+            "type": "recovery",
+            "email": comercio["email"],
+            "options": {
+                "redirect_to": redirect_activacion,
+            },
+        })
+        usuario = getattr(resultado, "user", None)
+        propiedades = getattr(resultado, "properties", None)
+        action_link = getattr(propiedades, "action_link", "") if propiedades else ""
+        verification_type = (
+            getattr(propiedades, "verification_type", "") if propiedades else ""
+        )
+        redirect_generado = (
+            getattr(propiedades, "redirect_to", "") if propiedades else ""
+        )
+
+        if not usuario or str(getattr(usuario, "id", "")) != str(comercio["user_id"]):
+            raise ValueError("El usuario Auth no coincide con el propietario.")
+        if verification_type != "recovery" or not action_link:
+            raise ValueError("Supabase no devolvió un enlace recovery válido.")
+        if redirect_generado != redirect_activacion:
+            raise ValueError("Supabase devolvió un destino de activación inesperado.")
+
+        mensaje = (
+            "Hola, tu acceso a ClickLocal está listo.\n\n"
+            "Tocá este enlace para crear tu contraseña y administrar tu comercio:\n"
+            f"{action_link}\n\n"
+            "Por seguridad, usalo personalmente y no lo compartas."
+        )
+        whatsapp_url = construir_url_whatsapp(whatsapp, mensaje)
+        if not whatsapp_url:
+            raise ValueError("No se pudo construir el enlace de WhatsApp.")
+        return redirect(whatsapp_url)
+    except Exception as exc:
+        print(
+            "ERROR GENERANDO ACCESO WHATSAPP:",
+            type(exc).__name__,
+            flush=True,
+        )
+        return redirect(url_for("admin_comercios", acceso_whatsapp_error="1"))
 
 
 @app.route("/activar-cuenta", methods=["GET"])
@@ -9549,6 +9612,9 @@ def _construir_comercios_admin(
                 whatsapp,
                 "Hola, vengo de ClickLocal Paraná. Quiero consultar por ClickLocal.",
             ) if limpiar_numero_whatsapp(whatsapp) else None,
+            "whatsapp_acceso_disponible": bool(
+                _numero_whatsapp_acceso_valido(whatsapp)
+            ),
             "ciudad": comercio_raw.get("ciudad") or "Paraná",
             "categoria": (
                 comercio_raw.get("categoria")

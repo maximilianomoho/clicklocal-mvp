@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 
 import pytest
@@ -184,6 +185,141 @@ def test_redirect_recuperacion_local_conserva_http():
         )
 
 
+class SupabaseWhatsAppFalso(SupabaseAccesoFalso):
+    def __init__(self, comercio, resultado):
+        super().__init__(comercio)
+        self.llamadas = []
+        self.resultado = resultado
+        self.auth = SimpleNamespace(admin=SimpleNamespace(
+            generate_link=self.generar_enlace,
+        ))
+
+    def generar_enlace(self, parametros):
+        self.llamadas.append(parametros)
+        return self.resultado
+
+
+def _resultado_enlace(**cambios):
+    propiedades = SimpleNamespace(
+        action_link="https://proyecto.supabase.co/auth/v1/verify?token=secreto",
+        verification_type="recovery",
+        redirect_to="http://localhost/activar-cuenta",
+    )
+    valores = {
+        "user": SimpleNamespace(id="usuario-1"),
+        "properties": propiedades,
+        **cambios,
+    }
+    return SimpleNamespace(**valores)
+
+
+def _comercio_whatsapp(**cambios):
+    return {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "user_id": "usuario-1",
+        "email": "duena@example.com",
+        "whatsapp": "343 400 0000",
+        "categoria": "Gastronomía",
+        **cambios,
+    }
+
+
+def test_acceso_whatsapp_requiere_admin():
+    cliente = app_module.app.test_client()
+    respuesta = cliente.post(
+        "/admin/gastronomia/11111111-1111-1111-1111-111111111111/dar-acceso-whatsapp"
+    )
+    assert respuesta.status_code == 302
+    assert respuesta.location.endswith("/admin/login")
+
+
+@pytest.mark.parametrize(("comercio_id", "comercio"), [
+    ("uuid-invalido", _comercio_whatsapp()),
+    ("11111111-1111-1111-1111-111111111111", None),
+    ("11111111-1111-1111-1111-111111111111", _comercio_whatsapp(user_id=None)),
+    ("11111111-1111-1111-1111-111111111111", _comercio_whatsapp(email="")),
+    ("11111111-1111-1111-1111-111111111111", _comercio_whatsapp(categoria="Servicios")),
+    ("11111111-1111-1111-1111-111111111111", _comercio_whatsapp(whatsapp="")),
+    ("11111111-1111-1111-1111-111111111111", _comercio_whatsapp(whatsapp="1")),
+])
+def test_acceso_whatsapp_rechaza_comercio_invalido(comercio_id, comercio):
+    db = SupabaseWhatsAppFalso(comercio, _resultado_enlace())
+    cliente = app_module.app.test_client()
+    with cliente.session_transaction() as sesion:
+        sesion["admin_logueado"] = True
+    with patch("app.supabase_admin", db):
+        respuesta = cliente.post(
+            f"/admin/gastronomia/{comercio_id}/dar-acceso-whatsapp"
+        )
+    assert respuesta.status_code == 302
+    assert "acceso_whatsapp_error=1" in respuesta.location
+    assert db.llamadas == []
+
+
+def test_acceso_whatsapp_genera_recovery_y_construye_wa_me():
+    db = SupabaseWhatsAppFalso(_comercio_whatsapp(), _resultado_enlace())
+    cliente = app_module.app.test_client()
+    with cliente.session_transaction() as sesion:
+        sesion["admin_logueado"] = True
+    with patch("app.supabase_admin", db):
+        respuesta = cliente.post(
+            "/admin/gastronomia/11111111-1111-1111-1111-111111111111/dar-acceso-whatsapp",
+        )
+
+    assert respuesta.status_code == 302
+    assert db.llamadas == [{
+        "type": "recovery",
+        "email": "duena@example.com",
+        "options": {
+            "redirect_to": "http://localhost/activar-cuenta",
+        },
+    }]
+    destino = urlparse(respuesta.location)
+    assert destino.scheme == "https"
+    assert destino.netloc == "wa.me"
+    assert destino.path == "/5493434000000"
+    mensaje = parse_qs(destino.query)["text"][0]
+    assert "https://proyecto.supabase.co/auth/v1/verify?token=secreto" in mensaje
+    assert "contraseña" in mensaje
+    assert "contraseña provisoria" not in mensaje
+    assert "password" not in mensaje.lower()
+    with cliente.session_transaction() as sesion:
+        assert "token=secreto" not in repr(dict(sesion))
+
+
+@pytest.mark.parametrize("resultado", [
+    _resultado_enlace(user=SimpleNamespace(id="otro-usuario")),
+    _resultado_enlace(properties=None),
+    _resultado_enlace(properties=SimpleNamespace(
+        action_link="", verification_type="recovery",
+        redirect_to="http://localhost/activar-cuenta",
+    )),
+    _resultado_enlace(properties=SimpleNamespace(
+        action_link="https://proyecto.supabase.co/auth/v1/verify?token=secreto",
+        verification_type="magiclink",
+        redirect_to="http://localhost/activar-cuenta",
+    )),
+    _resultado_enlace(properties=SimpleNamespace(
+        action_link="https://proyecto.supabase.co/auth/v1/verify?token=secreto",
+        verification_type="recovery",
+        redirect_to="https://clicklocal.com.ar/",
+    )),
+])
+def test_acceso_whatsapp_rechaza_respuesta_auth_insegura(resultado, capsys):
+    db = SupabaseWhatsAppFalso(_comercio_whatsapp(), resultado)
+    cliente = app_module.app.test_client()
+    with cliente.session_transaction() as sesion:
+        sesion["admin_logueado"] = True
+    with patch("app.supabase_admin", db):
+        respuesta = cliente.post(
+            "/admin/gastronomia/11111111-1111-1111-1111-111111111111/dar-acceso-whatsapp",
+        )
+    assert respuesta.status_code == 302
+    assert "acceso_whatsapp_error=1" in respuesta.location
+    assert not respuesta.location.startswith("https://wa.me/")
+    assert "token=secreto" not in capsys.readouterr().out
+
+
 class ConsultaActivacionFalsa:
     def __init__(self, db):
         self.db = db
@@ -288,5 +424,7 @@ def test_templates_nuevos_compilan():
     admin = open("templates/admin_comercios.html", encoding="utf-8").read()
     assert "Acceso pendiente" not in admin  # La etiqueta llega desde el backend.
     assert "c.estado_acceso" in admin
-    assert "Restablecer acceso" in admin
-    assert "Dar acceso" in admin
+    assert "Acceso por email" in admin
+    assert "Acceso por WhatsApp" in admin
+    assert "Restablecer por email" in admin
+    assert "Restablecer por WhatsApp" in admin
