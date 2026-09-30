@@ -1,13 +1,23 @@
+import base64
 import json
 import re
 import subprocess
 from types import SimpleNamespace
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 from unittest.mock import patch
 
 import pytest
 
 import app as app_module
+
+
+SUPABASE_ORIGIN_FICTICIO = "https://proyecto.supabase.co"
+REDIRECT_ACTIVACION = "https://clicklocal.com.ar/activar-cuenta"
+ACTION_LINK_FICTICIO = (
+    f"{SUPABASE_ORIGIN_FICTICIO}/auth/v1/verify"
+    "?token=TOKEN_FICTICIO&type=recovery"
+    "&redirect_to=https%3A%2F%2Fclicklocal.com.ar%2Factivar-cuenta"
+)
 
 
 class ConsultaAltaFalsa:
@@ -204,9 +214,9 @@ class SupabaseWhatsAppFalso(SupabaseAccesoFalso):
 
 def _resultado_enlace(**cambios):
     propiedades = SimpleNamespace(
-        action_link="https://proyecto.supabase.co/auth/v1/verify?token=secreto",
+        action_link=ACTION_LINK_FICTICIO,
         verification_type="recovery",
-        redirect_to="http://localhost/activar-cuenta",
+        redirect_to=REDIRECT_ACTIVACION,
     )
     valores = {
         "user": SimpleNamespace(id="usuario-1"),
@@ -261,20 +271,25 @@ def test_acceso_whatsapp_rechaza_comercio_invalido(comercio_id, comercio):
 
 def test_acceso_whatsapp_genera_recovery_y_construye_wa_me():
     db = SupabaseWhatsAppFalso(_comercio_whatsapp(), _resultado_enlace())
-    cliente = app_module.app.test_client()
-    with cliente.session_transaction() as sesion:
-        sesion["admin_logueado"] = True
-    with patch("app.supabase_admin", db):
-        respuesta = cliente.post(
-            "/admin/gastronomia/11111111-1111-1111-1111-111111111111/dar-acceso-whatsapp",
+    with app_module.app.test_request_context(
+        "/admin/gastronomia/11111111-1111-1111-1111-111111111111/dar-acceso-whatsapp",
+        method="POST",
+        base_url="https://clicklocal.com.ar",
+    ), patch("app.supabase_admin", db), patch(
+        "app.SUPABASE_URL", SUPABASE_ORIGIN_FICTICIO
+    ):
+        app_module.session["admin_logueado"] = True
+        respuesta = app_module.admin_dar_acceso_gastronomia_whatsapp(
+            "11111111-1111-1111-1111-111111111111",
         )
+        sesion_serializada = repr(dict(app_module.session))
 
     assert respuesta.status_code == 302
     assert db.llamadas == [{
         "type": "recovery",
         "email": "duena@example.com",
         "options": {
-            "redirect_to": "http://localhost/activar-cuenta",
+            "redirect_to": REDIRECT_ACTIVACION,
         },
     }]
     destino = urlparse(respuesta.location)
@@ -282,12 +297,20 @@ def test_acceso_whatsapp_genera_recovery_y_construye_wa_me():
     assert destino.netloc == "wa.me"
     assert destino.path == "/5493434000000"
     mensaje = parse_qs(destino.query)["text"][0]
-    assert "https://proyecto.supabase.co/auth/v1/verify?token=secreto" in mensaje
+    assert "https://clicklocal.com.ar/acceso#v=1&link=" in mensaje
+    assert "/auth/v1/verify" not in mensaje
+    wrapper = next(
+        parte for parte in mensaje.split() if parte.startswith(
+            "https://clicklocal.com.ar/acceso#"
+        )
+    )
+    payload = parse_qs(urlparse(wrapper).fragment)["link"][0]
+    payload += "=" * ((4 - len(payload) % 4) % 4)
+    assert base64.urlsafe_b64decode(payload).decode() == ACTION_LINK_FICTICIO
     assert "contraseña" in mensaje
     assert "contraseña provisoria" not in mensaje
     assert "password" not in mensaje.lower()
-    with cliente.session_transaction() as sesion:
-        assert "token=secreto" not in repr(dict(sesion))
+    assert "TOKEN_FICTICIO" not in sesion_serializada
 
 
 @pytest.mark.parametrize("resultado", [
@@ -321,6 +344,99 @@ def test_acceso_whatsapp_rechaza_respuesta_auth_insegura(resultado, capsys):
     assert "acceso_whatsapp_error=1" in respuesta.location
     assert not respuesta.location.startswith("https://wa.me/")
     assert "token=secreto" not in capsys.readouterr().out
+
+
+def _action_link_ficticio(parametros=None, **partes):
+    query = parametros if parametros is not None else [
+        ("token", "TOKEN_FICTICIO"),
+        ("type", "recovery"),
+        ("redirect_to", REDIRECT_ACTIVACION),
+    ]
+    esquema = partes.get("esquema", "https")
+    autoridad = partes.get("autoridad", "proyecto.supabase.co")
+    path = partes.get("path", "/auth/v1/verify")
+    fragmento = partes.get("fragmento", "")
+    enlace = f"{esquema}://{autoridad}{path}?{urlencode(query)}"
+    return f"{enlace}#{fragmento}" if fragmento else enlace
+
+
+def test_validador_action_link_acepta_recovery_estricto():
+    with patch("app.SUPABASE_URL", SUPABASE_ORIGIN_FICTICIO):
+        assert app_module._validar_action_link_recovery(
+            _action_link_ficticio()
+        ) == _action_link_ficticio()
+
+
+@pytest.mark.parametrize("action_link", [
+    _action_link_ficticio(esquema="http"),
+    _action_link_ficticio(autoridad="otro.supabase.co"),
+    _action_link_ficticio(autoridad="proyecto.supabase.co.evil.example"),
+    _action_link_ficticio(autoridad="proyecto.supabase.co:444"),
+    _action_link_ficticio(autoridad="usuario:clave@proyecto.supabase.co"),
+    _action_link_ficticio(path="/auth/v1/otro"),
+    _action_link_ficticio(fragmento="interno"),
+    _action_link_ficticio(parametros=[
+        ("type", "recovery"), ("redirect_to", REDIRECT_ACTIVACION),
+    ]),
+    _action_link_ficticio(parametros=[
+        ("token", "uno"), ("token", "dos"), ("type", "recovery"),
+        ("redirect_to", REDIRECT_ACTIVACION),
+    ]),
+    _action_link_ficticio(parametros=[
+        ("token", "TOKEN_FICTICIO"), ("redirect_to", REDIRECT_ACTIVACION),
+    ]),
+    _action_link_ficticio(parametros=[
+        ("token", "TOKEN_FICTICIO"), ("type", "magiclink"),
+        ("redirect_to", REDIRECT_ACTIVACION),
+    ]),
+    _action_link_ficticio(parametros=[
+        ("token", "TOKEN_FICTICIO"), ("type", "recovery"),
+        ("type", "recovery"), ("redirect_to", REDIRECT_ACTIVACION),
+    ]),
+    _action_link_ficticio(parametros=[
+        ("token", "TOKEN_FICTICIO"), ("type", "recovery"),
+        ("redirect_to", "https://clicklocal.com.ar/otro"),
+    ]),
+    _action_link_ficticio(parametros=[
+        ("token", "TOKEN_FICTICIO"), ("type", "recovery"),
+        ("redirect_to", REDIRECT_ACTIVACION),
+        ("redirect_to", REDIRECT_ACTIVACION),
+    ]),
+])
+def test_validador_action_link_rechaza_destinos_inseguros(action_link):
+    with patch("app.SUPABASE_URL", SUPABASE_ORIGIN_FICTICIO), pytest.raises(
+        ValueError
+    ):
+        app_module._validar_action_link_recovery(action_link)
+
+
+def test_acceso_intermedio_es_publico_neutro_y_no_cacheable():
+    cliente = app_module.app.test_client()
+    with patch("app.SUPABASE_URL", SUPABASE_ORIGIN_FICTICIO):
+        respuesta = cliente.get("/acceso#TOKEN_QUE_NO_LLEGA_AL_SERVIDOR")
+    html = respuesta.get_data(as_text=True)
+    assert respuesta.status_code == 200
+    assert "Tu acceso a ClickLocal está listo" in html
+    assert "TOKEN_QUE_NO_LLEGA_AL_SERVIDOR" not in html
+    assert ACTION_LINK_FICTICIO not in html
+    assert respuesta.headers["Cache-Control"] == "no-store"
+    assert respuesta.headers["Referrer-Policy"] == "no-referrer"
+    assert respuesta.headers["X-Content-Type-Options"] == "nosniff"
+    csp = respuesta.headers["Content-Security-Policy"]
+    assert "default-src 'none'" in csp
+    assert "base-uri 'none'" in csp
+    assert "form-action 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "script-src 'nonce-" in csp
+    assert "style-src 'nonce-" in csp
+
+
+def test_acceso_intermedio_rechaza_query_sensible_sin_reflejarla():
+    cliente = app_module.app.test_client()
+    with patch("app.SUPABASE_URL", SUPABASE_ORIGIN_FICTICIO):
+        respuesta = cliente.get("/acceso?token=NO_REFLEJAR")
+    assert respuesta.status_code == 400
+    assert "NO_REFLEJAR" not in respuesta.get_data(as_text=True)
 
 
 class ConsultaActivacionFalsa:
@@ -676,9 +792,159 @@ def test_maquina_recovery_en_javascript(
     }
 
 
+def _payload_base64url(texto):
+    return base64.urlsafe_b64encode(texto.encode()).decode().rstrip("=")
+
+
+def _ejecutar_acceso_javascript(fragmento, clicks=0):
+    with app_module.app.test_request_context("/acceso"):
+        html = app_module.render_template(
+            "acceso.html",
+            csp_nonce="nonce-test",
+            supabase_origin=SUPABASE_ORIGIN_FICTICIO,
+            activar_cuenta_url=REDIRECT_ACTIVACION,
+        )
+    script = re.search(
+        r'<script nonce="nonce-test">(.*?)</script>', html, re.DOTALL
+    ).group(1)
+    config_json = json.dumps({"hash": fragmento, "clicks": clicks})
+    arnes = f"""
+const config = {config_json};
+const traza = [];
+const navegaciones = [];
+let clickHandler = null;
+const botonPrueba = {{
+  disabled: true,
+  addEventListener(tipo, callback) {{
+    if (tipo === "click") clickHandler = callback;
+  }},
+}};
+const estadoPrueba = {{ textContent: "Validando acceso…" }};
+globalThis.window = {{
+  location: {{
+    hash: config.hash,
+    pathname: "/acceso",
+    assign(destino) {{ traza.push("assign"); navegaciones.push(destino); }},
+  }},
+  history: {{
+    replaceState(_estado, _titulo, ruta) {{ traza.push("replace:" + ruta); }},
+  }},
+  atob(valor) {{ traza.push("decode"); return globalThis.atob(valor); }},
+  btoa(valor) {{ return globalThis.btoa(valor); }},
+}};
+globalThis.document = {{
+  addEventListener(tipo, callback) {{
+    if (tipo === "DOMContentLoaded") callback();
+  }},
+  getElementById(id) {{ return id === "continuar" ? botonPrueba : estadoPrueba; }},
+}};
+"""
+    salida = """
+const habilitadoTrasValidar = !botonPrueba.disabled;
+const navegacionesAntesClick = navegaciones.length;
+for (let indice = 0; indice < config.clicks; indice += 1) clickHandler();
+process.stdout.write(JSON.stringify({
+  trace: traza,
+  enabledAfterValidation: habilitadoTrasValidar,
+  message: estadoPrueba.textContent,
+  navigationsBeforeClick: navegacionesAntesClick,
+  navigations: navegaciones,
+  disabledAfterClick: botonPrueba.disabled,
+}));
+"""
+    resultado = subprocess.run(
+        ["node", "--input-type=module"],
+        input=arnes + script + salida,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return json.loads(resultado.stdout)
+
+
+def test_acceso_javascript_limpia_antes_de_decodificar_y_exige_click():
+    payload = _payload_base64url(ACTION_LINK_FICTICIO)
+    resultado = _ejecutar_acceso_javascript(
+        f"#v=1&link={payload}", clicks=2
+    )
+    assert resultado["trace"][0] == "replace:/acceso"
+    assert resultado["trace"].index("replace:/acceso") < resultado["trace"].index(
+        "decode"
+    )
+    assert resultado["enabledAfterValidation"] is True
+    assert resultado["navigationsBeforeClick"] == 0
+    assert resultado["navigations"] == [ACTION_LINK_FICTICIO]
+    assert resultado["disabledAfterClick"] is True
+
+
+@pytest.mark.parametrize("fragmento", [
+    "",
+    "#v=2&link=AAAA",
+    "#v=1&link=***",
+    "#v=1&link=" + ("A" * 12001),
+    "#v=1&link=" + _payload_base64url(_action_link_ficticio(esquema="http")),
+    "#v=1&link=" + _payload_base64url(
+        _action_link_ficticio(autoridad="otro.supabase.co")
+    ),
+    "#v=1&link=" + _payload_base64url(
+        _action_link_ficticio(path="/auth/v1/otro")
+    ),
+    "#v=1&link=" + _payload_base64url(_action_link_ficticio(parametros=[
+        ("token", "TOKEN_FICTICIO"), ("type", "magiclink"),
+        ("redirect_to", REDIRECT_ACTIVACION),
+    ])),
+    "#v=1&link=" + _payload_base64url(_action_link_ficticio(parametros=[
+        ("token", "TOKEN_FICTICIO"), ("type", "recovery"),
+        ("redirect_to", "https://clicklocal.com.ar/otro"),
+    ])),
+])
+def test_acceso_javascript_rechaza_wrappers_invalidos(fragmento):
+    resultado = _ejecutar_acceso_javascript(fragmento, clicks=1)
+    assert resultado["trace"][0] == "replace:/acceso"
+    assert resultado["enabledAfterValidation"] is False
+    assert resultado["navigations"] == []
+    assert "Este enlace de acceso no es válido" in resultado["message"]
+
+
+def test_acceso_template_no_filtra_credenciales_ni_navega_automaticamente():
+    contenido = open("templates/acceso.html", encoding="utf-8").read()
+    assert "window.location.hash.slice(1)" in contenido
+    assert "window.history.replaceState" in contenido
+    assert '<button id="continuar" type="button" disabled>' in contenido
+    assert '<a href=' not in contenido
+    assert "window.location.assign(destino)" in contenido
+    assert 'boton.addEventListener("click"' in contenido
+    assert "setTimeout" not in contenido
+    assert ".click()" not in contenido
+    assert "localStorage" not in contenido
+    assert "sessionStorage" not in contenido
+    assert "fetch(" not in contenido
+    assert "console.log" not in contenido
+    assert "console.error" not in contenido
+    assert "innerHTML" not in contenido
+
+
+def test_email_no_usa_puente_y_activar_cuenta_permanece_separado():
+    contenido = open("app.py", encoding="utf-8").read()
+    bloque_email = contenido.split(
+        "def admin_dar_acceso_gastronomia(comercio_id):", 1
+    )[1].split("def admin_dar_acceso_gastronomia_whatsapp", 1)[0]
+    bloque_whatsapp = contenido.split(
+        "def admin_dar_acceso_gastronomia_whatsapp(comercio_id):", 1
+    )[1].split("def acceso_intermedio", 1)[0]
+    assert "reset_password_for_email" in bloque_email
+    assert "/acceso" not in bloque_email
+    assert "generate_link" in bloque_whatsapp
+    assert "_url_puente_acceso_whatsapp(action_link)" in bloque_whatsapp
+    assert 'f"{action_link}' not in bloque_whatsapp
+    assert '@app.route("/activar-cuenta", methods=["GET"])' in contenido
+    assert '@app.post("/activar-cuenta/completar")' in contenido
+
+
 def test_templates_nuevos_compilan():
     app_module.app.jinja_env.get_template("admin_gastronomia_nueva.html")
     app_module.app.jinja_env.get_template("activar_cuenta.html")
+    app_module.app.jinja_env.get_template("acceso.html")
     app_module.app.jinja_env.get_template("admin_comercios.html")
     admin = open("templates/admin_comercios.html", encoding="utf-8").read()
     assert "Acceso pendiente" not in admin  # La etiqueta llega desde el backend.

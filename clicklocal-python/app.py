@@ -1,9 +1,12 @@
-from flask import Flask, render_template, send_from_directory, send_file, request, redirect, url_for, session, g, has_request_context, jsonify
+from flask import Flask, render_template, send_from_directory, send_file, request, redirect, url_for, session, g, has_request_context, jsonify, make_response
 from werkzeug.utils import secure_filename
+import base64
 import os
+import secrets
 from decimal import Decimal, InvalidOperation
 import uuid
 import hashlib
+from urllib.parse import parse_qs, urlparse
 from PIL import Image, ImageOps, ImageDraw, ImageFont
 from io import BytesIO
 try:
@@ -8715,6 +8718,61 @@ def _numero_whatsapp_acceso_valido(numero_raw):
     return numero if 8 <= len(numero) <= 15 else ""
 
 
+CLICKLOCAL_PUBLIC_ORIGIN = "https://clicklocal.com.ar"
+CLICKLOCAL_ACTIVAR_CUENTA_URL = f"{CLICKLOCAL_PUBLIC_ORIGIN}/activar-cuenta"
+
+
+def _supabase_origin_publico():
+    configurada = urlparse(str(SUPABASE_URL or "").strip())
+    if configurada.scheme != "https" or not configurada.hostname:
+        raise ValueError("La URL pública de Auth no es válida.")
+    if configurada.username or configurada.password:
+        raise ValueError("La URL pública de Auth no es válida.")
+    try:
+        configurada.port
+    except ValueError as exc:
+        raise ValueError("La URL pública de Auth no es válida.") from exc
+    return f"{configurada.scheme}://{configurada.netloc}"
+
+
+def _validar_action_link_recovery(action_link):
+    try:
+        destino = urlparse(str(action_link or "").strip())
+        esperado = urlparse(_supabase_origin_publico())
+        puerto_destino = destino.port
+        puerto_esperado = esperado.port
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Supabase no devolvió un enlace recovery válido.") from exc
+
+    origin_destino = f"{destino.scheme}://{destino.netloc}"
+    if destino.scheme != "https" or origin_destino != _supabase_origin_publico():
+        raise ValueError("Supabase devolvió un origen de verificación inesperado.")
+    if destino.username or destino.password or puerto_destino != puerto_esperado:
+        raise ValueError("Supabase devolvió una autoridad de verificación inesperada.")
+    if destino.path != "/auth/v1/verify" or destino.fragment:
+        raise ValueError("Supabase devolvió una ruta de verificación inesperada.")
+
+    parametros = parse_qs(destino.query, keep_blank_values=True)
+    tokens = parametros.get("token", [])
+    tipos = parametros.get("type", [])
+    redirects = parametros.get("redirect_to", [])
+    if len(tokens) != 1 or not tokens[0]:
+        raise ValueError("Supabase devolvió un token de verificación inválido.")
+    if len(tipos) != 1 or tipos[0] != "recovery":
+        raise ValueError("Supabase devolvió un tipo de verificación inesperado.")
+    if len(redirects) != 1 or redirects[0] != CLICKLOCAL_ACTIVAR_CUENTA_URL:
+        raise ValueError("Supabase devolvió un destino de activación inesperado.")
+    return str(action_link).strip()
+
+
+def _url_puente_acceso_whatsapp(action_link):
+    enlace_validado = _validar_action_link_recovery(action_link)
+    payload = base64.urlsafe_b64encode(
+        enlace_validado.encode("utf-8")
+    ).decode("ascii").rstrip("=")
+    return f"{CLICKLOCAL_PUBLIC_ORIGIN}/acceso#v=1&link={payload}"
+
+
 def _comercio_acceso_gastronomia(comercio_id):
     comercio_id = str(uuid.UUID(str(comercio_id)))
     respuesta = (
@@ -8898,11 +8956,12 @@ def admin_dar_acceso_gastronomia_whatsapp(comercio_id):
             raise ValueError("Supabase no devolvió un enlace recovery válido.")
         if redirect_generado != redirect_activacion:
             raise ValueError("Supabase devolvió un destino de activación inesperado.")
+        enlace_acceso = _url_puente_acceso_whatsapp(action_link)
 
         mensaje = (
             "Hola, tu acceso a ClickLocal está listo.\n\n"
             "Tocá este enlace para crear tu contraseña y administrar tu comercio:\n"
-            f"{action_link}\n\n"
+            f"{enlace_acceso}\n\n"
             "Por seguridad, usalo personalmente y no lo compartas."
         )
         whatsapp_url = construir_url_whatsapp(whatsapp, mensaje)
@@ -8916,6 +8975,30 @@ def admin_dar_acceso_gastronomia_whatsapp(comercio_id):
             flush=True,
         )
         return redirect(url_for("admin_comercios", acceso_whatsapp_error="1"))
+
+
+@app.get("/acceso")
+def acceso_intermedio():
+    nonce = secrets.token_urlsafe(24)
+    respuesta = make_response(
+        render_template(
+            "acceso.html",
+            csp_nonce=nonce,
+            supabase_origin=_supabase_origin_publico(),
+            activar_cuenta_url=CLICKLOCAL_ACTIVAR_CUENTA_URL,
+        ),
+        400 if request.query_string else 200,
+    )
+    respuesta.headers["Cache-Control"] = "no-store"
+    respuesta.headers["Referrer-Policy"] = "no-referrer"
+    respuesta.headers["X-Content-Type-Options"] = "nosniff"
+    respuesta.headers["Content-Security-Policy"] = (
+        "default-src 'none'; "
+        f"script-src 'nonce-{nonce}'; "
+        f"style-src 'nonce-{nonce}'; "
+        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    )
+    return respuesta
 
 
 @app.route("/activar-cuenta", methods=["GET"])

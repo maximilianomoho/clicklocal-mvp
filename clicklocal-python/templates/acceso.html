@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acceso a ClickLocal</title>
+  <script nonce="{{ csp_nonce }}">
+    (() => {
+      const fragmentoInicial = window.location.hash.slice(1);
+      window.history.replaceState(null, "", window.location.pathname);
+
+      const MAX_PAYLOAD_BASE64URL = 12000;
+      const MAX_ACTION_LINK = 8192;
+      const expectedSupabaseOrigin = {{ supabase_origin|tojson }};
+      const expectedRedirect = {{ activar_cuenta_url|tojson }};
+      let actionLinkValidado = null;
+      let navegando = false;
+
+      function mostrarError(estado, boton) {
+        actionLinkValidado = null;
+        boton.disabled = true;
+        estado.textContent = (
+          "Este enlace de acceso no es válido. Pedí uno nuevo al administrador."
+        );
+      }
+
+      function decodificarBase64url(payload) {
+        if (
+          !payload
+          || payload.length > MAX_PAYLOAD_BASE64URL
+          || !/^[A-Za-z0-9_-]+$/.test(payload)
+          || payload.length % 4 === 1
+        ) {
+          throw new Error("payload_invalido");
+        }
+        const normalizado = payload.replace(/-/g, "+").replace(/_/g, "/");
+        const relleno = "=".repeat((4 - normalizado.length % 4) % 4);
+        const binario = window.atob(normalizado + relleno);
+        const bytes = Uint8Array.from(binario, (caracter) => caracter.charCodeAt(0));
+        const recodificado = window.btoa(binario)
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/g, "");
+        if (recodificado !== payload) throw new Error("payload_no_canonico");
+        return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      }
+
+      function validarActionLink(actionLink) {
+        if (!actionLink || actionLink.length > MAX_ACTION_LINK) return null;
+        let destino;
+        try {
+          destino = new URL(actionLink);
+        } catch (_error) {
+          return null;
+        }
+        if (
+          destino.protocol !== "https:"
+          || destino.origin !== expectedSupabaseOrigin
+          || destino.pathname !== "/auth/v1/verify"
+          || destino.username
+          || destino.password
+          || destino.hash
+        ) {
+          return null;
+        }
+        const tokens = destino.searchParams.getAll("token");
+        const tipos = destino.searchParams.getAll("type");
+        const redirects = destino.searchParams.getAll("redirect_to");
+        if (
+          tokens.length !== 1
+          || !tokens[0]
+          || tipos.length !== 1
+          || tipos[0] !== "recovery"
+          || redirects.length !== 1
+          || redirects[0] !== expectedRedirect
+        ) {
+          return null;
+        }
+        return destino.toString();
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const boton = document.getElementById("continuar");
+        const estado = document.getElementById("estado");
+        try {
+          const parametros = new URLSearchParams(fragmentoInicial);
+          const versiones = parametros.getAll("v");
+          const enlaces = parametros.getAll("link");
+          if (
+            [...parametros.keys()].some((clave) => !["v", "link"].includes(clave))
+            || versiones.length !== 1
+            || versiones[0] !== "1"
+            || enlaces.length !== 1
+          ) {
+            throw new Error("fragmento_invalido");
+          }
+          const decodificado = decodificarBase64url(enlaces[0]);
+          actionLinkValidado = validarActionLink(decodificado);
+          if (!actionLinkValidado) throw new Error("destino_invalido");
+          boton.disabled = false;
+          estado.textContent = "El enlace está listo para continuar.";
+        } catch (_error) {
+          mostrarError(estado, boton);
+        }
+
+        boton.addEventListener("click", () => {
+          if (navegando || !actionLinkValidado) return;
+          navegando = true;
+          boton.disabled = true;
+          const destino = actionLinkValidado;
+          actionLinkValidado = null;
+          window.location.assign(destino);
+        });
+      });
+    })();
+  </script>
+  <style nonce="{{ csp_nonce }}">
+    *{box-sizing:border-box}body{margin:0;background:#f7f4ef;color:#24201d;font-family:Arial,sans-serif}.acceso{min-height:100vh;display:grid;place-items:center;padding:24px}.acceso__card{width:min(100%,480px);padding:32px;border-radius:18px;background:#fff;box-shadow:0 10px 32px rgba(0,0,0,.1);text-align:center}.acceso h1{margin:0 0 14px;font-size:30px}.acceso p{line-height:1.5}.acceso button{margin-top:18px;padding:13px 24px;border:0;border-radius:10px;background:#7a1f2b;color:#fff;font-size:16px;font-weight:800;cursor:pointer}.acceso button:disabled{cursor:not-allowed;opacity:.55}#estado{min-height:24px;color:#6b625d}
+  </style>
+</head>
+<body>
+  <main class="acceso">
+    <section class="acceso__card">
+      <h1>Tu acceso a ClickLocal está listo</h1>
+      <p>Para continuar, abrí personalmente el acceso.</p>
+      <p id="estado">Validando acceso…</p>
+      <button id="continuar" type="button" disabled>Continuar</button>
+    </section>
+  </main>
+</body>
+</html>
