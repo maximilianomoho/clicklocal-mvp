@@ -1,0 +1,50 @@
+{% extends "panel.html" %}
+{% block panel_hero_texto %}<div><p class="titulo-chico">CLIENTE</p><h1>{{ cliente.nombre }}</h1><p>{{ cliente.whatsapp }}</p></div>{% endblock %}
+{% block panel_menu_principal %}
+<a href="{{ url_for('panel') }}" class="panel-menu-link">← Panel general</a>
+<a href="{{ url_for('pedidos_comercio.panel_pedidos') }}#pedidos" class="panel-menu-link">Pedidos</a>
+<a href="{{ url_for('pedidos_comercio.historial_pedidos') }}" class="panel-menu-link">Historial</a>
+<a href="{{ url_for('pedidos_comercio.clientes_pedidos') }}" class="panel-menu-link activo">Clientes</a>
+<a href="{{ url_for('pedidos_comercio.metricas_pedidos') }}" class="panel-menu-link">Métricas</a>
+<a href="{{ url_for('pedidos_comercio.panel_pedidos') }}#configuracion" class="panel-menu-link">Configuración</a>
+{% endblock %}
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pedidos/panel.css') }}">
+<section class="panel-card cliente-ficha">
+  <a href="{{ url_for('pedidos_comercio.clientes_pedidos') }}">← Volver a Clientes</a>
+  <div class="cliente-datos"><div><p class="titulo-chico">DATOS</p><h2>{{ cliente.nombre }}</h2><p>{{ cliente.whatsapp }}</p></div><dl><div><dt>Compras realizadas</dt><dd>{{ cliente.pedidos_compra }}</dd></div><div><dt>Total comprado</dt><dd>{{ cliente.total_comprado|precio_arg }}</dd></div><div><dt>Ticket promedio</dt><dd>{{ cliente.ticket_promedio|precio_arg }}</dd></div><div><dt>Primera compra</dt><dd>{{ cliente.primera_compra }}</dd></div><div><dt>Última compra</dt><dd>{{ cliente.ultima_compra }}</dd></div></dl></div>
+  {% if fidelizacion_error %}<p class="config-error">{{ fidelizacion_error }}</p>{% endif %}
+  {% if request.args.get('canje_guardado') %}<p class="config-ok">Premio marcado como canjeado.</p>{% endif %}
+  {% if request.args.get('canje_error') %}<p class="config-error">{{ request.args.get('canje_error') }}</p>{% endif %}
+  {% if cliente.fidelizacion and cliente.fidelizacion.mostrar %}
+  <section class="fidelizacion-cliente" aria-labelledby="fidelizacion-titulo">
+    <p class="titulo-chico">FIDELIZACIÓN</p><h2 id="fidelizacion-titulo">Programa de sellos</h2>
+    <p class="fidelizacion-contador"><strong>{{ cliente.fidelizacion.saldo }}</strong>{% if cliente.fidelizacion.meta_sellos is not none %} de {{ cliente.fidelizacion.meta_sellos }} sellos{% else %} sellos{% endif %}</p>
+    {% if cliente.fidelizacion.premio_disponible %}
+      <p class="fidelizacion-disponible">Premio disponible</p>
+    {% elif cliente.fidelizacion.activa and cliente.fidelizacion.meta_sellos is not none %}
+      <p>Te faltan {{ cliente.fidelizacion.meta_sellos - cliente.fidelizacion.saldo }} para el premio.</p>
+    {% elif not cliente.fidelizacion.activa %}<p>El programa está inactivo. Los sellos acumulados se conservan.</p>{% endif %}
+    {% if cliente.fidelizacion.premio %}<p><strong>Premio:</strong> {{ cliente.fidelizacion.premio }}</p>{% endif %}
+    {% if cliente.fidelizacion.premio_disponible %}
+    <form method="post" action="{{ url_for('pedidos_comercio.canjear_premio_fidelizacion', identificador=cliente.identificador) }}">
+      <input type="hidden" name="idempotency_key" value="{{ token_canje }}">
+      <button type="submit" class="boton-principal-form">Marcar premio como canjeado</button>
+    </form>
+    {% endif %}
+    {% if cliente.fidelizacion.canjes %}
+    <div class="fidelizacion-historial"><h3>Historial de premios</h3><div class="cliente-pedidos">
+      {% for canje in cliente.fidelizacion.canjes %}<article><div><strong>{{ canje.premio_snapshot }}</strong><span>{{ canje.fecha }}</span></div><span>{{ canje.sellos_consumidos }} sellos</span></article>{% endfor %}
+    </div></div>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% if limite_alcanzado %}<p class="historial-aviso">El resumen y el historial se limitan a los 2.000 pedidos más recientes del comercio.</p>{% endif %}
+  <h2>Historial de pedidos</h2>
+  <div class="cliente-pedidos">
+    {% for pedido in cliente.pedidos %}
+    <article><div><strong>Pedido #{{ pedido.numero }}</strong><span>{{ pedido.fecha_local }}</span></div><span class="historial-estado historial-estado--{{ pedido.estado }}">{{ pedido.estado|capitalize }}</span><span>{{ pedido.tipo_entrega|capitalize }}</span><strong>{{ pedido.total|precio_arg }}</strong><a class="pedido-imprimir" href="{{ url_for('pedidos_comercio.imprimir_pedido', pedido_id=pedido.id) }}" target="_blank" rel="noopener">Ver / Imprimir</a></article>
+    {% else %}<p>No hay pedidos para este cliente.</p>{% endfor %}
+  </div>
+</section>
+{% endblock %}

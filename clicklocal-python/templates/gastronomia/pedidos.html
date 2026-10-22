@@ -13,16 +13,16 @@
 {% block panel_contenido_principal %}
 <link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/pedidos.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='gastronomia/panel.css') }}">
-<header class="pedidos-seccion-encabezado">
-  <p class="titulo-chico">PEDIDOS</p>
-  <h2>Pedidos de hoy</h2>
+<header class="pedidos-seccion-encabezado{% if not pos_activo %} pedidos-seccion-encabezado--base{% endif %}">
+  {% if pos_activo %}<p class="titulo-chico">PEDIDOS</p>{% endif %}
+  <h2>{{ 'Pedidos de hoy' if pos_activo else 'Pedidos recibidos' }}</h2>
   <p>{{ fecha_tablero }}</p>
   {% if not pos_activo %}<p>Acá ves los pedidos que llegaron desde ClickLocal.</p>{% endif %}
 </header>
 {% if pos_activo %}
 <section
   class="kanban-pedidos"
-  data-endpoint-base="{{ url_for('gastronomia.pedidos_gastronomia') }}"
+  data-endpoint-base="{{ url_for('gastronomia.pedidos_gastronomia', modalidad=modalidad_pedidos) }}"
 >
   <header class="kanban-encabezado">
     <div>
@@ -32,10 +32,11 @@
       <p class="kanban-actualizacion" role="status" aria-live="polite">
         La bandeja se actualiza automáticamente.
       </p>
+      <button type="button" data-activar-sonido>🔔 Activar sonido</button>
     </div>
     <a
       class="kanban-historial"
-      href="{{ url_for('gastronomia.historial_pedidos_gastronomia') }}"
+      href="{{ url_for('gastronomia.historial_pedidos_gastronomia', modalidad=modalidad_pedidos) }}"
     >Ver historial</a>
   </header>
   <div class="kanban-columnas">
@@ -127,51 +128,76 @@
   </div>
 </section>
 {% else %}
-<section class="kanban-pedidos" aria-label="Pedidos recibidos desde ClickLocal">
-  <header class="kanban-encabezado">
+<section
+  class="pedidos-recibidos"
+  data-endpoint-base="{{ url_for('gastronomia.pedidos_gastronomia', pagina=paginacion_recibidos.pagina) }}"
+  data-pagina-actual="{{ paginacion_recibidos.pagina }}"
+  aria-label="Pedidos recibidos desde ClickLocal"
+>
+  <header class="pedidos-recibidos-encabezado">
     <div>
-      <p class="titulo-chico">CANAL CLICKLOCAL</p>
-      <h2>Pedidos recibidos hoy</h2>
-      <p>Esta vista es de consulta y no incluye herramientas operativas de POS.</p>
+      <p class="kanban-actualizacion" role="status" aria-live="polite">La lista se actualiza automáticamente.</p>
+      <div class="pedidos-alerta-base" aria-label="Alarma de pedidos nuevos">
+        <button type="button" data-activar-sonido aria-pressed="false">🔔 Activar sonido</button>
+        <label>
+          <span>Volumen</span>
+          <input type="range" min="0" max="100" value="90" data-volumen-alerta>
+          <output data-volumen-alerta-valor>90%</output>
+        </label>
+        <small data-estado-sonido>Activá la alarma con un clic para permitir el audio en el navegador.</small>
+      </div>
     </div>
     <a class="kanban-historial" href="{{ url_for('gastronomia.historial_pedidos_gastronomia') }}">Ver historial</a>
   </header>
-  <div class="pedidos-lista-base">
-    {% for estado in estados_kanban %}
-      {% for pedido in columnas[estado] %}
-      <article class="kanban-tarjeta">
-        <div class="kanban-tarjeta-cabecera">
-          <strong>#{{ pedido.numero_pedido }}</strong>
-          <span>{{ pedido.estado|replace('_', ' ')|capitalize }}</span>
-        </div>
-        <dl class="kanban-datos">
-          <div><dt>Hora</dt><dd>{{ pedido.created_at_mostrar[-5:] }}</dd></div>
-          <div class="kanban-dato-ancho"><dt>Cliente</dt><dd>{{ ((pedido.nombre_cliente or '') ~ ' ' ~ (pedido.apellido_cliente or ''))|trim or 'Sin informar' }}</dd></div>
-          <div><dt>Modalidad</dt><dd>{{ pedido.tipo_entrega|capitalize }}</dd></div>
-          <div><dt>Pago</dt><dd>{{ pedido.estado_pago|default('pendiente', true)|capitalize }}</dd></div>
-          <div><dt>Total</dt><dd class="kanban-total">{{ pedido.total|precio_arg }}</dd></div>
+  <div class="pedidos-recibidos-cuerpo">
+    <div class="pedidos-recibidos-lista">
+    {% for pedido in pedidos_recibidos %}
+      <article class="pedido-recibido" data-pedido-id="{{ pedido.id }}">
+        <header><strong>Pedido #{{ pedido.numero_pedido }}</strong><time>{{ pedido.created_at_mostrar }}</time></header>
+        <dl>
+          <div><dt>Cliente</dt><dd>{{ ((pedido.nombre_cliente or '') ~ ' ' ~ (pedido.apellido_cliente or ''))|trim or 'Sin informar' }}</dd></div>
+          {% if pedido.telefono_cliente %}<div><dt>WhatsApp</dt><dd>{{ pedido.telefono_cliente }}</dd></div>{% endif %}
+          <div><dt>Entrega</dt><dd>{{ pedido.tipo_entrega|default('Sin informar', true)|capitalize }}</dd></div>
+          {% if pedido.tipo_entrega == 'delivery' and pedido.direccion_entrega %}<div><dt>Domicilio</dt><dd>{{ pedido.direccion_entrega }}{% if pedido.referencia_direccion %} · {{ pedido.referencia_direccion }}{% endif %}</dd></div>{% endif %}
         </dl>
-        <div class="kanban-acciones-secundarias">
-          <button type="button" class="js-ver-detalle" data-pedido="{{ pedido|tojson|forceescape }}">Ver pedido</button>
+        <div class="pedido-recibido-productos">
+          <h3>Productos</h3>
+          {% for item in pedido.detalle_items %}<p><strong>{{ item.cantidad or 0 }} ×</strong> {{ item.nombre or 'Producto' }}</p>{% else %}<p>Sin detalle disponible</p>{% endfor %}
+        </div>
+        <p class="pedido-recibido-total"><span>Total solicitado</span><strong>{{ pedido.total|precio_arg }}</strong></p>
+        <div class="pedido-recibido-acciones" aria-label="Acciones del pedido">
+          <button type="button" data-imprimir-pedido data-pedido="{{ pedido|tojson|forceescape }}">Imprimir</button>
+          <button type="button" data-compartir-pedido data-pedido="{{ pedido|tojson|forceescape }}">Compartir por WhatsApp</button>
         </div>
       </article>
-      {% endfor %}
+    {% else %}
+      <p class="pedidos-recibidos-vacio">Todavía no hay pedidos recibidos.</p>
     {% endfor %}
-    {% if not (columnas.pendiente or columnas.marchando or columnas.preparado or columnas.cerrado) %}
-      <p class="kanban-vacio">Hoy no llegaron pedidos desde ClickLocal.</p>
+    </div>
+    {% if paginacion_recibidos.total_paginas > 1 %}
+    <nav class="pedidos-paginacion" aria-label="Páginas de pedidos recibidos">
+      {% if paginacion_recibidos.pagina > 1 %}<a href="{{ url_for('gastronomia.pedidos_gastronomia', pagina=paginacion_recibidos.pagina - 1) }}">Anterior</a>{% endif %}
+      <span>Página {{ paginacion_recibidos.pagina }} de {{ paginacion_recibidos.total_paginas }}</span>
+      {% if paginacion_recibidos.pagina < paginacion_recibidos.total_paginas %}<a href="{{ url_for('gastronomia.pedidos_gastronomia', pagina=paginacion_recibidos.pagina + 1) }}">Siguiente</a>{% endif %}
+    </nav>
     {% endif %}
   </div>
 </section>
 {% endif %}
-{% include "gastronomia/_pedido_modal.html" %}
+{% if not pos_activo %}
+{% include "gastronomia/_pedido_modal_base.html" %}
+<script src="{{ url_for('static', filename='gastronomia/pedido_acciones_base.js', v='1') }}" defer></script>
+{% endif %}
 {% if pos_activo %}
+{% include "gastronomia/_pedido_modal.html" %}
 {% include "gastronomia/_comanda_modal.html" %}
 {% include "gastronomia/_ticket_modal.html" %}
 {% endif %}
-<script src="{{ url_for('static', filename='gastronomia/pedido_detalle.js', v='1') }}" defer></script>
 {% if pos_activo %}
+<script src="{{ url_for('static', filename='gastronomia/pedido_detalle.js', v='1') }}" defer></script>
 <script src="{{ url_for('static', filename='gastronomia/comanda.js', v='1') }}" defer></script>
 <script src="{{ url_for('static', filename='gastronomia/ticket.js', v='1') }}" defer></script>
-<script src="{{ url_for('static', filename='gastronomia/pedidos.js', v='entrega-3') }}" defer></script>
 {% endif %}
+<script src="{{ url_for('static', filename='pedidos/alertas.js') }}" defer></script>
+<script src="{{ url_for('static', filename='gastronomia/pedidos.js', v='entrega-3') }}" defer></script>
 {% endblock %}

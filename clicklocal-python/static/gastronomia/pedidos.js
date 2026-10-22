@@ -1,17 +1,45 @@
 (() => {
-  const tablero = document.querySelector(".kanban-pedidos");
+  const tablero = document.querySelector(".kanban-pedidos, .pedidos-recibidos");
   const intervaloActualizacionMs = 30000;
   let gesto = null;
   let omitirClick = false;
   let actualizando = false;
-
   if (!tablero) return;
+  const esPedidosRecibidos = tablero.classList.contains("pedidos-recibidos");
+  const paginaPedidosRecibidos = Number(tablero.dataset.paginaActual || 0);
+  let idsConocidos = new Set(
+    Array.from(tablero.querySelectorAll("[data-pedido-id]"), (nodo) => nodo.dataset.pedidoId)
+  );
+
+  const permiteKanban = Boolean(tablero.querySelector(".kanban-columnas"));
 
   function informar(mensaje, esError = false) {
     const estado = tablero.querySelector(".kanban-actualizacion");
     if (!estado) return;
     estado.textContent = mensaje;
     estado.classList.toggle("kanban-actualizacion--error", esError);
+  }
+
+  function activarColumnaBase(clave) {
+    const pestanas = tablero.querySelectorAll("[data-columna-base-tab]");
+    const columnas = tablero.querySelectorAll("[data-columna-base]");
+    if (!pestanas.length || !columnas.length) return;
+    const existe = Array.from(columnas).some(
+      (columna) => columna.dataset.columnaBase === clave,
+    );
+    const claveActiva = existe ? clave : columnas[0].dataset.columnaBase;
+    pestanas.forEach((pestana) => {
+      pestana.setAttribute(
+        "aria-selected",
+        String(pestana.dataset.columnaBaseTab === claveActiva),
+      );
+    });
+    columnas.forEach((columna) => {
+      columna.classList.toggle(
+        "activa",
+        columna.dataset.columnaBase === claveActiva,
+      );
+    });
   }
 
   function limpiarDrag() {
@@ -51,23 +79,60 @@
       || document.querySelector("#pedidoDetalleModal")?.open) return;
     actualizando = true;
     const columnasActuales = tablero.querySelector(".kanban-columnas");
+    const pestanasBaseActuales = tablero.querySelector(".pedidos-base-tabs");
+    const listaBaseActual = tablero.querySelector(".pedidos-lista-base");
+    const recibidosActuales = tablero.querySelector(".pedidos-recibidos-cuerpo");
+    const columnaBaseActiva = tablero.querySelector(
+      '[data-columna-base-tab][aria-selected="true"]',
+    )?.dataset.columnaBaseTab;
     const scrollAnterior = columnasActuales?.scrollLeft || 0;
     try {
       const respuesta = await fetch(tablero.dataset.endpointBase, {
         credentials: "same-origin",
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });
-      if (!respuesta.ok) throw new Error("No se pudo refrescar la bandeja.");
+      if (!respuesta.ok) throw new Error(
+        esPedidosRecibidos
+          ? "No se pudo refrescar la lista."
+          : "No se pudo refrescar la bandeja.",
+      );
       const documento = new DOMParser().parseFromString(
         await respuesta.text(), "text/html",
       );
       const columnasNuevas = documento.querySelector(".kanban-columnas");
-      if (!columnasNuevas || !columnasActuales) {
+      const pestanasBaseNuevas = documento.querySelector(".pedidos-base-tabs");
+      const listaBaseNueva = documento.querySelector(".pedidos-lista-base");
+      const recibidosNuevos = documento.querySelector(".pedidos-recibidos-cuerpo");
+      if ((!columnasNuevas || !columnasActuales)
+        && (!listaBaseNueva || !listaBaseActual)
+        && (!recibidosNuevos || !recibidosActuales)) {
         throw new Error("La respuesta de la bandeja no es válida.");
       }
-      columnasActuales.replaceWith(columnasNuevas);
-      columnasNuevas.scrollLeft = scrollAnterior;
-      if (!silencioso) informar("Bandeja actualizada.");
+      const contenedorNuevo = columnasNuevas || listaBaseNueva || recibidosNuevos;
+      const idsNuevos = new Set(Array.from(contenedorNuevo.querySelectorAll("[data-pedido-id]"), (nodo) => nodo.dataset.pedidoId));
+      const llegoPedido = Array.from(idsNuevos).some((id) => !idsConocidos.has(id));
+      if (recibidosNuevos) {
+        recibidosActuales.replaceWith(recibidosNuevos);
+      } else if (columnasNuevas) {
+        columnasActuales.replaceWith(columnasNuevas);
+        columnasNuevas.scrollLeft = scrollAnterior;
+      } else {
+        if (pestanasBaseActuales && pestanasBaseNuevas) {
+          pestanasBaseActuales.replaceWith(pestanasBaseNuevas);
+        }
+        listaBaseActual.replaceWith(listaBaseNueva);
+        activarColumnaBase(columnaBaseActiva);
+      }
+      idsConocidos = idsNuevos;
+      if (llegoPedido) {
+        informar("Llegó un pedido nuevo.");
+        if (!esPedidosRecibidos || paginaPedidosRecibidos === 1) {
+          window.ClickLocalAlertaPedido?.avisar();
+        }
+      }
+      if (!silencioso) informar(
+        esPedidosRecibidos ? "Lista actualizada." : "Bandeja actualizada.",
+      );
     } catch (error) {
       informar(error.message, true);
     } finally {
@@ -107,6 +172,74 @@
       await solicitar(
         `${tablero.dataset.endpointBase}/${tarjeta.dataset.pedidoId}/pago`,
         { estado_pago: estadoPago },
+      );
+      actualizando = false;
+      await refrescarBandeja();
+    } catch (error) {
+      informar(error.message, true);
+      actualizando = false;
+      tarjeta.classList.remove("kanban-tarjeta--actualizando");
+    }
+  }
+
+  function seleccionCobros() {
+    return Array.from(
+      tablero.querySelectorAll('[data-seleccionar-cobro]:checked'),
+      (casilla) => casilla.closest("[data-pedido-id]"),
+    ).filter(Boolean);
+  }
+
+  function actualizarResumenCobros() {
+    const tarjetas = seleccionCobros();
+    const total = tarjetas.reduce(
+      (suma, tarjeta) => suma + Number(tarjeta.dataset.total || 0), 0,
+    );
+    const resumen = tablero.querySelector("[data-resumen-seleccion]");
+    const boton = tablero.querySelector("[data-confirmar-cobros]");
+    if (resumen) resumen.textContent = `${tarjetas.length} pedidos · ${total.toLocaleString("es-AR", { style: "currency", currency: "ARS" })}`;
+    if (boton) boton.disabled = tarjetas.length === 0;
+  }
+
+  async function confirmarCobros(tarjetas) {
+    if (actualizando || !tarjetas.length) return;
+    const total = tarjetas.reduce(
+      (suma, tarjeta) => suma + Number(tarjeta.dataset.total || 0), 0,
+    );
+    const detalle = `${tarjetas.length} pedido${tarjetas.length === 1 ? "" : "s"} por ${total.toLocaleString("es-AR", { style: "currency", currency: "ARS" })}`;
+    if (!window.confirm(`¿Confirmar el cobro de ${detalle}?`)) return;
+    actualizando = true;
+    tarjetas.forEach((tarjeta) => tarjeta.classList.add("kanban-tarjeta--actualizando"));
+    try {
+      const respuesta = await fetch(tablero.dataset.endpointCobros, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedido_ids: tarjetas.map((tarjeta) => tarjeta.dataset.pedidoId) }),
+      });
+      const datos = await respuesta.json().catch(() => ({}));
+      if (!respuesta.ok && respuesta.status !== 207) {
+        throw new Error(datos.error || "No se pudieron confirmar los cobros.");
+      }
+      const mensaje = `${datos.confirmados || 0} cobro(s) confirmado(s)`
+        + (datos.con_error ? `; ${datos.con_error} con error.` : ".");
+      informar(mensaje, Boolean(datos.con_error));
+      actualizando = false;
+      await refrescarBandeja({ silencioso: true });
+    } catch (error) {
+      informar(error.message, true);
+      actualizando = false;
+      tarjetas.forEach((tarjeta) => tarjeta.classList.remove("kanban-tarjeta--actualizando"));
+    }
+  }
+
+  async function confirmarPedido(tarjeta) {
+    if (actualizando) return;
+    actualizando = true;
+    tarjeta.classList.add("kanban-tarjeta--actualizando");
+    try {
+      await solicitar(
+        `${tablero.dataset.endpointBase}/${tarjeta.dataset.pedidoId}/confirmacion`,
+        {},
       );
       actualizando = false;
       await refrescarBandeja();
@@ -233,7 +366,8 @@
   }
 
   tablero.addEventListener("pointerdown", (evento) => {
-    if (!evento.isPrimary
+    if (!permiteKanban
+      || !evento.isPrimary
       || (evento.pointerType === "mouse" && evento.button !== 0)
       || evento.target.closest("button,a,input,select,textarea")) return;
     const tarjeta = evento.target.closest(".kanban-tarjeta");
@@ -283,17 +417,46 @@
       evento.stopPropagation();
       return;
     }
+    const pestanaBase = evento.target.closest("[data-columna-base-tab]");
+    if (pestanaBase) {
+      activarColumnaBase(pestanaBase.dataset.columnaBaseTab);
+      return;
+    }
+    const seleccionarTodos = evento.target.closest("[data-seleccionar-todos]");
+    if (seleccionarTodos) {
+      tablero.querySelectorAll("[data-seleccionar-cobro]").forEach((casilla) => {
+        casilla.checked = seleccionarTodos.checked;
+      });
+      actualizarResumenCobros();
+      return;
+    }
+    if (evento.target.closest("[data-confirmar-cobros]")) {
+      confirmarCobros(seleccionCobros());
+      return;
+    }
     const tarjeta = evento.target.closest(".kanban-tarjeta");
     if (!tarjeta) return;
     const botonEstado = evento.target.closest("[data-accion-estado]");
+    const botonConfirmar = evento.target.closest("[data-accion-confirmar]");
     const botonPago = evento.target.closest("button[data-estado-pago]");
     const botonEntrega = evento.target.closest("[data-accion-entrega]");
-    if (botonEntrega) {
+    const botonCobro = evento.target.closest("[data-confirmar-cobro]");
+    if (botonCobro) {
+      confirmarCobros([tarjeta]);
+    } else if (botonConfirmar) {
+      confirmarPedido(tarjeta);
+    } else if (botonEntrega) {
       marcarEntregado(tarjeta);
     } else if (botonPago) {
       cambiarPago(tarjeta, botonPago.dataset.estadoPago);
     } else if (botonEstado) {
       cambiarEstado(tarjeta, botonEstado.dataset.accionEstado);
+    }
+  });
+
+  tablero.addEventListener("change", (evento) => {
+    if (evento.target.matches("[data-seleccionar-cobro]")) {
+      actualizarResumenCobros();
     }
   });
 

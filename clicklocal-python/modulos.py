@@ -11,6 +11,27 @@ from config.supabase_config import supabase_admin
 
 
 CATALOGO_MODULOS = {
+    "carrito": {
+        "slug": "carrito",
+        "nombre": "Carrito",
+        "descripcion_corta": (
+            "Recibí pedidos por WhatsApp usando las publicaciones "
+            "que ya cargaste en ClickLocal."
+        ),
+        "descripcion_detalle": (
+            "Convertí la vidriera de tu comercio en un catálogo con "
+            "carrito, cantidades y confirmación segura del pedido."
+        ),
+        "beneficios": [
+            "Reutilizá tus publicaciones y sus fotos.",
+            "Tus clientes pueden armar un pedido desde el celular.",
+            "Recibí el detalle final directamente por WhatsApp.",
+        ],
+        "precio": "Consultá el precio y las condiciones de activación.",
+        "endpoint_operativo": "pedidos_comercio.panel_pedidos",
+        "disponible": True,
+        "imagenes": [],
+    },
     "contenido": {
         "slug": "contenido",
         "nombre": "ClickLocal Contenido",

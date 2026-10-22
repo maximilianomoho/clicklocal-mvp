@@ -387,7 +387,7 @@ def test_pedidos_y_ventas_usan_acordeones_sin_subnavegacion_duplicada():
     assert "gastro-subnav" not in pedidos
     assert "gastro-subnav" not in historial_pedidos
     assert '<p class="titulo-chico">PEDIDOS</p>' in pedidos
-    assert '<h2>Pedidos de hoy</h2>' in pedidos
+    assert "'Pedidos de hoy' if pos_activo else 'Pedidos recibidos'" in pedidos
     assert '<p class="titulo-chico">PEDIDOS</p>' in historial_pedidos
     assert '<h2>Historial de pedidos</h2>' in historial_pedidos
     assert "comercio.nombre_negocio" in pedidos

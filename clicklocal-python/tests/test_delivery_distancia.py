@@ -621,11 +621,16 @@ class DeliveryDistanciaTest(unittest.TestCase):
                 "gastronomia.routes._comercio_panel_gastronomia",
                 return_value={"id": "comercio-1"},
             ),
+            patch(
+                "gastronomia.routes._pos_activo_gastronomia",
+                return_value=False,
+            ),
             patch("gastronomia.routes.supabase_admin", db),
         ):
             respuesta = app.test_client().post(
                 "/gastronomia/panel/configuracion",
                 data={
+                    "modalidad_pedidos": "bandeja",
                     "acepta_delivery": "on",
                     "delivery_distancia_activo": "on",
                     "pedido_minimo": "",
@@ -654,10 +659,14 @@ class DeliveryDistanciaTest(unittest.TestCase):
         with patch(
             "gastronomia.routes._comercio_panel_gastronomia",
             return_value={"id": "comercio-1"},
+        ), patch(
+            "gastronomia.routes._pos_activo_gastronomia",
+            return_value=False,
         ), patch("gastronomia.routes.supabase_admin", db):
             respuesta = app.test_client().post(
                 "/gastronomia/panel/configuracion",
                 data={
+                    "modalidad_pedidos": "bandeja",
                     "acepta_delivery": "on",
                     "delivery_modalidad": "fijo",
                     "pedido_minimo": "",
@@ -681,10 +690,14 @@ class DeliveryDistanciaTest(unittest.TestCase):
         with patch(
             "gastronomia.routes._comercio_panel_gastronomia",
             return_value={"id": "comercio-1"},
+        ), patch(
+            "gastronomia.routes._pos_activo_gastronomia",
+            return_value=False,
         ), patch("gastronomia.routes.supabase_admin", db):
             respuesta = app.test_client().post(
                 "/gastronomia/panel/configuracion",
                 data={
+                    "modalidad_pedidos": "bandeja",
                     "acepta_delivery": "on",
                     "delivery_modalidad": "distancia",
                     "pedido_minimo": "",

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -21,6 +21,11 @@ ESTADOS_PEDIDO = (
 ESTADOS_PAGO = (
     "pendiente",
     "pagado",
+)
+
+MODALIDADES_GESTION_BASE = (
+    "solo_whatsapp",
+    "bandeja",
 )
 
 FORMAS_PAGO = (
@@ -74,6 +79,17 @@ class PedidoError(Exception):
         super().__init__(mensaje)
         self.mensaje = mensaje
         self.status_code = status_code
+
+
+def validar_modalidad_gestion_base(valor, permite_none=False):
+    """Valida el snapshot de gestión sin inferirlo desde estados u origen."""
+    if valor is None and permite_none:
+        return None
+
+    modalidad = str(valor or "").strip().lower()
+    if modalidad not in MODALIDADES_GESTION_BASE:
+        raise PedidoError("Modalidad de gestión inválida.")
+    return modalidad
 
 
 def _texto_canonico(valor, limite=None, minusculas=False):
@@ -307,6 +323,201 @@ def pedido_es_venta(pedido):
     )
 
 
+def confirmar_cobro_pedido_base(
+    db,
+    comercio_id,
+    pedido_id,
+    modalidad_gestion,
+    ahora=None,
+):
+    """Confirma un cobro Base con condiciones atómicas sobre el snapshot."""
+    modalidad_gestion = validar_modalidad_gestion_base(modalidad_gestion)
+    consulta = (
+        db.table("gastronomia_pedidos")
+        .select(
+            "id,numero_pedido,estado,estado_pago,total,pagado_at,"
+            "modalidad_gestion,origen"
+        )
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .eq("modalidad_gestion", modalidad_gestion)
+        .limit(1)
+        .execute()
+    )
+    filas = consulta.data or []
+    if not filas:
+        return {"ok": False, "estado": "no_encontrado"}
+
+    pedido = filas[0]
+    base = {
+        "pedido_id": pedido_id,
+        "numero_pedido": pedido.get("numero_pedido"),
+        "importe": pedido.get("total") or 0,
+    }
+    if pedido.get("estado") == "cancelado":
+        return {**base, "ok": False, "estado": "cancelado"}
+    if pedido.get("estado_pago") == "pagado":
+        return {
+            **base,
+            "ok": True,
+            "estado": "ya_confirmado",
+            "pagado_at": pedido.get("pagado_at"),
+        }
+
+    cambios = preparar_actualizacion_estados(
+        estado_pago="pagado",
+        ahora=ahora,
+    )
+    actualizado = (
+        db.table("gastronomia_pedidos")
+        .update(cambios)
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .eq("modalidad_gestion", modalidad_gestion)
+        .eq("estado_pago", pedido.get("estado_pago") or "pendiente")
+        .neq("estado", "cancelado")
+        .execute()
+    )
+    if actualizado.data or []:
+        return {
+            **base,
+            "ok": True,
+            "estado": "confirmado",
+            "pagado_at": cambios["pagado_at"],
+        }
+
+    verificacion = (
+        db.table("gastronomia_pedidos")
+        .select("estado,estado_pago,pagado_at")
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .eq("modalidad_gestion", modalidad_gestion)
+        .limit(1)
+        .execute()
+    )
+    filas_verificacion = verificacion.data or []
+    if not filas_verificacion:
+        return {**base, "ok": False, "estado": "no_encontrado"}
+    actual = filas_verificacion[0]
+    if actual.get("estado") == "cancelado":
+        return {**base, "ok": False, "estado": "cancelado"}
+    if actual.get("estado_pago") == "pagado":
+        return {
+            **base,
+            "ok": True,
+            "estado": "ya_confirmado",
+            "pagado_at": actual.get("pagado_at"),
+        }
+    return {**base, "ok": False, "estado": "conflicto"}
+
+
+def consultar_pedidos_solo_whatsapp(
+    db,
+    comercio_id,
+    filtro,
+    pagina,
+    columnas="*",
+    por_pagina=25,
+    ahora=None,
+):
+    """Consulta un filtro paginado sin cargar las otras categorías."""
+    if filtro not in {"pendientes", "cobrados", "cancelados"}:
+        raise PedidoError("Filtro de pedidos inválido.")
+    pagina = max(1, int(pagina))
+    consulta = (
+        db.table("gastronomia_pedidos")
+        .select(columnas, count="exact")
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .eq("modalidad_gestion", "solo_whatsapp")
+    )
+    if filtro == "pendientes":
+        instante_actual = ahora or datetime.now(timezone.utc)
+        if instante_actual.tzinfo is None:
+            instante_actual = instante_actual.replace(tzinfo=timezone.utc)
+        corte_pendientes = instante_actual.astimezone(timezone.utc) - timedelta(
+            hours=168
+        )
+        consulta = consulta.neq("estado", "cancelado").neq(
+            "estado_pago", "pagado"
+        ).gte("created_at", corte_pendientes.isoformat())
+    elif filtro == "cobrados":
+        consulta = consulta.neq("estado", "cancelado").eq(
+            "estado_pago", "pagado"
+        )
+    else:
+        consulta = consulta.eq("estado", "cancelado")
+    desde = (pagina - 1) * por_pagina
+    respuesta = (
+        consulta.order("created_at", desc=True)
+        .order("id", desc=True)
+        .range(desde, desde + por_pagina - 1)
+        .execute()
+    )
+    filas = respuesta.data or []
+    total = respuesta.count if isinstance(respuesta.count, int) else len(filas)
+    return filas, {
+        "pagina": pagina,
+        "total": total,
+        "total_paginas": max(1, (total + por_pagina - 1) // por_pagina),
+    }
+
+
+def consultar_pedidos_recibidos_base(
+    db,
+    comercio_id,
+    pagina,
+    columnas="*",
+    por_pagina=25,
+):
+    """Lista pedidos públicos de un comercio sin inferir su modalidad."""
+    pagina = max(1, int(pagina))
+    desde = (pagina - 1) * por_pagina
+    respuesta = (
+        db.table("gastronomia_pedidos")
+        .select(columnas, count="exact")
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .order("created_at", desc=True)
+        .order("id", desc=True)
+        .range(desde, desde + por_pagina - 1)
+        .execute()
+    )
+    filas = respuesta.data or []
+    total = respuesta.count if isinstance(respuesta.count, int) else len(filas)
+    return filas, {
+        "pagina": pagina,
+        "total": total,
+        "total_paginas": max(1, (total + por_pagina - 1) // por_pagina),
+    }
+
+
+def actualizar_estado_pedido_base(
+    db,
+    comercio_id,
+    pedido_id,
+    estado_actual,
+    cambios,
+    es_cancelacion=False,
+):
+    """Actualiza Bandeja sin permitir cancelar un cobro ya confirmado."""
+    actualizacion = (
+        db.table("gastronomia_pedidos")
+        .update(cambios)
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .eq("modalidad_gestion", "bandeja")
+        .eq("estado", estado_actual)
+    )
+    if es_cancelacion:
+        actualizacion = actualizacion.neq("estado_pago", "pagado")
+    return actualizacion.execute().data or []
+
+
 def _pesos(valor):
     return "$" + f"{round(float(valor)):,.0f}".replace(",", ".")
 
@@ -419,6 +630,7 @@ def crear_pedido(
     cotizacion_delivery=None,
     idempotency_key=None,
     idempotency_fingerprint=None,
+    modalidad_gestion=None,
 ):
     """Crea pedidos sobre un modelo único; ClickLocal conserva sus validaciones."""
     db = cliente_supabase or supabase_admin
@@ -438,6 +650,15 @@ def crear_pedido(
     origen = str(origen or "").strip().lower()
     if origen not in ORIGENES_PEDIDO:
         raise PedidoError("Origen de pedido inválido.")
+
+    modalidad_gestion = validar_modalidad_gestion_base(
+        modalidad_gestion,
+        permite_none=True,
+    )
+    if modalidad_gestion is not None and origen != "clicklocal":
+        raise PedidoError(
+            "La modalidad de gestión Base solo corresponde a pedidos ClickLocal."
+        )
 
     modalidad = str(modalidad or "").strip().lower()
     if modalidad not in TIPOS_ENTREGA:
@@ -488,7 +709,7 @@ def crear_pedido(
             "comercio_id,activo,acepta_delivery,acepta_retiro,"
             "pedido_minimo,costo_envio,descuento_efectivo_pct,"
             "descuento_transferencia_pct,delivery_distancia_activo,"
-            "delivery_franjas,delivery_origen_direccion"
+            "delivery_franjas,delivery_origen_direccion,modalidad_pedidos"
         )
         .eq("comercio_id", comercio_id)
         .eq("activo", True)
@@ -499,6 +720,20 @@ def crear_pedido(
     if not configuraciones:
         raise PedidoError("El comercio no está recibiendo pedidos.")
     configuracion = configuraciones[0]
+
+    if origen == "clicklocal":
+        modalidad_configurada = validar_modalidad_gestion_base(
+            configuracion.get("modalidad_pedidos"),
+            permite_none=True,
+        )
+        if modalidad_configurada is None:
+            modalidad_configurada = "solo_whatsapp"
+        if (
+            modalidad_gestion is not None
+            and modalidad_gestion != modalidad_configurada
+        ):
+            raise PedidoError("La modalidad del pedido cambió; intentá nuevamente.", 409)
+        modalidad_gestion = modalidad_configurada
 
     if modalidad == "delivery" and not configuracion.get("acepta_delivery"):
         raise PedidoError("El comercio no tiene Delivery habilitado.")
@@ -795,6 +1030,8 @@ def crear_pedido(
     if idempotency_key:
         datos_pedido["idempotency_key"] = idempotency_key
         datos_pedido["idempotency_fingerprint"] = idempotency_fingerprint
+    if modalidad_gestion is not None:
+        datos_pedido["modalidad_gestion"] = modalidad_gestion
 
     try:
         pedido_res = db.table("gastronomia_pedidos").insert(datos_pedido).execute()

@@ -96,6 +96,9 @@
   {% endif %}
 
   <link rel="stylesheet" href="/styles.css" />
+  {% if modulo_carrito_activo %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='carrito/carrito.css') }}" />
+  {% endif %}
 
   <style>
     /* CLICKLOCAL: BOTÓN COMPARTIR PUBLICACIÓN V1 */
@@ -1108,6 +1111,25 @@
     gap: 8px;
   }
 
+  .pagina-detalle-b1 .detalle-acciones-principales {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .pagina-detalle-b1 .detalle-acciones-principales--una {
+    grid-template-columns: 1fr;
+  }
+
+  .pagina-detalle-b1 .detalle-acciones-principales .cl-carrito-producto-accion {
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid #7A1F2B;
+    border-radius: 999px;
+    background: #7A1F2B;
+    color: #FFFDFC;
+  }
+
   .pagina-detalle-b1 .boton-whatsapp,
   .pagina-detalle-b1 .boton-ver-comercio,
   .pagina-detalle-b1 .detalle-compartir {
@@ -1235,6 +1257,30 @@
           </div>
 
           <div class="detalle-botones">
+            {% if publicacion_comprable or comercio.id %}
+              <div class="detalle-acciones-principales{% if not (publicacion_comprable and comercio.id) %} detalle-acciones-principales--una{% endif %}">
+                {% if publicacion_comprable %}
+                  <button
+                    type="button"
+                    class="cl-carrito-producto-accion boton-ver-comercio"
+                    data-carrito-producto
+                    data-producto-id="{{ publicacion.id }}"
+                    data-producto-nombre="{{ publicacion.nombre }}"
+                    data-producto-precio="{{ publicacion.precio }}"
+                    data-producto-imagen="{{ publicacion.imagen_principal or publicacion.imagen_url or (publicacion.imagenes[0] if publicacion.imagenes else '') }}"
+                  >
+                    Agregar al carrito
+                  </button>
+                {% endif %}
+
+                {% if comercio.id %}
+                  <a href="{{ url_for('perfil_comercio', comercio_id=comercio.id) }}" class="boton-ver-comercio">
+                    Ver comercio
+                  </a>
+                {% endif %}
+              </div>
+            {% endif %}
+
             {% if comercio.whatsapp_url %}
               <a
                 href="{{ comercio.whatsapp_url }}"
@@ -1243,12 +1289,6 @@
                 rel="noopener"
               >
                 Consultar por WhatsApp
-              </a>
-            {% endif %}
-
-            {% if comercio.id %}
-              <a href="{{ url_for('perfil_comercio', comercio_id=comercio.id) }}" class="boton-ver-comercio">
-                Ver comercio
               </a>
             {% endif %}
 
@@ -1289,6 +1329,19 @@
     </div>
 
   </main>
+
+  {% if modulo_carrito_activo %}
+  <script>
+    window.ClickLocalCarritoConfig = {{ {
+      "comercioId": comercio.id,
+      "galeriaUrl": url_for("perfil_comercio", comercio_id=comercio.id),
+      "endpoint": url_for("confirmar_carrito_comercio", comercio_id=comercio.id),
+      "configuracionEndpoint": url_for("pedidos_comercio.configuracion_publica", comercio_id=comercio.id),
+      "cotizacionEndpoint": url_for("pedidos_comercio.cotizar_envio", comercio_id=comercio.id)
+    } | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='carrito/carrito.js') }}"></script>
+  {% endif %}
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {

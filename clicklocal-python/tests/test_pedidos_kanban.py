@@ -80,6 +80,46 @@ class PedidosKanbanTest(unittest.TestCase):
                     "entregado_at": entregado_at,
                 }), visible)
 
+    def test_tablero_base_no_habilita_arrastre_y_conserva_refresco(self):
+        javascript = (
+            Path(__file__).resolve().parents[1]
+            / "static/gastronomia/pedidos.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'const permiteKanban = Boolean(tablero.querySelector(".kanban-columnas"))',
+            javascript,
+        )
+        self.assertIn("[data-columna-base-tab]", javascript)
+        self.assertIn(
+            "pestanasBaseActuales.replaceWith(pestanasBaseNuevas)",
+            javascript,
+        )
+        self.assertIn("listaBaseActual.replaceWith(listaBaseNueva)", javascript)
+
+    def test_base_muestra_lista_unica_paginada(self):
+        raiz = Path(__file__).resolve().parents[1]
+        plantilla = (raiz / "templates/gastronomia/pedidos.html").read_text(
+            encoding="utf-8"
+        )
+        bloque_base = plantilla.split('class="pedidos-recibidos"', 1)[1]
+        self.assertEqual(plantilla.count("data-columna-base-tab"), 0)
+        self.assertIn("{% for pedido in pedidos_recibidos %}", bloque_base)
+        self.assertIn("paginacion_recibidos.total_paginas", bloque_base)
+        self.assertIn("pagina=paginacion_recibidos.pagina", bloque_base)
+        self.assertNotIn("data-confirmar-cobro", bloque_base)
+
+    def test_modalidad_query_solo_controla_vista_temporal(self):
+        rutas = (
+            Path(__file__).resolve().parents[1] / "gastronomia/routes.py"
+        ).read_text(encoding="utf-8")
+        tablero = rutas.split("def pedidos_gastronomia():", 1)[1].split(
+            "def _consultar_ventas_clicklocal", 1
+        )[0]
+        self.assertIn("modalidad_pedidos = modalidad_actual", tablero)
+        self.assertIn("modalidad_pedidos = modalidad_solicitada", tablero)
+        self.assertNotIn("modalidad_actual = modalidad_solicitada", tablero)
+        self.assertNotIn("modalidad_pedidos).update", tablero)
+
     def test_venta_rapida_pagada_sigue_visible_hasta_entrega(self):
         self.assertTrue(pedido_visible_tablero({
             "estado": "cerrado", "estado_pago": "pagado", "entregado_at": None,
@@ -267,6 +307,21 @@ class PedidosKanbanTest(unittest.TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.get_json()["estado_pago"], "pagado")
         self.assertIsNotNone(db.consultas[-1].cambios["pagado_at"])
+
+    def test_pos_conserva_reversion_de_pago(self):
+        db = DBFalsa()
+        db.pedido.update({
+            "estado_pago": "pagado",
+            "pagado_at": "2026-09-14T14:00:00+00:00",
+        })
+        with patch("gastronomia.routes._comercio_panel_gastronomia", return_value={"id": "comercio-1"}), patch("gastronomia.routes.supabase_admin", db):
+            respuesta = self.app.test_client().post(
+                "/gastronomia/panel/pedidos/pedido-1/pago",
+                json={"estado_pago": "pendiente"},
+            )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(db.pedido["estado_pago"], "pendiente")
+        self.assertIsNone(db.pedido["pagado_at"])
 
     def test_pagado_y_luego_entregado_desaparece(self):
         db = DBFalsa()

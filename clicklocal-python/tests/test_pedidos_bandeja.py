@@ -171,6 +171,7 @@ class PedidosBandejaTest(unittest.TestCase):
             "origen": "",
             "tipo_entrega": "",
             "estado_pago": "",
+            "modalidad_gestion": "",
         })
         self.assertEqual(contexto["pagina"], 1)
         self.assertEqual(db.consulta.rango, (0, 24))

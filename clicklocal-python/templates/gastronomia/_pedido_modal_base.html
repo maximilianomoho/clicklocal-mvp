@@ -1,0 +1,26 @@
+<dialog class="pedido-modal-base" id="pedidoModalBase" aria-labelledby="pedidoModalBaseTitulo">
+  <article class="pedido-modal-base-contenido">
+    <header class="pedido-modal-base-cabecera">
+      <div>
+        <h2 id="pedidoModalBaseTitulo">Pedido</h2>
+        <p id="pedidoModalBaseFecha"></p>
+      </div>
+      <button type="button" class="pedido-modal-base-cerrar" data-cerrar-pedido-modal aria-label="Cerrar">×</button>
+    </header>
+    <section aria-label="Datos del pedido">
+      <div class="pedido-modal-base-datos" id="pedidoModalBaseDatos"></div>
+    </section>
+    <section>
+      <h3>Productos</h3>
+      <div class="pedido-modal-base-productos" id="pedidoModalBaseProductos"></div>
+    </section>
+    <div class="pedido-modal-base-observaciones" id="pedidoModalBaseObservaciones" hidden></div>
+    <div class="pedido-modal-base-totales" id="pedidoModalBaseTotales"></div>
+    <footer class="pedido-modal-base-acciones">
+      <button type="button" class="pedido-modal-base-cerrar-texto" data-cerrar-pedido-modal>Cerrar</button>
+      <button type="button" data-imprimir-modal>Imprimir</button>
+      <button type="button" data-compartir-modal>Compartir por WhatsApp</button>
+    </footer>
+  </article>
+</dialog>
+<section class="pedido-comanda-base" id="pedidoComandaBase" aria-hidden="true"></section>

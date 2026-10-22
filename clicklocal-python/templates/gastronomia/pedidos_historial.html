@@ -121,6 +121,21 @@
     text-transform:capitalize;
   }
 
+  .pedido-estado-resumen{
+    display:flex;
+    gap:6px 12px;
+    flex-wrap:wrap;
+    color:#4b5563;
+    font-size:12px;
+    font-weight:750;
+  }
+
+  .pedido-estado-resumen span + span::before{
+    content:"·";
+    margin-right:12px;
+    color:#9ca3af;
+  }
+
   .pedido-detalle{
     border-top:1px solid #e5e7eb;
   }
@@ -177,6 +192,48 @@
     font-weight:700;
   }
 
+  .pedido-cabecera--base{
+    grid-template-columns:minmax(120px, .8fr) minmax(170px, 1.4fr) minmax(110px, .8fr) minmax(150px, 1fr);
+  }
+
+  .pedido-detalle-contenido--base{
+    gap:14px;
+  }
+
+  .pedido-detalle-contenido--base .pedido-item{
+    padding:10px 0;
+    border-bottom:1px solid #e5e7eb;
+    border-radius:0;
+    background:transparent;
+  }
+
+  .pedido-detalle-contenido--base .pedido-item:last-child{
+    border-bottom:0;
+  }
+
+  .pedido-info-grid--base{
+    grid-template-columns:1fr;
+    gap:0;
+  }
+
+  .pedido-info-grid--base .pedido-info{
+    display:grid;
+    grid-template-columns:minmax(145px, .45fr) 1fr;
+    gap:12px;
+    padding:8px 0;
+    border:0!important;
+    border-bottom:1px solid #edf0f3!important;
+    border-radius:0;
+  }
+
+  .pedido-info-grid--base .pedido-info:last-child{
+    border-bottom:0!important;
+  }
+
+  .pedido-info-grid--base .pedido-info small{
+    margin:0;
+  }
+
   .pedido-totales{
     margin-left:auto;
     width:min(100%, 360px);
@@ -231,6 +288,10 @@
     .pedido-cliente{
       grid-column:1 / -1;
     }
+
+    .pedido-cabecera--base{
+      grid-template-columns:1fr 1fr;
+    }
   }
 
   @media (max-width:480px){
@@ -240,6 +301,11 @@
 
     .pedido-cliente{
       grid-column:auto;
+    }
+
+    .pedido-info-grid--base .pedido-info{
+      grid-template-columns:1fr;
+      gap:3px;
     }
   }
 </style>
@@ -266,6 +332,7 @@
       </select>
     </label>
 
+    {% if pos_activo %}
     <label>
       Estado
       <select name="estado">
@@ -278,7 +345,7 @@
       </select>
     </label>
 
-    {% if pos_activo %}<label>
+    <label>
       Origen
       <select name="origen">
         <option value="">Todos</option>
@@ -288,7 +355,8 @@
         </option>
         {% endfor %}
       </select>
-    </label>{% endif %}
+    </label>
+    {% endif %}
 
     <label>
       Modalidad
@@ -302,6 +370,7 @@
       </select>
     </label>
 
+    {% if pos_activo %}
     <label>
       Pago
       <select name="estado_pago">
@@ -313,6 +382,7 @@
         {% endfor %}
       </select>
     </label>
+    {% endif %}
 
     <button type="submit" class="pedidos-filtros-accion">
       Aplicar filtros
@@ -325,10 +395,37 @@
   </p>
 
   {% if pedidos %}
+  {% if not pos_activo %}
+  <div class="pedidos-historial-base-grid">
+    {% for pedido in pedidos %}
+    <article class="pedido-historial-base">
+      <header>
+        <strong>Pedido #{{ pedido.numero_pedido }}</strong>
+        <time>{{ pedido.created_at_mostrar }}</time>
+      </header>
+      <dl>
+        <div>
+          <dt>Cliente</dt>
+          <dd>{{ ((pedido.nombre_cliente or '') ~ ' ' ~ (pedido.apellido_cliente or ''))|trim or 'Sin informar' }}</dd>
+        </div>
+        <div>
+          <dt>Entrega</dt>
+          <dd>{{ pedido.tipo_entrega|default('Sin informar', true)|capitalize }}</dd>
+        </div>
+      </dl>
+      <p class="pedido-historial-base-total">
+        <span>Total</span>
+        <strong>{{ pedido.total|precio_arg }}</strong>
+      </p>
+      <button type="button" class="pedido-historial-base-ver" data-ver-pedido data-pedido="{{ pedido|tojson|forceescape }}">Ver pedido</button>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
   <div class="pedidos-lista">
     {% for pedido in pedidos %}
     <section class="pedido-card">
-      <div class="pedido-cabecera">
+      <div class="pedido-cabecera{% if not pos_activo %} pedido-cabecera--base{% endif %}">
         <div>
           <strong class="pedido-numero">Pedido #{{ pedido.numero_pedido }}</strong>
           <p class="pedido-fecha">{{ pedido.created_at_mostrar }}</p>
@@ -347,20 +444,28 @@
           <strong>{{ pedido.tipo_entrega|capitalize }}</strong>
         </div>
 
-        <div class="pedido-dato">
+        {% if pos_activo %}<div class="pedido-dato">
           <small>Origen</small>
           <strong>{{ pedido.origen|capitalize }}</strong>
-        </div>
+        </div>{% endif %}
 
         <div class="pedido-dato">
           <small>Total</small>
           <strong>{{ pedido.total|precio_arg }}</strong>
+          {% if pos_activo %}
           <span class="pedido-estado">
             {{ pedido.estado|replace('_', ' ') }}
           </span>
           <span class="pedido-estado">
             Pago: {{ pedido.estado_pago|default('pendiente', true)|capitalize }}
           </span>
+          {% else %}
+          <div class="pedido-estado-resumen">
+            <span>Estado: {{ pedido.estado|replace('_', ' ') }}</span>
+            <span>Pago: {{ pedido.estado_pago|default('pendiente', true) }}</span>
+            <span>Entrega: {{ 'entregado' if pedido.entregado_at else 'pendiente' }}</span>
+          </div>
+          {% endif %}
           {% if pedido.estado == 'cancelado' and pedido.motivo_cancelacion %}
           <span class="pedido-estado">Motivo: {{ pedido.motivo_cancelacion }}</span>
           {% endif %}
@@ -370,7 +475,7 @@
       <details class="pedido-detalle">
         <summary class="js-ver-detalle" data-pedido="{{ pedido|tojson|forceescape }}">Ver detalle</summary>
 
-        <div class="pedido-detalle-contenido">
+        <div class="pedido-detalle-contenido{% if not pos_activo %} pedido-detalle-contenido--base{% endif %}">
           <div class="pedido-items">
             {% if pedido.detalle_items %}
               {% for item in pedido.detalle_items %}
@@ -409,7 +514,8 @@
             {% endif %}
           </div>
 
-          <div class="pedido-info-grid">
+          <div class="pedido-info-grid{% if not pos_activo %} pedido-info-grid--base{% endif %}">
+            {% if pos_activo or pedido.tipo_entrega == 'delivery' %}
             <div class="pedido-info">
               <small>Dirección</small>
               {{ pedido.direccion_entrega or 'No corresponde' }}
@@ -419,6 +525,7 @@
               <small>Referencia de dirección</small>
               {{ pedido.referencia_direccion or 'Sin referencia' }}
             </div>
+            {% endif %}
 
             <div class="pedido-info">
               <small>Forma de pago informada</small>
@@ -464,6 +571,7 @@
     </section>
     {% endfor %}
   </div>
+  {% endif %}
   {% else %}
   <div class="pedidos-vacio">
     No hay pedidos para los filtros seleccionados.
@@ -480,6 +588,7 @@
       origen=filtros.origen,
       tipo_entrega=filtros.tipo_entrega,
       estado_pago=filtros.estado_pago,
+      modalidad=filtros.modalidad_gestion,
       pagina=pagina - 1
     ) }}">← Anterior</a>
     {% endif %}
@@ -494,12 +603,18 @@
       origen=filtros.origen,
       tipo_entrega=filtros.tipo_entrega,
       estado_pago=filtros.estado_pago,
+      modalidad=filtros.modalidad_gestion,
       pagina=pagina + 1
     ) }}">Siguiente →</a>
     {% endif %}
   </nav>
   {% endif %}
 </article>
+{% if pos_activo %}
 {% include "gastronomia/_pedido_modal.html" %}
+{% else %}
+{% include "gastronomia/_pedido_modal_base.html" %}
+<script src="{{ url_for('static', filename='gastronomia/pedido_acciones_base.js', v='1') }}" defer></script>
+{% endif %}
 <script src="{{ url_for('static', filename='gastronomia/pedidos.js') }}" defer></script>
 {% endblock %}

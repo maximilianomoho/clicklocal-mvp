@@ -33,10 +33,15 @@ from .services.pedidos import (
     PedidoError,
     buscar_pedido_idempotente,
     construir_idempotency_fingerprint,
+    confirmar_cobro_pedido_base,
+    consultar_pedidos_recibidos_base,
+    consultar_pedidos_solo_whatsapp,
+    actualizar_estado_pedido_base,
     crear_pedido,
     pedido_es_venta,
     preparar_actualizacion_estados,
     preparar_transicion_pedido,
+    validar_modalidad_gestion_base,
 )
 
 
@@ -795,13 +800,20 @@ ESTADOS_KANBAN = (
     "cerrado",
 )
 
+COLUMNAS_SOLO_WHATSAPP = (
+    ("pendientes", "Pendientes de verificar"),
+    ("cobrados", "Cobros confirmados"),
+    ("cancelados", "Cancelados"),
+)
+
 COLUMNAS_PEDIDO_PANEL = (
     "id,numero_pedido,caja_id,created_at,updated_at,estado,estado_pago,"
-    "pagado_at,cerrado_at,entregado_at,cancelado_at,motivo_cancelacion,"
+    "confirmado_at,pagado_at,cerrado_at,entregado_at,cancelado_at,"
+    "motivo_cancelacion,"
     "origen,tipo_entrega,nombre_cliente,"
     "apellido_cliente,telefono_cliente,direccion_entrega,"
     "referencia_direccion,forma_pago,paga_con,subtotal,costo_envio,"
-    "descuento,total,observaciones,detalle,enviado_whatsapp_at"
+    "descuento,total,observaciones,detalle,enviado_whatsapp_at,modalidad_gestion"
 )
 
 
@@ -810,6 +822,59 @@ def pedido_visible_tablero(pedido):
         str(pedido.get("estado_pago") or "").strip().lower() == "pagado"
         and pedido.get("entregado_at") is not None
     )
+
+
+def filtro_pedido_solo_whatsapp(pedido):
+    """Clasifica sólo snapshots explícitos de Solo WhatsApp."""
+    if pedido.get("modalidad_gestion") != "solo_whatsapp":
+        return None
+    if pedido.get("estado") == "cancelado":
+        return "cancelados"
+    if pedido.get("estado_pago") == "pagado":
+        return "cobrados"
+    return "pendientes"
+
+
+def _modalidad_pedidos_comercio(comercio_id):
+    respuesta = (
+        supabase_admin.table("gastronomia_configuracion")
+        .select("modalidad_pedidos")
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    filas = respuesta.data or []
+    if not filas:
+        return None
+    modalidad_guardada = filas[0].get("modalidad_pedidos")
+    if modalidad_guardada is None:
+        return "solo_whatsapp"
+    try:
+        return validar_modalidad_gestion_base(
+            modalidad_guardada,
+        )
+    except PedidoError:
+        return None
+
+
+def _pagina_pedidos(nombre):
+    try:
+        pagina = int(request.args.get(nombre) or 1)
+    except (TypeError, ValueError):
+        pagina = 1
+    return max(1, pagina)
+
+
+def _consultar_filtro_solo_whatsapp(comercio_id, filtro, pagina, por_pagina=25):
+    pedidos, paginacion = consultar_pedidos_solo_whatsapp(
+        supabase_admin,
+        comercio_id,
+        filtro,
+        pagina,
+        columnas=COLUMNAS_PEDIDO_PANEL,
+        por_pagina=por_pagina,
+    )
+    return _preparar_pedidos_panel(pedidos), paginacion
 
 FORMAS_PAGO_VENTAS = (
     "efectivo",
@@ -1048,6 +1113,43 @@ def pedidos_gastronomia():
     if not comercio:
         return redirect(url_for("login"))
     pos_activo = _pos_activo_gastronomia(comercio.get("id"))
+    if not pos_activo:
+        pagina = _pagina_pedidos("pagina")
+        pedidos, paginacion = consultar_pedidos_recibidos_base(
+            supabase_admin,
+            comercio.get("id"),
+            pagina,
+            columnas=COLUMNAS_PEDIDO_PANEL,
+            por_pagina=25,
+        )
+        return render_template(
+            "gastronomia/pedidos.html",
+            comercio=comercio,
+            pedidos_recibidos=_preparar_pedidos_panel(pedidos),
+            paginacion_recibidos=paginacion,
+            fecha_tablero=datetime.now(
+                ZoneInfo("America/Argentina/Cordoba")
+            ).strftime("%d/%m/%Y"),
+            pos_activo=False,
+        )
+
+    modalidad_actual = (
+        None
+    )
+    modalidad_pedidos = modalidad_actual
+    modalidad_solicitada = str(
+        request.args.get("modalidad") or ""
+    ).strip().lower()
+    if (
+        not pos_activo
+        and modalidad_solicitada in ("solo_whatsapp", "bandeja")
+    ):
+        modalidad_pedidos = modalidad_solicitada
+    filtro_whatsapp_activo = str(
+        request.args.get("filtro") or "pendientes"
+    ).strip().lower()
+    if filtro_whatsapp_activo not in dict(COLUMNAS_SOLO_WHATSAPP):
+        filtro_whatsapp_activo = "pendientes"
 
     zona_local = ZoneInfo("America/Argentina/Cordoba")
     hoy_local = datetime.now(zona_local).date()
@@ -1058,34 +1160,96 @@ def pedidos_gastronomia():
     ).astimezone(timezone.utc)
     hasta = desde + timedelta(days=1)
 
+    if not pos_activo and modalidad_pedidos is None:
+        return render_template(
+            "gastronomia/pedidos.html",
+            comercio=comercio,
+            columnas={estado: [] for estado in ESTADOS_KANBAN},
+            filtros_whatsapp={
+                clave: [] for clave, _ in COLUMNAS_SOLO_WHATSAPP
+            },
+            paginacion_whatsapp={},
+            filtros_whatsapp_orden=COLUMNAS_SOLO_WHATSAPP,
+            estados_kanban=ESTADOS_KANBAN,
+            fecha_tablero=hoy_local.strftime("%d/%m/%Y"),
+            pos_activo=False,
+            modalidad_pedidos=None,
+            modalidad_actual=None,
+            filtro_whatsapp_activo=filtro_whatsapp_activo,
+        )
+
+    if not pos_activo and modalidad_pedidos == "solo_whatsapp":
+        filtros_whatsapp = {}
+        paginacion_whatsapp = {}
+        for clave, _etiqueta in COLUMNAS_SOLO_WHATSAPP:
+            pagina = _pagina_pedidos(f"pagina_{clave}")
+            pedidos_filtro, datos_pagina = _consultar_filtro_solo_whatsapp(
+                comercio.get("id"), clave, pagina
+            )
+            filtros_whatsapp[clave] = pedidos_filtro
+            paginacion_whatsapp[clave] = datos_pagina
+        return render_template(
+            "gastronomia/pedidos.html",
+            comercio=comercio,
+            filtros_whatsapp=filtros_whatsapp,
+            paginacion_whatsapp=paginacion_whatsapp,
+            filtros_whatsapp_orden=COLUMNAS_SOLO_WHATSAPP,
+            columnas={estado: [] for estado in ESTADOS_KANBAN},
+            estados_kanban=ESTADOS_KANBAN,
+            fecha_tablero=hoy_local.strftime("%d/%m/%Y"),
+            pos_activo=False,
+            modalidad_pedidos=modalidad_pedidos,
+            modalidad_actual=modalidad_actual,
+            filtro_whatsapp_activo=filtro_whatsapp_activo,
+        )
+
     consulta = (
         supabase_admin
         .table("gastronomia_pedidos")
         .select(COLUMNAS_PEDIDO_PANEL)
         .eq("comercio_id", comercio.get("id"))
-        .in_("estado", list(ESTADOS_KANBAN))
-        .gte("created_at", desde.isoformat())
-        .lt("created_at", hasta.isoformat())
     )
+    consulta = (
+        consulta.in_("estado", list(ESTADOS_KANBAN))
+    )
+    if pos_activo or modalidad_pedidos == modalidad_actual:
+        consulta = (
+            consulta.gte("created_at", desde.isoformat())
+            .lt("created_at", hasta.isoformat())
+        )
+    else:
+        consulta = consulta.or_(
+            "estado.neq.cerrado,estado_pago.neq.pagado,entregado_at.is.null"
+        ).limit(200)
     if not pos_activo:
-        consulta = consulta.eq("origen", "clicklocal")
-    respuesta = consulta.order("created_at").execute()
-    pedidos = _preparar_pedidos_panel([
-        pedido
-        for pedido in (respuesta.data or [])
-        if pedido_visible_tablero(pedido)
-    ])
+        consulta = (
+            consulta.eq("origen", "clicklocal")
+            .eq("modalidad_gestion", modalidad_pedidos)
+        )
+    respuesta = consulta.order("created_at", desc=not pos_activo).execute()
+    pedidos = _preparar_pedidos_panel(respuesta.data or [])
     columnas = {
-        estado: [p for p in pedidos if p.get("estado") == estado]
+        estado: [
+            p for p in pedidos
+            if pedido_visible_tablero(p) and p.get("estado") == estado
+        ]
         for estado in ESTADOS_KANBAN
     }
     return render_template(
         "gastronomia/pedidos.html",
         comercio=comercio,
+        filtros_whatsapp={
+            clave: [] for clave, _ in COLUMNAS_SOLO_WHATSAPP
+        },
+        paginacion_whatsapp={},
+        filtros_whatsapp_orden=COLUMNAS_SOLO_WHATSAPP,
         columnas=columnas,
         estados_kanban=ESTADOS_KANBAN,
         fecha_tablero=hoy_local.strftime("%d/%m/%Y"),
         pos_activo=pos_activo,
+        modalidad_pedidos=modalidad_pedidos,
+        modalidad_actual=modalidad_actual,
+        filtro_whatsapp_activo=filtro_whatsapp_activo,
     )
 
 
@@ -1111,6 +1275,9 @@ def ventas_gastronomia():
 
     comercio_id = comercio.get("id")
     pos_activo = _pos_activo_gastronomia(comercio_id)
+    if not pos_activo:
+        return redirect(url_for("gastronomia.pedidos_gastronomia"))
+
     caja_abierta = None
     ultima_caja = None
     if pos_activo:
@@ -1274,15 +1441,20 @@ def actualizar_estado_pedido_gastronomia(pedido_id):
     comercio = _comercio_panel_gastronomia()
     if not comercio:
         return jsonify({"ok": False, "error": "No autorizado."}), 401
-    if not _pos_activo_gastronomia(comercio.get("id")):
-        return _respuesta_pos_requerido(json_api=True)
-
+    pos_activo = _pos_activo_gastronomia(comercio.get("id"))
+    if not pos_activo:
+        return jsonify({
+            "ok": False,
+            "error": "Gastronomía Base no tiene acciones operativas.",
+        }), 403
     datos = request.get_json(silent=True) or {}
     comercio_id = comercio.get("id")
     existente = (
         supabase_admin
         .table("gastronomia_pedidos")
-        .select("id,estado,estado_pago,entregado_at")
+        .select(
+            "id,estado,estado_pago,entregado_at,origen,modalidad_gestion"
+        )
         .eq("id", pedido_id)
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -1292,6 +1464,11 @@ def actualizar_estado_pedido_gastronomia(pedido_id):
         return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
 
     pedido = existente.data[0]
+    if not pos_activo and (
+        pedido.get("origen") != "clicklocal"
+        or pedido.get("modalidad_gestion") != "bandeja"
+    ):
+        return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
     if (
         datos.get("accion") == "cancelar"
         and datos.get("confirmado") is not True
@@ -1310,16 +1487,25 @@ def actualizar_estado_pedido_gastronomia(pedido_id):
     if pedido.get("estado") == "cerrado" and cambios.get("estado") == "preparado":
         cambios["entregado_at"] = None
 
-    actualizado = (
-        supabase_admin
-        .table("gastronomia_pedidos")
-        .update(cambios)
-        .eq("id", pedido_id)
-        .eq("comercio_id", comercio_id)
-        .eq("estado", pedido.get("estado"))
-        .execute()
-    )
-    filas = actualizado.data or []
+    if pos_activo:
+        actualizado = (
+            supabase_admin.table("gastronomia_pedidos")
+            .update(cambios)
+            .eq("id", pedido_id)
+            .eq("comercio_id", comercio_id)
+            .eq("estado", pedido.get("estado"))
+            .execute()
+        )
+        filas = actualizado.data or []
+    else:
+        filas = actualizar_estado_pedido_base(
+            supabase_admin,
+            comercio_id,
+            pedido_id,
+            pedido.get("estado"),
+            cambios,
+            es_cancelacion=datos.get("accion") == "cancelar",
+        )
     if not filas:
         return jsonify({"ok": False, "error": "No se pudo actualizar el pedido."}), 409
 
@@ -1333,6 +1519,97 @@ def actualizar_estado_pedido_gastronomia(pedido_id):
 
 
 @gastronomia_bp.route(
+    "/panel/pedidos/<pedido_id>/confirmacion",
+    methods=["POST"],
+)
+def confirmar_pedido_gastronomia(pedido_id):
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    if not _pos_activo_gastronomia(comercio.get("id")):
+        return jsonify({
+            "ok": False,
+            "error": "Gastronomía Base no tiene acciones operativas.",
+        }), 403
+    if _pos_activo_gastronomia(comercio.get("id")):
+        return jsonify({
+            "ok": False,
+            "error": "La confirmación simple pertenece a Gastronomía Base.",
+        }), 403
+    comercio_id = comercio.get("id")
+    existente = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .select("id,estado,origen,confirmado_at,modalidad_gestion")
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .eq("modalidad_gestion", "bandeja")
+        .limit(1)
+        .execute()
+    )
+    if not (existente.data or []):
+        return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
+
+    pedido = existente.data[0]
+    if pedido.get("estado") == "cancelado":
+        return jsonify({
+            "ok": False,
+            "error": "No se puede confirmar un pedido cancelado.",
+        }), 400
+    if pedido.get("confirmado_at"):
+        return jsonify({
+            "ok": True,
+            "pedido_id": pedido_id,
+            "confirmado_at": pedido.get("confirmado_at"),
+        })
+
+    confirmado_at = datetime.now(timezone.utc).isoformat()
+    actualizado = (
+        supabase_admin
+        .table("gastronomia_pedidos")
+        .update({"confirmado_at": confirmado_at})
+        .eq("id", pedido_id)
+        .eq("comercio_id", comercio_id)
+        .eq("origen", "clicklocal")
+        .eq("modalidad_gestion", "bandeja")
+        .is_("confirmado_at", "null")
+        .execute()
+    )
+    filas = actualizado.data or []
+    if filas:
+        confirmado_at = filas[0].get("confirmado_at") or confirmado_at
+    else:
+        repetido = (
+            supabase_admin
+            .table("gastronomia_pedidos")
+            .select("confirmado_at")
+            .eq("id", pedido_id)
+            .eq("comercio_id", comercio_id)
+            .eq("origen", "clicklocal")
+            .eq("modalidad_gestion", "bandeja")
+            .limit(1)
+            .execute()
+        )
+        filas_repetidas = repetido.data or []
+        confirmado_at = (
+            filas_repetidas[0].get("confirmado_at")
+            if filas_repetidas else None
+        )
+        if not confirmado_at:
+            return jsonify({
+                "ok": False,
+                "error": "No se pudo confirmar el pedido.",
+            }), 409
+
+    return jsonify({
+        "ok": True,
+        "pedido_id": pedido_id,
+        "confirmado_at": confirmado_at,
+    })
+
+
+@gastronomia_bp.route(
     "/panel/pedidos/<pedido_id>/entrega",
     methods=["POST"],
 )
@@ -1340,14 +1617,19 @@ def marcar_entregado_pedido_gastronomia(pedido_id):
     comercio = _comercio_panel_gastronomia()
     if not comercio:
         return jsonify({"ok": False, "error": "No autorizado."}), 401
-    if not _pos_activo_gastronomia(comercio.get("id")):
-        return _respuesta_pos_requerido(json_api=True)
-
+    pos_activo = _pos_activo_gastronomia(comercio.get("id"))
+    if not pos_activo:
+        return jsonify({
+            "ok": False,
+            "error": "Gastronomía Base no tiene acciones operativas.",
+        }), 403
     comercio_id = comercio.get("id")
     existente = (
         supabase_admin
         .table("gastronomia_pedidos")
-        .select("id,estado,estado_pago,entregado_at")
+        .select(
+            "id,estado,estado_pago,entregado_at,origen,modalidad_gestion"
+        )
         .eq("id", pedido_id)
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -1357,23 +1639,76 @@ def marcar_entregado_pedido_gastronomia(pedido_id):
         return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
 
     pedido = existente.data[0]
-    if pedido.get("estado") != "cerrado":
+    if not pos_activo and (
+        pedido.get("origen") != "clicklocal"
+        or pedido.get("modalidad_gestion") != "bandeja"
+    ):
+        return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
+    if pedido.get("estado") == "cancelado":
+        return jsonify({
+            "ok": False,
+            "error": "No se puede entregar un pedido cancelado.",
+        }), 400
+    if pos_activo and pedido.get("estado") != "cerrado":
         return jsonify({
             "ok": False,
             "error": "Solo se puede entregar un pedido cerrado.",
         }), 400
 
+    if not pos_activo and pedido.get("entregado_at"):
+        return jsonify({
+            "ok": True,
+            "pedido_id": pedido_id,
+            "entregado_at": pedido.get("entregado_at"),
+            "ocultar_tablero": not pedido_visible_tablero(pedido),
+        })
+
     entregado_at = datetime.now(timezone.utc).isoformat()
-    actualizado = (
+    actualizacion = (
         supabase_admin
         .table("gastronomia_pedidos")
         .update({"entregado_at": entregado_at})
         .eq("id", pedido_id)
         .eq("comercio_id", comercio_id)
-        .eq("estado", "cerrado")
-        .execute()
     )
+    if pos_activo:
+        actualizacion = actualizacion.eq("estado", "cerrado")
+    else:
+        actualizacion = (
+            actualizacion
+            .eq("origen", "clicklocal")
+            .eq("modalidad_gestion", "bandeja")
+            .is_("entregado_at", "null")
+        )
+    actualizado = actualizacion.execute()
     if not (actualizado.data or []):
+        if not pos_activo:
+            repetido = (
+                supabase_admin
+                .table("gastronomia_pedidos")
+                .select("entregado_at")
+                .eq("id", pedido_id)
+                .eq("comercio_id", comercio_id)
+                .eq("origen", "clicklocal")
+                .eq("modalidad_gestion", "bandeja")
+                .limit(1)
+                .execute()
+            )
+            filas_repetidas = repetido.data or []
+            if filas_repetidas and filas_repetidas[0].get("entregado_at"):
+                entregado_at = filas_repetidas[0]["entregado_at"]
+                pedido_actualizado = dict(
+                    pedido,
+                    entregado_at=entregado_at,
+                )
+                return jsonify({
+                    "ok": True,
+                    "pedido_id": pedido_id,
+                    "entregado_at": entregado_at,
+                    "ocultar_tablero": not pedido_visible_tablero(
+                        pedido_actualizado
+                    ),
+                })
         return jsonify({"ok": False, "error": "No se pudo entregar el pedido."}), 409
 
     pedido_actualizado = dict(pedido, entregado_at=entregado_at)
@@ -1393,15 +1728,21 @@ def actualizar_pago_pedido_gastronomia(pedido_id):
     comercio = _comercio_panel_gastronomia()
     if not comercio:
         return jsonify({"ok": False, "error": "No autorizado."}), 401
-    if not _pos_activo_gastronomia(comercio.get("id")):
-        return _respuesta_pos_requerido(json_api=True)
-
+    pos_activo = _pos_activo_gastronomia(comercio.get("id"))
+    if not pos_activo:
+        return jsonify({
+            "ok": False,
+            "error": "Gastronomía Base no tiene acciones operativas.",
+        }), 403
     datos = request.get_json(silent=True) or {}
     comercio_id = comercio.get("id")
     existente = (
         supabase_admin
         .table("gastronomia_pedidos")
-        .select("id,estado,estado_pago,entregado_at")
+        .select(
+            "id,estado,estado_pago,entregado_at,origen,pagado_at,"
+            "modalidad_gestion"
+        )
         .eq("id", pedido_id)
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -1411,28 +1752,78 @@ def actualizar_pago_pedido_gastronomia(pedido_id):
         return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
 
     pedido = existente.data[0]
+    if not pos_activo and (
+        pedido.get("origen") != "clicklocal"
+        or pedido.get("modalidad_gestion") not in ("solo_whatsapp", "bandeja")
+    ):
+        return jsonify({"ok": False, "error": "Pedido no encontrado."}), 404
+    modalidad_pedidos = pedido.get("modalidad_gestion")
     if pedido.get("estado") == "cancelado":
         return jsonify({
             "ok": False,
             "error": "No se puede cambiar el pago de un pedido cancelado.",
         }), 400
 
+    estado_pago_solicitado = datos.get("estado_pago")
+    if modalidad_pedidos == "solo_whatsapp" and estado_pago_solicitado != "pagado":
+        return jsonify({
+            "ok": False,
+            "error": "Gastronomía Base no permite revertir un pago.",
+        }), 400
+    if modalidad_pedidos == "solo_whatsapp" and pedido.get("estado_pago") == "pagado":
+        return jsonify({
+            "ok": True,
+            "pedido_id": pedido_id,
+            "estado_pago": "pagado",
+            "pagado_at": pedido.get("pagado_at"),
+            "ocultar_tablero": not pedido_visible_tablero(pedido),
+        })
+
+    if not pos_activo:
+        resultado = confirmar_cobro_pedido_base(
+            supabase_admin,
+            comercio_id,
+            pedido_id,
+            modalidad_pedidos,
+        )
+        if resultado.get("ok"):
+            return jsonify({
+                "ok": True,
+                "pedido_id": pedido_id,
+                "estado_pago": "pagado",
+                "pagado_at": resultado.get("pagado_at"),
+                "ocultar_tablero": not pedido_visible_tablero({
+                    **pedido,
+                    "estado_pago": "pagado",
+                }),
+                "resultado": resultado.get("estado"),
+            })
+        if resultado.get("estado") == "cancelado":
+            return jsonify({
+                "ok": False,
+                "error": "No se puede cambiar el pago de un pedido cancelado.",
+            }), 409
+        return jsonify({
+            "ok": False,
+            "error": "El pedido cambió; actualizá la bandeja.",
+        }), 409
+
     try:
         cambios = preparar_actualizacion_estados(
-            estado_pago=datos.get("estado_pago")
+            estado_pago=estado_pago_solicitado
         )
     except PedidoError as error:
         return jsonify({"ok": False, "error": error.mensaje}), 400
 
-    actualizado = (
+    actualizacion = (
         supabase_admin
         .table("gastronomia_pedidos")
         .update(cambios)
         .eq("id", pedido_id)
         .eq("comercio_id", comercio_id)
         .eq("estado_pago", pedido.get("estado_pago") or "pendiente")
-        .execute()
     )
+    actualizado = actualizacion.execute()
     filas = actualizado.data or []
     if not filas:
         return jsonify({"ok": False, "error": "El pedido cambió; actualizá la bandeja."}), 409
@@ -1449,6 +1840,104 @@ def actualizar_pago_pedido_gastronomia(pedido_id):
     })
 
 
+@gastronomia_bp.route("/panel/pedidos/cobros/confirmar", methods=["POST"])
+def confirmar_cobros_solo_whatsapp():
+    comercio = _comercio_panel_gastronomia()
+    if not comercio:
+        return jsonify({"ok": False, "error": "No autorizado."}), 401
+    comercio_id = comercio.get("id")
+    if not _pos_activo_gastronomia(comercio_id):
+        return jsonify({
+            "ok": False,
+            "error": "Gastronomía Base no tiene acciones operativas.",
+        }), 403
+    if _pos_activo_gastronomia(comercio_id):
+        return jsonify({
+            "ok": False,
+            "error": "El cobro múltiple pertenece a Solo WhatsApp.",
+        }), 403
+    datos = request.get_json(silent=True) or {}
+    ids = datos.get("pedido_ids")
+    if not isinstance(ids, list):
+        return jsonify({"ok": False, "error": "La selección es inválida."}), 400
+    ids_limpios = []
+    for valor in ids:
+        pedido_id = str(valor or "").strip()
+        if pedido_id and pedido_id not in ids_limpios:
+            ids_limpios.append(pedido_id)
+    if not ids_limpios or len(ids_limpios) > 100:
+        return jsonify({
+            "ok": False,
+            "error": "Seleccioná entre 1 y 100 pedidos.",
+        }), 400
+
+    resultados = []
+    importe_confirmado = 0.0
+    cantidad_confirmada = 0
+    for pedido_id in ids_limpios:
+        resultado = confirmar_cobro_pedido_base(
+            supabase_admin,
+            comercio_id,
+            pedido_id,
+            "solo_whatsapp",
+        )
+        if resultado.get("estado") == "no_encontrado":
+            resultados.append({
+                "pedido_id": pedido_id,
+                "ok": False,
+                "error": "Pedido no encontrado para esta modalidad.",
+            })
+            continue
+        if resultado.get("estado") == "cancelado":
+            resultados.append({
+                "pedido_id": pedido_id,
+                "numero_pedido": resultado.get("numero_pedido"),
+                "ok": False,
+                "error": "El pedido está cancelado.",
+            })
+            continue
+        if resultado.get("estado") == "ya_confirmado":
+            resultados.append({
+                "pedido_id": pedido_id,
+                "numero_pedido": resultado.get("numero_pedido"),
+                "ok": True,
+                "estado": "ya_confirmado",
+                "pagado_at": resultado.get("pagado_at"),
+            })
+            continue
+        if not resultado.get("ok"):
+            resultados.append({
+                "pedido_id": pedido_id,
+                "numero_pedido": resultado.get("numero_pedido"),
+                "ok": False,
+                "error": "El pedido cambió; actualizá la pantalla.",
+            })
+            continue
+        try:
+            importe_confirmado += float(resultado.get("importe") or 0)
+        except (TypeError, ValueError):
+            pass
+        cantidad_confirmada += 1
+        resultados.append({
+            "pedido_id": pedido_id,
+            "numero_pedido": resultado.get("numero_pedido"),
+            "ok": True,
+            "estado": "confirmado",
+            "pagado_at": resultado.get("pagado_at"),
+            "importe": resultado.get("importe") or 0,
+        })
+
+    cantidad_error = sum(1 for resultado in resultados if not resultado["ok"])
+    return jsonify({
+        "ok": cantidad_error == 0,
+        "procesados": len(resultados),
+        "confirmados": cantidad_confirmada,
+        "con_error": cantidad_error,
+        "importe_confirmado": round(importe_confirmado, 2),
+        "resultados": resultados,
+    }), (200 if cantidad_error == 0 else 207)
+
+
 @gastronomia_bp.route("/panel/pedidos/historial", methods=["GET"])
 def historial_pedidos_gastronomia():
     comercio = _comercio_panel_gastronomia()
@@ -1458,12 +1947,19 @@ def historial_pedidos_gastronomia():
 
     comercio_id = comercio.get("id")
     pos_activo = _pos_activo_gastronomia(comercio_id)
-
+    modalidad_pedidos = None if pos_activo else ""
+    modalidad_solicitada = str(request.args.get("modalidad") or "").strip()
+    if not pos_activo and modalidad_solicitada in (
+        "solo_whatsapp", "bandeja", "sin_snapshot"
+    ):
+        modalidad_pedidos = modalidad_solicitada
     vista = str(
         request.args.get("vista") or "activos"
     ).strip().lower()
     if vista not in ("activos", "finalizados", "todos"):
         vista = "activos"
+    if modalidad_pedidos == "sin_snapshot":
+        vista = "todos"
 
     estado = str(
         request.args.get("estado") or ""
@@ -1513,18 +2009,44 @@ def historial_pedidos_gastronomia():
         )
         .eq("comercio_id", comercio_id)
     )
+    if not pos_activo:
+        if modalidad_pedidos == "sin_snapshot":
+            consulta = consulta.is_("modalidad_gestion", "null")
+        elif modalidad_pedidos:
+            consulta = consulta.eq("modalidad_gestion", modalidad_pedidos)
 
     if estado:
         consulta = consulta.eq("estado", estado)
+
+    if pos_activo:
+        if not estado and vista == "activos":
+            consulta = consulta.in_(
+                "estado",
+                list(ESTADOS_PEDIDO_ACTIVOS),
+            )
+        elif not estado and vista == "finalizados":
+            consulta = consulta.in_(
+                "estado",
+                list(ESTADOS_PEDIDO_FINALIZADOS),
+            )
+    elif modalidad_pedidos == "solo_whatsapp" and vista == "activos":
+        consulta = consulta.neq("estado", "cancelado").neq(
+            "estado_pago", "pagado"
+        )
+    elif modalidad_pedidos == "solo_whatsapp" and vista == "finalizados":
+        consulta = consulta.or_(
+            "estado.eq.cancelado,estado_pago.eq.pagado"
+        )
     elif vista == "activos":
-        consulta = consulta.in_(
-            "estado",
-            list(ESTADOS_PEDIDO_ACTIVOS),
+        consulta = (
+            consulta
+            .neq("estado", "cancelado")
+            .or_("estado_pago.neq.pagado,entregado_at.is.null")
         )
     elif vista == "finalizados":
-        consulta = consulta.in_(
-            "estado",
-            list(ESTADOS_PEDIDO_FINALIZADOS),
+        consulta = consulta.or_(
+            "estado.eq.cancelado,"
+            "and(estado_pago.eq.pagado,entregado_at.not.is.null)"
         )
 
     if origen:
@@ -1569,6 +2091,7 @@ def historial_pedidos_gastronomia():
             "origen": origen,
             "tipo_entrega": tipo_entrega,
             "estado_pago": estado_pago,
+            "modalidad_gestion": modalidad_pedidos if not pos_activo else "",
         },
         estados=ESTADOS_PEDIDO_VALIDOS,
         origenes=ORIGENES_PEDIDO_VALIDOS,
@@ -2332,6 +2855,7 @@ def configuracion_inicial():
             datos_configuracion = {
                 "comercio_id": comercio_id,
                 "activo": True,
+                "modalidad_pedidos": "solo_whatsapp",
                 "acepta_delivery": acepta_delivery,
                 "acepta_retiro": acepta_retiro,
                 "pedido_minimo": pedido_minimo,
@@ -2543,6 +3067,22 @@ def guardar_configuracion_negocio():
     if not comercio_id:
         return redirect(url_for("login"))
 
+    pos_activo = _pos_activo_gastronomia(comercio_id)
+    modalidad_pedidos = None
+    if not pos_activo:
+        try:
+            modalidad_pedidos = validar_modalidad_gestion_base(
+                request.form.get("modalidad_pedidos")
+            )
+        except PedidoError:
+            return redirect(
+                url_for(
+                    "gastronomia.panel_gastronomia",
+                    configuracion_error="modalidad_pedidos",
+                )
+                + "#configuracion-negocio"
+            )
+
     acepta_delivery = (
         request.form.get("acepta_delivery") == "on"
     )
@@ -2736,6 +3276,8 @@ def guardar_configuracion_negocio():
         "delivery_distancia_activo": delivery_distancia_activo,
         "delivery_franjas": delivery_franjas,
     }
+    if not pos_activo:
+        datos["modalidad_pedidos"] = modalidad_pedidos
 
     try:
         (
@@ -2822,7 +3364,8 @@ def panel_gastronomia(panel_seccion="productos"):
             "tiempo_estimado_min,descuento_efectivo_pct,"
             "descuento_transferencia_pct,delivery_distancia_activo,"
             "delivery_franjas,delivery_origen_direccion,"
-            "delivery_origen_latitud,delivery_origen_longitud"
+            "delivery_origen_latitud,delivery_origen_longitud,"
+            "modalidad_pedidos"
         )
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -2880,11 +3423,13 @@ def panel_gastronomia(panel_seccion="productos"):
         )
 
     if panel_seccion == "configuracion":
+        pos_activo = _pos_activo_gastronomia(comercio_id)
         return render_template(
             "gastronomia/configuracion.html",
             comercio=comercio,
             configuracion=configuracion,
             panel_seccion="configuracion",
+            pos_activo=pos_activo,
         )
 
     productos_res = (

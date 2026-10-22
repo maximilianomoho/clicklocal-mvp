@@ -32,6 +32,8 @@ from gastronomia import gastronomia_bp
 from juegos import juegos_bp
 from turnos import turnos_bp
 from contenido import contenido_bp
+from pedidos_comercio import pedidos_comercio_bp
+from pedidos_comercio.routes import confirmar_publico
 from modulos import (
     CATALOGO_MODULOS,
     activar_renovar_modulo,
@@ -155,12 +157,32 @@ def formatear_precio(valor):
     return f"$ {entero_formateado},{decimal}"
 
 
+def precio_publicacion_comprable(valor):
+    """Devuelve un Decimal válido para carrito o None."""
+    if valor is None or isinstance(valor, bool):
+        return None
+
+    try:
+        precio = Decimal(str(valor))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+    if not precio.is_finite() or precio < 0:
+        return None
+
+    try:
+        return precio.quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return None
+
+
 app = Flask(__name__)
 app.jinja_env.filters["precio_arg"] = formatear_precio
 app.register_blueprint(gastronomia_bp)
 app.register_blueprint(juegos_bp)
 app.register_blueprint(turnos_bp)
 app.register_blueprint(contenido_bp)
+app.register_blueprint(pedidos_comercio_bp)
 
 
 # Clave temporal para session en desarrollo local
@@ -7703,6 +7725,8 @@ def detalle_sin_id():
 @app.route("/detalle/<publicacion_id>")
 def detalle(publicacion_id):
     comercio = comercio_default()
+    modulo_carrito_activo = False
+    publicacion_comprable = False
 
     categoria_origen = request.args.get(
         "categoria",
@@ -7754,7 +7778,7 @@ def detalle(publicacion_id):
         publicacion_res = (
             supabase_admin
             .table("publicaciones")
-            .select("id,nombre,precio,descripcion,imagenes,imagen_principal,imagen_url,activa,comercio_id,direccion_mostrar,created_at")
+            .select("id,nombre,precio,descripcion,imagenes,imagen_principal,imagen_url,activa,eliminada,comercio_id,direccion_mostrar,created_at")
             .eq("id", publicacion_id)
             .eq("activa", True)
             .limit(1)
@@ -7799,6 +7823,21 @@ def detalle(publicacion_id):
 
             if comercios:
                 comercio = comercios[0]
+
+        if comercio_id:
+            modulo_carrito_activo = modulo_activo(
+                comercio_id,
+                "carrito",
+            )
+
+        publicacion_comprable = bool(
+            modulo_carrito_activo
+            and publicacion_encontrada.get("activa") is True
+            and publicacion_encontrada.get("eliminada") is not True
+            and precio_publicacion_comprable(
+                publicacion_encontrada.get("precio")
+            ) is not None
+        )
 
         if not comercio.get("direccion_mostrar"):
             comercio["direccion_mostrar"] = (
@@ -7863,6 +7902,17 @@ def detalle(publicacion_id):
         comercio=comercio,
         publicacion=publicacion_encontrada,
         regreso_galeria_url=regreso_galeria_url,
+        modulo_carrito_activo=modulo_carrito_activo,
+        publicacion_comprable=publicacion_comprable,
+    )
+
+
+@app.post("/comercio/<comercio_id>/carrito/confirmar")
+def confirmar_carrito_comercio(comercio_id):
+    return confirmar_publico(
+        comercio_id,
+        db=supabase_admin,
+        modulo_checker=modulo_activo,
     )
 
 
@@ -8415,6 +8465,10 @@ def perfil_comercio(comercio_id):
             comercio_id,
             "turnos",
         )
+        modulo_carrito_activo = modulo_activo(
+            comercio_id,
+            "carrito",
+        )
 
         nombre_negocio = comercio.get("nombre_negocio") or "Comercio"
         palabras_nombre = nombre_negocio.split()
@@ -8508,6 +8562,14 @@ def perfil_comercio(comercio_id):
             publicacion["imagen_url"] = imagen_publica
 
             publicacion["precio_mostrar"] = formatear_precio(publicacion.get("precio"))
+            publicacion["comprable"] = bool(
+                modulo_carrito_activo
+                and publicacion.get("activa") is True
+                and publicacion.get("eliminada") is not True
+                and precio_publicacion_comprable(
+                    publicacion.get("precio")
+                ) is not None
+            )
 
             publicacion["ubicacion_mostrar"] = (
                 publicacion.get("direccion_mostrar")
@@ -8609,6 +8671,7 @@ def perfil_comercio(comercio_id):
         publicaciones=publicaciones,
         carteleras=carteleras,
         modulo_turnos_activo=modulo_turnos_activo,
+        modulo_carrito_activo=modulo_carrito_activo,
     )
 
 
@@ -8868,6 +8931,7 @@ def admin_nueva_gastronomia():
                 supabase_admin.table("gastronomia_configuracion").insert({
                     "comercio_id": comercio_id,
                     "activo": True,
+                    "modalidad_pedidos": "solo_whatsapp",
                     "acepta_delivery": False,
                     "acepta_retiro": True,
                     "pedido_minimo": 0,

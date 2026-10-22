@@ -702,6 +702,7 @@ class PedidosServiceTest(unittest.TestCase):
                 "texto_pedido": texto,
                 "estado": "pendiente",
                 "estado_pago": "pendiente",
+                "modalidad_gestion": "solo_whatsapp",
             },
         )])
 

@@ -1,0 +1,24 @@
+{% extends "panel.html" %}
+{% block panel_hero_texto %}<div><p class="titulo-chico">CARRITO / PEDIDOS</p><h1>{{ comercio.nombre_negocio }}</h1><p>Indicadores de ventas del carrito general.</p></div>{% endblock %}
+{% block panel_menu_principal %}
+<a href="{{ url_for('panel') }}" class="panel-menu-link">← Panel general</a>
+<a href="{{ url_for('pedidos_comercio.panel_pedidos') }}#pedidos" class="panel-menu-link">Pedidos</a>
+<a href="{{ url_for('pedidos_comercio.historial_pedidos') }}" class="panel-menu-link">Historial</a>
+<a href="{{ url_for('pedidos_comercio.clientes_pedidos') }}" class="panel-menu-link">Clientes</a>
+<a href="{{ url_for('pedidos_comercio.metricas_pedidos') }}" class="panel-menu-link activo">Métricas</a>
+<a href="{{ url_for('pedidos_comercio.panel_pedidos') }}#configuracion" class="panel-menu-link">Configuración</a>
+{% endblock %}
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pedidos/panel.css') }}">
+<section class="panel-card metricas-panel">
+  <header class="pedidos-cabecera"><div><p class="titulo-chico">MÉTRICAS</p><h2>Resumen comercial</h2><p>Los pedidos cancelados no participan en los indicadores.</p></div></header>
+  <nav class="historial-filtros" aria-label="Período de métricas">{% for valor, etiqueta in [('hoy','Hoy'),('7d','Últimos 7 días'),('30d','Últimos 30 días')] %}<a href="{{ url_for('pedidos_comercio.metricas_pedidos', periodo=valor) }}"{% if periodo == valor %} class="activo" aria-current="page"{% endif %}>{{ etiqueta }}</a>{% endfor %}</nav>
+  {% if limite_alcanzado %}<p class="historial-aviso">Los indicadores se calculan sobre los 2.000 pedidos más recientes del período.</p>{% endif %}
+  <div class="metricas-resumen"><article><span>Ventas</span><strong>{{ metricas.ventas|precio_arg }}</strong></article><article><span>Pedidos</span><strong>{{ metricas.pedidos }}</strong></article><article><span>Ticket promedio</span><strong>{{ metricas.ticket_promedio|precio_arg }}</strong></article><article><span>Clientes</span><strong>{{ metricas.clientes }}</strong></article></div>
+  <div class="metricas-rankings">
+    <section><h3>Productos más vendidos</h3><ol>{% for producto in metricas.productos_unidades %}<li><span>{{ producto.nombre }}</span><strong>{{ producto.unidades }} unidades</strong></li>{% else %}<li>Sin ventas en este período.</li>{% endfor %}</ol></section>
+    <section><h3>Productos con mayor facturación</h3><ol>{% for producto in metricas.productos_facturacion %}<li><span>{{ producto.nombre }}</span><strong>{{ producto.facturacion|precio_arg }}</strong></li>{% else %}<li>Sin ventas en este período.</li>{% endfor %}</ol></section>
+    <section><h3>Clientes que más compraron</h3><ol>{% for cliente in metricas.top_clientes %}<li><span>{{ cliente.nombre }}</span><strong>{{ cliente.total_comprado|precio_arg }} · {{ cliente.pedidos_compra }} compras</strong></li>{% else %}<li>Sin ventas en este período.</li>{% endfor %}</ol></section>
+  </div>
+</section>
+{% endblock %}

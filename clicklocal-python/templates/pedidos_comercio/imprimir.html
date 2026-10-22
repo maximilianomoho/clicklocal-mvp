@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pedido #{{ pedido.numero }} · {{ comercio.nombre_negocio }}</title>
+  <style>
+    :root { --ticket-width: 80mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #000; font: 14px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .ticket { width: min(100%, var(--ticket-width)); margin: 0 auto; padding: 5mm; }
+    h1, h2, p { margin: 0 0 6px; }
+    h1 { font-size: 18px; text-align: center; }
+    h2 { font-size: 16px; }
+    .centrado { text-align: center; }
+    .seccion { border-top: 1px dashed #000; margin-top: 10px; padding-top: 8px; }
+    dl { margin: 0; }
+    dl div, .linea { display: flex; justify-content: space-between; gap: 10px; }
+    dt { font-weight: 700; }
+    dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    li span:first-child { overflow-wrap: anywhere; }
+    .total { border-top: 2px solid #000; font-size: 16px; margin-top: 6px; padding-top: 5px; }
+    .acciones { margin: 18px auto; text-align: center; }
+    button { padding: 10px 16px; border: 1px solid #000; background: #fff; color: #000; font: inherit; cursor: pointer; }
+    @page { margin: 4mm; }
+    @media print {
+      .ticket { width: 100%; padding: 0; }
+      .acciones { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="ticket">
+    <header class="centrado">
+      <h1>CLICKLOCAL</h1>
+      <p>{{ comercio.nombre_negocio }}</p>
+      <h2>Pedido #{{ pedido.numero }}</h2>
+      <p>{{ pedido.created_at[:16]|replace('T', ' ') }}</p>
+    </header>
+
+    <section class="seccion">
+      <dl>
+        <div><dt>Cliente</dt><dd>{{ pedido.nombre_cliente }}</dd></div>
+        <div><dt>WhatsApp</dt><dd>{{ pedido.whatsapp_cliente }}</dd></div>
+        <div><dt>Entrega</dt><dd>{{ pedido.tipo_entrega|capitalize }}</dd></div>
+        {% if pedido.direccion %}<div><dt>Dirección</dt><dd>{{ pedido.direccion }}</dd></div>{% endif %}
+      </dl>
+    </section>
+
+    <section class="seccion">
+      <ul>{% for item in pedido['items'] %}<li><span>{{ item.cantidad }} × {{ item.nombre_snapshot }}</span><strong>{{ item.subtotal|precio_arg }}</strong></li>{% endfor %}</ul>
+    </section>
+
+    <section class="seccion">
+      <div class="linea"><span>Subtotal</span><span>{{ pedido.subtotal|precio_arg }}</span></div>
+      <div class="linea"><span>Envío</span><span>{{ pedido.costo_envio|precio_arg }}</span></div>
+      <div class="linea total"><strong>TOTAL</strong><strong>{{ pedido.total|precio_arg }}</strong></div>
+    </section>
+
+    <section class="seccion">
+      <dl>
+        <div><dt>Pago</dt><dd>{{ pedido.forma_pago|capitalize }}</dd></div>
+        {% if pedido.forma_pago == 'efectivo' and pedido.paga_con is not none %}<div><dt>Paga con</dt><dd>{{ pedido.paga_con|precio_arg }}</dd></div>{% if pedido.cambio is not none %}<div><dt>Cambio</dt><dd>{{ pedido.cambio|precio_arg }}</dd></div>{% endif %}{% endif %}
+        <div><dt>Estado</dt><dd>{{ pedido.estado|capitalize }}</dd></div>
+      </dl>
+    </section>
+  </main>
+  <div class="acciones"><button type="button" onclick="window.print()">🖨 Imprimir</button></div>
+</body>
+</html>

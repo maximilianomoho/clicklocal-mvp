@@ -76,6 +76,9 @@
   />
 
   <link rel="stylesheet" href="/styles.css" />
+  {% if modulo_carrito_activo %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='carrito/carrito.css') }}" />
+  {% endif %}
 
 <style>
   .perfil-whatsapp {
@@ -1496,6 +1499,9 @@
         <div class="grilla-publicaciones perfil-grilla">
 
           {% for publicacion in publicaciones %}
+          {% if publicacion.comprable %}
+          <article class="cl-carrito-producto-card">
+          {% endif %}
           <a href="{{ url_for('detalle', publicacion_id=publicacion.id) }}" class="publicacion-card">
             <img src="{{ publicacion.imagen_url }}" alt="{{ publicacion.nombre }}" />
 
@@ -1506,6 +1512,20 @@
               <p class="ubicacion">{{ publicacion.ubicacion_mostrar }}</p>
             </div>
           </a>
+          {% if publicacion.comprable %}
+            <button
+              type="button"
+              class="cl-carrito-producto-accion"
+              data-carrito-producto
+              data-producto-id="{{ publicacion.id }}"
+              data-producto-nombre="{{ publicacion.nombre }}"
+              data-producto-precio="{{ publicacion.precio }}"
+              data-producto-imagen="{{ publicacion.imagen_url }}"
+            >
+              Agregar al carrito
+            </button>
+          </article>
+          {% endif %}
           {% endfor %}
 
         </div>
@@ -1698,6 +1718,19 @@
     <span>ClickLocal · Una plataforma de Seldon Technologies</span>
   </footer>
   <!-- FIN CLICKLOCAL: PIE LEGAL -->
+
+  {% if modulo_carrito_activo %}
+  <script>
+    window.ClickLocalCarritoConfig = {{ {
+      "comercioId": comercio.id,
+      "galeriaUrl": url_for("perfil_comercio", comercio_id=comercio.id),
+      "endpoint": url_for("confirmar_carrito_comercio", comercio_id=comercio.id),
+      "configuracionEndpoint": url_for("pedidos_comercio.configuracion_publica", comercio_id=comercio.id),
+      "cotizacionEndpoint": url_for("pedidos_comercio.cotizar_envio", comercio_id=comercio.id)
+    } | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='carrito/carrito.js') }}"></script>
+  {% endif %}
 
 </body>
 </html>

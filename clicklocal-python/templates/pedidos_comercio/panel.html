@@ -1,0 +1,73 @@
+{% extends "panel.html" %}
+{% block panel_hero_texto %}<div><p class="titulo-chico">CARRITO / PEDIDOS</p><h1>{{ comercio.nombre_negocio }}</h1><p>Pedidos de tus publicaciones ClickLocal.</p></div>{% endblock %}
+{% block panel_menu_principal %}
+<a href="{{ url_for('panel') }}" class="panel-menu-link">← Panel general</a>
+<a href="{{ url_for('pedidos_comercio.panel_pedidos') }}#pedidos" class="panel-menu-link activo">Pedidos</a>
+<a href="{{ url_for('pedidos_comercio.historial_pedidos') }}" class="panel-menu-link">Historial</a>
+<a href="{{ url_for('pedidos_comercio.clientes_pedidos') }}" class="panel-menu-link">Clientes</a>
+<a href="{{ url_for('pedidos_comercio.metricas_pedidos') }}" class="panel-menu-link">Métricas</a>
+<a href="#configuracion" class="panel-menu-link">Configuración</a>
+{% endblock %}
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pedidos/panel.css') }}">
+<section id="pedidos" class="panel-card pedidos-panel" data-actualizacion-url="{{ url_for('pedidos_comercio.actualizacion_pedidos') }}" data-estado-base="{{ pedidos[0].created_at if pedidos else '' }}">
+  <header class="pedidos-cabecera"><div><p class="titulo-chico">PEDIDOS</p><h2>Bandeja operativa</h2><p>Se consulta cada 15 segundos.</p></div><div class="pedidos-alerta"><strong><span data-contador-nuevos>{{ pedidos|selectattr('estado', 'equalto', 'nuevo')|list|length }}</span> nuevos</strong><button type="button" data-activar-sonido>🔔 Activar sonido</button><label class="pedidos-volumen">Volumen de alerta <span><input type="range" min="0" max="100" value="70" data-volumen-alerta><output data-volumen-alerta-valor>70%</output></span></label></div></header>
+  <p class="pedidos-estado" role="status" aria-live="polite"></p>
+  <div class="pedidos-aviso-nuevo" data-aviso-pedido-nuevo role="alert" hidden><strong>🔔 HAY UN PEDIDO NUEVO</strong><button type="button" data-actualizar-pedidos>Actualizar y ver pedidos</button></div>
+  <div class="pedidos-lista">
+  {% for pedido in pedidos %}
+    <article class="pedido-card pedido-card--{{ pedido.estado }}" data-pedido-id="{{ pedido.id }}">
+      <header><div><strong>#{{ pedido.numero }}</strong><span>{{ pedido.fecha_local }}</span></div><b>{{ pedido.estado|capitalize }}</b></header>
+      <dl><div><dt>Cliente</dt><dd>{{ pedido.nombre_cliente }}</dd></div><div><dt>WhatsApp</dt><dd>{{ pedido.whatsapp_cliente }}</dd></div><div><dt>Entrega</dt><dd>{{ pedido.tipo_entrega|capitalize }}</dd></div>{% if pedido.direccion %}<div><dt>Dirección</dt><dd>{{ pedido.direccion }}</dd></div>{% endif %}<div><dt>Pago</dt><dd>{{ pedido.forma_pago|capitalize }}</dd></div>{% if pedido.forma_pago == 'efectivo' and pedido.paga_con is not none %}<div><dt>Paga con</dt><dd>{{ pedido.paga_con|precio_arg }}</dd></div>{% if pedido.cambio is not none %}<div><dt>Cambio</dt><dd>{{ pedido.cambio|precio_arg }}</dd></div>{% endif %}{% endif %}</dl>
+      <ul>{% for item in pedido['items'] %}<li>{{ item.cantidad }} × {{ item.nombre_snapshot }} — {{ item.subtotal|precio_arg }}</li>{% endfor %}</ul>
+      <div class="pedido-totales"><span>Subtotal {{ pedido.subtotal|precio_arg }}</span><span>Envío {{ pedido.costo_envio|precio_arg }}</span><strong>Total {{ pedido.total|precio_arg }}</strong></div>
+      {% if pedido.referencia %}<p><strong>Referencia:</strong> {{ pedido.referencia }}</p>{% endif %}{% if pedido.observaciones %}<p><strong>Observaciones:</strong> {{ pedido.observaciones }}</p>{% endif %}
+      <div class="pedido-acciones">
+        {% if pedido.estado == 'nuevo' %}<button data-estado="aceptado">Aceptar</button>{% endif %}
+        {% if pedido.estado == 'aceptado' %}<button data-estado="preparando">Preparando</button>{% endif %}
+        {% if pedido.estado == 'preparando' %}<button data-estado="listo">Listo</button>{% endif %}
+        {% if pedido.estado == 'listo' %}<button data-estado="entregado">Entregado</button>{% endif %}
+        {% if pedido.estado not in ['entregado','cancelado'] %}<button class="cancelar" data-estado="cancelado">Cancelar</button>{% endif %}
+        <a class="pedido-imprimir" href="{{ url_for('pedidos_comercio.imprimir_pedido', pedido_id=pedido.id) }}" target="_blank" rel="noopener">🖨 Imprimir</a>
+      </div>
+    </article>
+  {% else %}<p>Todavía no hay pedidos de hoy.</p>{% endfor %}
+  </div>
+</section>
+<section id="configuracion" class="panel-card"><p class="titulo-chico">CONFIGURACIÓN</p><h2>Entrega y pagos</h2>
+  {% if request.args.get('guardado') %}<p class="config-ok">Configuración guardada.</p>{% endif %}{% if request.args.get('error') %}<p class="config-error">{{ request.args.get('error') }}</p>{% endif %}
+  <form method="post" class="pedidos-config">
+    <fieldset><legend>Entrega</legend>
+      <label><input type="checkbox" name="acepta_retiro" value="1" {% if config.acepta_retiro %}checked{% endif %}> Retiro</label>
+      <label><input id="acepta-delivery" type="checkbox" name="acepta_delivery" value="1" {% if config.acepta_delivery %}checked{% endif %}> Delivery</label>
+      <div id="delivery-configuracion" {% if not config.acepta_delivery %}hidden{% endif %}>
+        <label>Pedido mínimo para delivery (opcional)<input name="pedido_minimo" inputmode="decimal" value="{{ config.pedido_minimo or '' }}"></label>
+        <label><input id="usar-costo-fijo" type="checkbox" name="usar_costo_fijo" value="1" {% if config.delivery_modo == 'fijo' %}checked{% endif %}> Usar costo fijo de envío</label>
+        <label id="delivery-costo-fijo-bloque" {% if config.delivery_modo != 'fijo' %}hidden{% endif %}>Costo de envío<input name="delivery_costo_fijo" inputmode="decimal" value="{{ config.delivery_costo_fijo or 0 }}"></label>
+        <div id="delivery-distancia-bloque" {% if config.delivery_modo != 'distancia' %}hidden{% endif %}>
+          <label>Dirección de salida<input name="delivery_origen_direccion" value="{{ config.delivery_origen_direccion or comercio.direccion or '' }}"></label>
+          <label>Ciudad<input name="delivery_ciudad" value="{{ config.delivery_ciudad or comercio.ciudad or '' }}"></label>
+          <fieldset id="delivery-franjas-bloque"><legend>Franjas por distancia</legend>{% for i in range(5) %}{% set franja = config.delivery_franjas[i] if config.delivery_franjas and i < config.delivery_franjas|length else {} %}<div class="franja"><input name="franja_km" inputmode="decimal" placeholder="Hasta km" value="{{ franja.hasta_km or '' }}"><input name="franja_precio" inputmode="decimal" placeholder="Precio" value="{{ franja.precio if franja.precio is not none else '' }}"></div>{% endfor %}</fieldset>
+        </div>
+      </div>
+    </fieldset>
+    <fieldset><legend>Pago</legend><label><input type="checkbox" name="acepta_efectivo" value="1" {% if config.acepta_efectivo %}checked{% endif %}> Efectivo</label><label><input type="checkbox" name="acepta_transferencia" value="1" {% if config.acepta_transferencia %}checked{% endif %}> Transferencia</label></fieldset>
+    <button type="submit" class="boton-principal-form">Guardar configuración</button>
+  </form>
+  <div class="fidelizacion-config">
+    <p class="titulo-chico">FIDELIZACIÓN</p><h2>Programa de sellos</h2>
+    {% if request.args.get('fidelizacion_guardada') %}<p class="config-ok">Fidelización guardada.</p>{% endif %}
+    {% if request.args.get('fidelizacion_error') %}<p class="config-error">{{ request.args.get('fidelizacion_error') }}</p>{% elif fidelizacion_error %}<p class="config-error">{{ fidelizacion_error }}</p>{% endif %}
+    {% if fidelizacion %}
+    <p class="fidelizacion-estado fidelizacion-estado--{{ 'activa' if fidelizacion.activa else 'inactiva' }}">Programa {{ 'activo' if fidelizacion.activa else 'inactivo' }}</p>
+    <form method="post" action="{{ url_for('pedidos_comercio.guardar_fidelizacion') }}" class="pedidos-config">
+      <label><input type="checkbox" name="fidelizacion_activa" value="1" {% if fidelizacion.activa %}checked{% endif %}> Activar programa de sellos</label>
+      <label>Cantidad de sellos requerida<input type="number" name="fidelizacion_meta_sellos" min="1" step="1" required value="{{ fidelizacion.meta_sellos if fidelizacion.meta_sellos is not none else '' }}"></label>
+      <label>Premio<input name="fidelizacion_premio" required value="{{ fidelizacion.premio or '' }}" placeholder="Ej.: 20% de descuento"></label>
+      <button type="submit" class="boton-principal-form">Guardar fidelización</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+<script src="{{ url_for('static', filename='pedidos/alertas.js') }}" defer></script><script src="{{ url_for('static', filename='pedidos/panel.js') }}" defer></script>
+{% endblock %}

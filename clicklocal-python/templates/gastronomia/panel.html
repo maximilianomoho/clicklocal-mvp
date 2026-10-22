@@ -249,6 +249,8 @@
       {% if error_config == "modalidad" %}
         Elegí al menos una modalidad:
         Delivery o Retiro en el local.
+      {% elif error_config == "modalidad_pedidos" %}
+        Elegí cómo querés gestionar los pedidos de ClickLocal.
       {% elif error_config == "pedido_minimo" %}
         El pedido mínimo ingresado no es válido.
       {% elif error_config == "costo_envio" %}
@@ -273,6 +275,23 @@
       'gastronomia.guardar_configuracion_negocio'
     ) }}"
   >
+
+    {% if not pos_activo %}
+    <fieldset class="modalidad-pedidos-selector" style="margin:0 0 20px;padding:16px;border:1px solid #ddd;border-radius:12px;">
+      <legend style="padding:0 6px;font-weight:800;">Gestión de pedidos de ClickLocal</legend>
+      <p style="margin:0 0 12px;color:#666;">La opción elegida se aplicará solamente a los pedidos nuevos. Los pedidos anteriores conservan su modalidad original.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #ddd;border-radius:12px;cursor:pointer;">
+          <input type="radio" name="modalidad_pedidos" value="solo_whatsapp" required {% if configuracion.modalidad_pedidos == 'solo_whatsapp' %}checked{% endif %}>
+          <span><strong>Solo WhatsApp</strong><small style="display:block;margin-top:4px;color:#666;">Recibís el pedido por WhatsApp y confirmás sus cobros.</small></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #ddd;border-radius:12px;cursor:pointer;">
+          <input type="radio" name="modalidad_pedidos" value="bandeja" required {% if configuracion.modalidad_pedidos == 'bandeja' %}checked{% endif %}>
+          <span><strong>Bandeja de pedidos</strong><small style="display:block;margin-top:4px;color:#666;">Gestionás cada pedido en el tablero de cuatro columnas.</small></span>
+        </label>
+      </div>
+    </fieldset>
+    {% endif %}
 
     <div
       style="

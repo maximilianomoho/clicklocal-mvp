@@ -24,22 +24,22 @@
     </nav>
   </details>
 
+  {% if pos_activo %}
   <details class="mi-negocio-nav ventas-nav"{% if panel_seccion == 'ventas' %} open{% endif %}>
     <summary>Ventas</summary>
     <nav aria-label="Ventas">
       <a href="{{ url_for('gastronomia.ventas_gastronomia') }}"
          class="{% if ventas_vista == 'caja' %}activo{% endif %}"
          {% if ventas_vista == 'caja' %}aria-current="page"{% endif %}>Ventas</a>
-      {% if pos_activo %}
       <a href="{{ url_for('gastronomia.pos_gastronomia') }}"
          class="{% if ventas_vista == 'pos' %}activo{% endif %}"
          {% if ventas_vista == 'pos' %}aria-current="page"{% endif %}>Punto de venta</a>
       <a href="{{ url_for('gastronomia.historial_cajas_gastronomia') }}"
          class="{% if ventas_vista == 'historial' %}activo{% endif %}"
          {% if ventas_vista == 'historial' %}aria-current="page"{% endif %}>Historial de cajas</a>
-      {% endif %}
     </nav>
   </details>
+  {% endif %}
 
   <details class="mi-negocio-nav"{% if panel_seccion in ('productos', 'configuracion', 'plan') %} open{% endif %}>
     <summary>Mi negocio</summary>
@@ -62,9 +62,11 @@
     <a href="{{ url_for('gastronomia.pedidos_gastronomia') }}"
        class="panel-menu-link{% if panel_seccion == 'pedidos' %} activo{% endif %}"
        {% if panel_seccion == 'pedidos' %}aria-current="page"{% endif %}>Pedidos</a>
+    {% if pos_activo %}
     <a href="{{ url_for('gastronomia.ventas_gastronomia') }}"
        class="panel-menu-link{% if panel_seccion == 'ventas' %} activo{% endif %}"
        {% if panel_seccion == 'ventas' %}aria-current="page"{% endif %}>Ventas</a>
+    {% endif %}
   </nav>
   <a href="{{ url_for('gastronomia.comercio_gastronomico', comercio_id=comercio.id) }}"
      class="gastro-nav-publico" target="_blank" rel="noopener noreferrer">

@@ -1,0 +1,29 @@
+{% extends "panel.html" %}
+{% block panel_hero_texto %}<div><p class="titulo-chico">CARRITO / PEDIDOS</p><h1>{{ comercio.nombre_negocio }}</h1><p>Clientes derivados de los pedidos recibidos.</p></div>{% endblock %}
+{% block panel_menu_principal %}
+<a href="{{ url_for('panel') }}" class="panel-menu-link">← Panel general</a>
+<a href="{{ url_for('pedidos_comercio.panel_pedidos') }}#pedidos" class="panel-menu-link">Pedidos</a>
+<a href="{{ url_for('pedidos_comercio.historial_pedidos') }}" class="panel-menu-link">Historial</a>
+<a href="{{ url_for('pedidos_comercio.clientes_pedidos') }}" class="panel-menu-link activo">Clientes</a>
+<a href="{{ url_for('pedidos_comercio.metricas_pedidos') }}" class="panel-menu-link">Métricas</a>
+<a href="{{ url_for('pedidos_comercio.panel_pedidos') }}#configuracion" class="panel-menu-link">Configuración</a>
+{% endblock %}
+{% block panel_contenido_principal %}
+<link rel="stylesheet" href="{{ url_for('static', filename='pedidos/panel.css') }}">
+<section class="panel-card clientes-panel">
+  <header class="pedidos-cabecera"><div><p class="titulo-chico">CLIENTES</p><h2>Clientes del carrito</h2><p>Los pedidos cancelados se muestran en la ficha, pero no cuentan como compras.</p></div></header>
+  <form class="historial-busqueda" method="get"><label for="clientes-q">Buscar por nombre o WhatsApp</label><div><input id="clientes-q" name="q" value="{{ busqueda }}" maxlength="100" autocomplete="off"><button type="submit">Buscar</button>{% if busqueda %}<a href="{{ url_for('pedidos_comercio.clientes_pedidos') }}">Limpiar</a>{% endif %}</div></form>
+  {% if fidelizacion_error %}<p class="config-error">{{ fidelizacion_error }}</p>{% endif %}
+  {% if limite_alcanzado %}<p class="historial-aviso">Los indicadores se calculan sobre los 2.000 pedidos más recientes del comercio.</p>{% endif %}
+  <div class="clientes-lista">
+    {% for cliente in clientes %}
+    <article class="cliente-card">
+      <div class="cliente-identidad"><strong>{{ cliente.nombre }}</strong><span>{{ cliente.whatsapp }}</span></div>
+      <dl><div><dt>Compras</dt><dd>{{ cliente.pedidos_compra }}</dd></div><div><dt>Total comprado</dt><dd><strong>{{ cliente.total_comprado|precio_arg }}</strong></dd></div><div><dt>Última compra</dt><dd>{{ cliente.ultima_compra }}</dd></div><div><dt>Ticket promedio</dt><dd>{{ cliente.ticket_promedio|precio_arg }}</dd></div>{% if cliente.fidelizacion and cliente.fidelizacion.mostrar %}<div><dt>Sellos</dt><dd><strong>{{ cliente.fidelizacion.saldo }}{% if cliente.fidelizacion.meta_sellos is not none %}/{{ cliente.fidelizacion.meta_sellos }}{% endif %}</strong>{% if cliente.fidelizacion.premio_disponible %}<span class="fidelizacion-disponible">Premio disponible</span>{% endif %}</dd></div>{% endif %}</dl>
+      <a class="pedido-imprimir" href="{{ url_for('pedidos_comercio.cliente_pedidos', identificador=cliente.identificador) }}">Ver cliente</a>
+    </article>
+    {% else %}<p>No hay clientes que coincidan con la búsqueda.</p>{% endfor %}
+  </div>
+  {% if hay_anterior or hay_siguiente %}<nav class="historial-paginacion" aria-label="Páginas de clientes">{% if hay_anterior %}<a href="{{ url_for('pedidos_comercio.clientes_pedidos', q=busqueda or None, pagina=pagina-1) }}">← Anterior</a>{% endif %}<span>Página {{ pagina }}</span>{% if hay_siguiente %}<a href="{{ url_for('pedidos_comercio.clientes_pedidos', q=busqueda or None, pagina=pagina+1) }}">Siguiente →</a>{% endif %}</nav>{% endif %}
+</section>
+{% endblock %}
