@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <meta name="referrer" content="no-referrer">
+  <title>Vista previa gastronómica · ClickLocal</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  {% include "_admin_nav.html" %}
+  <main style="max-width:760px;margin:40px auto;padding:0 20px">
+    <section style="background:#fff;padding:28px;border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.08)">
+      <p class="titulo-chico">ENLACE PRIVADO GENERADO</p>
+      <h1>Vista previa gastronómica</h1>
+      <p>Este enlace vence el {{ vence.strftime('%d/%m/%Y a las %H:%M UTC') }}. Al renovarlo, revocarlo o publicar el comercio, dejará de funcionar.</p>
+      <label for="preview-url" style="display:block;font-weight:700;margin:18px 0 6px">Enlace para copiar</label>
+      <input id="preview-url" value="{{ enlace }}" readonly autocomplete="off" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:8px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">
+        <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('preview-url').value)" style="padding:10px 14px;border:0;border-radius:8px;background:#1d4ed8;color:#fff;font-weight:800;cursor:pointer">Copiar enlace</button>
+        <a href="https://wa.me/?text={{ ('Vista previa privada de tu menú: ' ~ enlace) | urlencode }}" target="_blank" rel="noopener noreferrer" style="padding:10px 14px;border-radius:8px;background:#16a34a;color:#fff;font-weight:800;text-decoration:none">Compartir por WhatsApp</a>
+        <a href="{{ url_for('admin_comercios') }}" style="padding:10px 14px;border-radius:8px;background:#e5e7eb;color:#111827;font-weight:800;text-decoration:none">Volver a comercios</a>
+      </div>
+      <p style="margin-top:18px;color:#6b7280;font-size:14px">Por seguridad, ClickLocal no puede volver a mostrar este mismo enlace: solo se guarda su huella SHA-256.</p>
+    </section>
+  </main>
+</body>
+</html>

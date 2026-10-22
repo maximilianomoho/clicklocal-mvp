@@ -1,10 +1,12 @@
 from datetime import date, datetime, timedelta, timezone
+import hashlib
+import hmac
 from io import BytesIO
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import qrcode
-from flask import abort, current_app, g, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import abort, current_app, g, jsonify, make_response, redirect, render_template, request, send_file, session, url_for
 
 from config.supabase_config import supabase_admin
 from modulos import obtener_modulo, pos_activo_para_comercio
@@ -610,6 +612,7 @@ def comercio_gastronomico(comercio_id):
             "categoria,descripcion,logo_url"
         )
         .eq("id", comercio_id)
+        .eq("activo", True)
         .limit(1)
         .execute()
     )
@@ -669,7 +672,105 @@ def comercio_gastronomico(comercio_id):
         comercio=comercio,
         configuracion=configuracion,
         productos=productos,
+        es_preview=False,
     )
+
+
+def _fecha_hora_preview(valor):
+    try:
+        fecha = datetime.fromisoformat(str(valor or "").replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if fecha.tzinfo is None:
+        fecha = fecha.replace(tzinfo=timezone.utc)
+    return fecha.astimezone(timezone.utc)
+
+
+def _respuesta_preview_protegida(respuesta):
+    respuesta.headers["Cache-Control"] = "no-store, private, max-age=0"
+    respuesta.headers["Pragma"] = "no-cache"
+    respuesta.headers["Expires"] = "0"
+    respuesta.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    respuesta.headers["Referrer-Policy"] = "no-referrer"
+    return respuesta
+
+
+@gastronomia_bp.get("/preview/<comercio_id>")
+def preview_gastronomico(comercio_id):
+    respuesta = make_response(render_template(
+        "gastronomia/preview_acceso.html",
+        comercio_id=comercio_id,
+    ))
+    return _respuesta_preview_protegida(respuesta)
+
+
+@gastronomia_bp.post("/preview/<comercio_id>/validar")
+def validar_preview_gastronomico(comercio_id):
+    token = str((request.get_json(silent=True) or {}).get("token") or "")
+    if not token or len(token) > 256:
+        return _respuesta_preview_protegida(make_response("", 404))
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    config_res = (
+        supabase_admin.table("gastronomia_configuracion")
+        .select(
+            "comercio_id,activo,acepta_delivery,acepta_retiro,"
+            "pedido_minimo,costo_envio,tiempo_estimado_min,"
+            "descuento_efectivo_pct,descuento_transferencia_pct,"
+            "delivery_distancia_activo,delivery_franjas,"
+            "delivery_origen_direccion,preview_token_hash,"
+            "preview_token_expires_at"
+        )
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    configuraciones = config_res.data or []
+    configuracion = configuraciones[0] if configuraciones else None
+    hash_guardado = str((configuracion or {}).get("preview_token_hash") or "")
+    vence = _fecha_hora_preview(
+        (configuracion or {}).get("preview_token_expires_at")
+    )
+    valido = bool(
+        configuracion
+        and configuracion.get("activo") is False
+        and len(hash_guardado) == 64
+        and hmac.compare_digest(hash_guardado, token_hash)
+        and vence
+        and vence > datetime.now(timezone.utc)
+    )
+    if not valido:
+        return _respuesta_preview_protegida(make_response("", 404))
+
+    comercio_res = (
+        supabase_admin.table("comercios")
+        .select(
+            "id,nombre_negocio,whatsapp,direccion,ciudad,"
+            "categoria,descripcion,logo_url,activo"
+        )
+        .eq("id", comercio_id)
+        .eq("activo", True)
+        .limit(1)
+        .execute()
+    )
+    comercios = comercio_res.data or []
+    if not comercios:
+        abort(404)
+
+    configuracion["pedido_minimo_mostrar"] = _formatear_precio(
+        configuracion.get("pedido_minimo")
+    ) if configuracion.get("pedido_minimo") is not None else ""
+    configuracion["costo_envio_mostrar"] = _formatear_precio(
+        configuracion.get("costo_envio")
+    )
+    respuesta = make_response(render_template(
+        "gastronomia/menu.html",
+        comercio=comercios[0],
+        configuracion=configuracion,
+        productos=_cargar_catalogo_gastronomico(comercio_id),
+        es_preview=True,
+    ))
+    return _respuesta_preview_protegida(respuesta)
 
 # ==============================================================
 # CLICKLOCAL GASTRONOMIA PANEL LECTURA V1

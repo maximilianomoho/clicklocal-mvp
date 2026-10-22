@@ -196,6 +196,17 @@ def buscar_pedido_idempotente(
         return None
 
     db = cliente_supabase or supabase_admin
+    configuracion_res = (
+        db.table("gastronomia_configuracion")
+        .select("comercio_id,activo")
+        .eq("comercio_id", comercio_id)
+        .eq("activo", True)
+        .limit(1)
+        .execute()
+    )
+    if not (configuracion_res.data or []):
+        raise PedidoError("El comercio no está recibiendo pedidos.", 403)
+
     respuesta = (
         db.table("gastronomia_pedidos")
         .select(

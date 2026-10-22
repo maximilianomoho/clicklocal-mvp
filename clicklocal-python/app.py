@@ -189,6 +189,68 @@ app.register_blueprint(pedidos_comercio_bp)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "clicklocal-mvp-dev")
 
 
+def _categoria_gastronomica(valor):
+    return str(valor or "").strip().casefold() in {
+        "gastronomía", "gastronomia"
+    }
+
+
+def _ids_gastronomia_publicada():
+    respuesta = (
+        supabase_admin.table("gastronomia_configuracion")
+        .select("comercio_id")
+        .eq("activo", True)
+        .execute()
+    )
+    return {
+        str(fila.get("comercio_id"))
+        for fila in (respuesta.data or [])
+        if fila.get("comercio_id")
+    }
+
+
+def _comercio_publico_habilitado(comercio, gastronomia_publicada=None):
+    if not comercio or comercio.get("activo") is False:
+        return False
+    if not _categoria_gastronomica(comercio.get("categoria")):
+        return True
+    ids_publicados = (
+        _ids_gastronomia_publicada()
+        if gastronomia_publicada is None
+        else gastronomia_publicada
+    )
+    return str(comercio.get("id") or "") in ids_publicados
+
+
+def _cargar_comercio_publico(comercio_id):
+    respuesta = (
+        supabase_admin.table("comercios")
+        .select("id,nombre_negocio,whatsapp,categoria,activo")
+        .eq("id", comercio_id)
+        .eq("activo", True)
+        .limit(1)
+        .execute()
+    )
+    comercios = respuesta.data or []
+    comercio = comercios[0] if comercios else None
+    return comercio if _comercio_publico_habilitado(comercio) else None
+
+
+def _publicacion_pertenece_a_comercio_publico(publicacion_id):
+    respuesta = (
+        supabase_admin.table("publicaciones")
+        .select("id,comercio_id,activa")
+        .eq("id", publicacion_id)
+        .eq("activa", True)
+        .limit(1)
+        .execute()
+    )
+    publicaciones = respuesta.data or []
+    if not publicaciones:
+        return False
+    return bool(_cargar_comercio_publico(publicaciones[0].get("comercio_id")))
+
+
 # ============================================================
 # CLICKLOCAL: IDENTIDAD ANALYTICS ANONIMA V1
 # ============================================================
@@ -845,7 +907,7 @@ def analytics_whatsapp(comercio_id):
         comercio_res = (
             supabase_admin
             .table("comercios")
-            .select("id,nombre_negocio,whatsapp,activo")
+            .select("id,nombre_negocio,whatsapp,categoria,activo")
             .eq("id", comercio_id)
             .limit(1)
             .execute()
@@ -858,7 +920,7 @@ def analytics_whatsapp(comercio_id):
 
         comercio = comercios[0]
 
-        if comercio.get("activo") is False:
+        if not _comercio_publico_habilitado(comercio):
             return redirect(url_for("inicio"))
 
         nombre_negocio = comercio.get("nombre_negocio") or "Comercio local"
@@ -940,7 +1002,7 @@ def _historia_publica_para_analytics(historia_id):
         comercio_res = (
             supabase_admin
             .table("comercios")
-            .select("id,activo,plan")
+            .select("id,categoria,activo,plan")
             .eq("id", comercio_id)
             .limit(1)
             .execute()
@@ -953,7 +1015,7 @@ def _historia_publica_para_analytics(historia_id):
 
         comercio = comercios[0]
 
-        if comercio.get("activo") is False:
+        if not _comercio_publico_habilitado(comercio):
             return None, None
 
         plan = str(
@@ -2120,35 +2182,16 @@ def inicio():
         # su representación oficial pasa a ser Gastronomía.
         # ====================================================
 
-        gastronomia_ids = set()
-
-        if busqueda_normalizada:
-            try:
-                gastronomia_config_res = (
-                    supabase_admin
-                    .table("gastronomia_configuracion")
-                    .select("comercio_id")
-                    .eq("activo", True)
-                    .execute()
-                )
-
-                gastronomia_ids = {
-                    str(item.get("comercio_id"))
-                    for item in (
-                        gastronomia_config_res.data or []
-                    )
-                    if item.get("comercio_id")
-                }
-
-            except Exception as error:
-                print(
-                    "AVISO BUSCADOR UNIVERSAL - "
-                    "gastronomia_configuracion:",
-                    type(error),
-                    error,
-                    flush=True
-                )
-                gastronomia_ids = set()
+        try:
+            gastronomia_ids = _ids_gastronomia_publicada()
+        except Exception as error:
+            print(
+                "AVISO VISIBILIDAD PUBLICA GASTRONOMIA:",
+                type(error),
+                error,
+                flush=True,
+            )
+            gastronomia_ids = set()
 
         # ====================================================
         # 1) PRIMER NIVEL: PUBLICACIONES ACTIVAS
@@ -2187,6 +2230,12 @@ def inicio():
             comercio_pub = comercios_por_id.get(comercio_id, {})
 
             if not comercio_pub or comercio_pub.get("activo") is False:
+                continue
+
+            if not _comercio_publico_habilitado(
+                comercio_pub,
+                gastronomia_ids,
+            ):
                 continue
 
             # En búsquedas públicas, un comercio gastronómico
@@ -2388,6 +2437,12 @@ def inicio():
                 comercio_lista = comercios_listas_por_id.get(comercio_id, {})
 
                 if comercio_lista.get("activo") is False:
+                    continue
+
+                if not _comercio_publico_habilitado(
+                    comercio_lista,
+                    gastronomia_ids,
+                ):
                     continue
 
                 comercios_vistos.add(comercio_id)
@@ -2958,6 +3013,12 @@ def inicio():
             if comercio_historia.get("activo") is False:
                 continue
 
+            if not _comercio_publico_habilitado(
+                comercio_historia,
+                gastronomia_ids,
+            ):
+                continue
+
             plan_historia = str(
                 comercio_historia.get("plan") or "gratis"
             ).strip().lower()
@@ -3411,6 +3472,7 @@ def publicaciones_recientes_api():
         })
 
         comercios_por_id = {}
+        gastronomia_publicada = _ids_gastronomia_publicada()
 
         if comercio_ids:
             comercios_res = (
@@ -3429,7 +3491,10 @@ def publicaciones_recientes_api():
                 comercio.get("id"): comercio
                 for comercio in (comercios_res.data or [])
                 if comercio.get("id")
-                and comercio.get("activo") is not False
+                and _comercio_publico_habilitado(
+                    comercio,
+                    gastronomia_publicada,
+                )
             }
 
         def imagen_publica(pub):
@@ -7813,8 +7878,9 @@ def detalle(publicacion_id):
             comercio_res = (
                 supabase_admin
                 .table("comercios")
-                .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,whatsapp")
+                .select("id,nombre_negocio,direccion,direccion_mostrar,venta_online,ciudad,categoria,whatsapp,activo")
                 .eq("id", comercio_id)
+                .eq("activo", True)
                 .limit(1)
                 .execute()
             )
@@ -7823,6 +7889,9 @@ def detalle(publicacion_id):
 
             if comercios:
                 comercio = comercios[0]
+
+        if not _comercio_publico_habilitado(comercio):
+            return redirect(url_for("inicio"))
 
         if comercio_id:
             modulo_carrito_activo = modulo_activo(
@@ -7909,6 +7978,23 @@ def detalle(publicacion_id):
 
 @app.post("/comercio/<comercio_id>/carrito/confirmar")
 def confirmar_carrito_comercio(comercio_id):
+    if not modulo_activo(comercio_id, "carrito"):
+        return confirmar_publico(
+            comercio_id,
+            db=supabase_admin,
+            modulo_checker=modulo_activo,
+        )
+    try:
+        if not _cargar_comercio_publico(comercio_id):
+            return jsonify({
+                "ok": False,
+                "error": "El comercio no está disponible.",
+            }), 404
+    except Exception:
+        return jsonify({
+            "ok": False,
+            "error": "No pudimos validar el comercio.",
+        }), 500
     return confirmar_publico(
         comercio_id,
         db=supabase_admin,
@@ -7965,6 +8051,12 @@ def imagen_compartir_publicacion(publicacion_id):
     publicacion_id = uuid_o_none(publicacion_id)
 
     if not publicacion_id:
+        return "", 404
+
+    try:
+        if not _publicacion_pertenece_a_comercio_publico(publicacion_id):
+            return "", 404
+    except Exception:
         return "", 404
 
     version_imagen = str(
@@ -8024,7 +8116,7 @@ def imagen_compartir_publicacion(publicacion_id):
         comercio_res = (
             supabase_admin
             .table("comercios")
-            .select("id,nombre_negocio,activo")
+            .select("id,nombre_negocio,categoria,activo")
             .eq("id", comercio_id)
             .eq("activo", True)
             .limit(1)
@@ -8034,6 +8126,9 @@ def imagen_compartir_publicacion(publicacion_id):
         comercios = comercio_res.data or []
 
         if not comercios:
+            return "", 404
+
+        if not _comercio_publico_habilitado(comercios[0]):
             return "", 404
 
         nombre_publicacion = str(
@@ -8308,7 +8403,7 @@ def imagen_compartir_negocio(comercio_id):
         comercio_res = (
             supabase_admin
             .table("comercios")
-            .select("id,nombre_negocio,activo")
+            .select("id,nombre_negocio,categoria,activo")
             .eq("id", comercio_id)
             .eq("activo", True)
             .limit(1)
@@ -8318,6 +8413,9 @@ def imagen_compartir_negocio(comercio_id):
         comercios = comercio_res.data or []
 
         if not comercios:
+            return "", 404
+
+        if not _comercio_publico_habilitado(comercios[0]):
             return "", 404
 
         nombre_negocio = str(
@@ -8460,6 +8558,9 @@ def perfil_comercio(comercio_id):
             return redirect(url_for("inicio"))
 
         comercio = comercio_data[0]
+
+        if not _comercio_publico_habilitado(comercio):
+            return redirect(url_for("inicio"))
 
         modulo_turnos_activo = modulo_activo(
             comercio_id,
@@ -8748,6 +8849,24 @@ def admin_requerido(func):
     return wrapper
 
 
+def _csrf_preview_admin_token():
+    token = str(session.get("csrf_preview_admin") or "")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_preview_admin"] = token
+    return token
+
+
+def _csrf_preview_admin_valido():
+    esperado = str(session.get("csrf_preview_admin") or "")
+    recibido = str(request.form.get("csrf_token") or "")
+    return bool(
+        esperado
+        and recibido
+        and secrets.compare_digest(esperado, recibido)
+    )
+
+
 def _email_basico_valido(email):
     return bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email or ""))
 
@@ -8930,7 +9049,7 @@ def admin_nueva_gastronomia():
 
                 supabase_admin.table("gastronomia_configuracion").insert({
                     "comercio_id": comercio_id,
-                    "activo": True,
+                    "activo": False,
                     "modalidad_pedidos": "solo_whatsapp",
                     "acepta_delivery": False,
                     "acepta_retiro": True,
@@ -9316,12 +9435,20 @@ def admin_toggle_gastronomia(comercio_id):
 
         nuevo_estado = not activo_actual
 
+        actualizacion = {
+            "activo": nuevo_estado,
+        }
+        if nuevo_estado:
+            actualizacion.update({
+                "preview_token_hash": None,
+                "preview_token_created_at": None,
+                "preview_token_expires_at": None,
+            })
+
         (
             supabase_admin
             .table("gastronomia_configuracion")
-            .update({
-                "activo": nuevo_estado
-            })
+            .update(actualizacion)
             .eq("comercio_id", comercio_id)
             .execute()
         )
@@ -9343,11 +9470,98 @@ def admin_toggle_gastronomia(comercio_id):
             e,
             flush=True
         )
-
         return redirect(
             _url_retorno_accion_comercio(gastronomia_error="servidor")
         )
 
+
+PREVIEW_GASTRONOMIA_DIAS = 7
+
+
+@app.post("/admin/gastronomia/<comercio_id>/preview/generar")
+@admin_requerido
+def admin_generar_preview_gastronomia(comercio_id):
+    if not _csrf_preview_admin_valido():
+        return "Solicitud inválida.", 400
+
+    try:
+        uuid.UUID(str(comercio_id))
+    except (TypeError, ValueError, AttributeError):
+        return redirect(
+            _url_retorno_accion_comercio(preview_error="id_invalido")
+        )
+
+    configuracion_res = (
+        supabase_admin.table("gastronomia_configuracion")
+        .select("comercio_id,activo")
+        .eq("comercio_id", comercio_id)
+        .limit(1)
+        .execute()
+    )
+    configuraciones = configuracion_res.data or []
+    if not configuraciones or configuraciones[0].get("activo") is not False:
+        return redirect(
+            _url_retorno_accion_comercio(preview_error="no_borrador")
+        )
+
+    token = secrets.token_urlsafe(32)
+    creado = datetime.datetime.now(datetime.timezone.utc)
+    vence = creado + datetime.timedelta(days=PREVIEW_GASTRONOMIA_DIAS)
+    (
+        supabase_admin.table("gastronomia_configuracion")
+        .update({
+            "preview_token_hash": hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            "preview_token_created_at": creado.isoformat(),
+            "preview_token_expires_at": vence.isoformat(),
+        })
+        .eq("comercio_id", comercio_id)
+        .eq("activo", False)
+        .execute()
+    )
+
+    enlace = CLICKLOCAL_PUBLIC_ORIGIN + url_for(
+        "gastronomia.preview_gastronomico",
+        comercio_id=comercio_id,
+    ) + "#" + token
+    respuesta = make_response(render_template(
+        "admin_gastronomia_preview.html",
+        enlace=enlace,
+        vence=vence,
+        comercio_id=comercio_id,
+    ))
+    respuesta.headers["Cache-Control"] = "no-store, private, max-age=0"
+    respuesta.headers["Pragma"] = "no-cache"
+    respuesta.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    respuesta.headers["Referrer-Policy"] = "no-referrer"
+    return respuesta
+
+
+@app.post("/admin/gastronomia/<comercio_id>/preview/revocar")
+@admin_requerido
+def admin_revocar_preview_gastronomia(comercio_id):
+    if not _csrf_preview_admin_valido():
+        return "Solicitud inválida.", 400
+
+    try:
+        uuid.UUID(str(comercio_id))
+    except (TypeError, ValueError, AttributeError):
+        return redirect(
+            _url_retorno_accion_comercio(preview_error="id_invalido")
+        )
+
+    (
+        supabase_admin.table("gastronomia_configuracion")
+        .update({
+            "preview_token_hash": None,
+            "preview_token_created_at": None,
+            "preview_token_expires_at": None,
+        })
+        .eq("comercio_id", comercio_id)
+        .execute()
+    )
+    return redirect(
+        _url_retorno_accion_comercio(preview_estado="revocado")
+    )
 
 @app.route(
     "/admin/comercios/<comercio_id>/modulos/<slug>/instalar",
@@ -9793,6 +10007,10 @@ def _construir_comercios_admin(
             "gastronomia_configurada": bool(gastronomia_config),
             "gastronomia_activa": bool(
                 gastronomia_config and gastronomia_config.get("activo")
+            ),
+            "gastronomia_preview_activa": bool(
+                gastronomia_config
+                and gastronomia_config.get("preview_token_hash")
             ),
             "terminos_aceptados_at": comercio_raw.get(
                 "terminos_aceptados_at"
@@ -10249,7 +10467,7 @@ def admin_comercios():
     try:
         respuesta = (
             supabase_admin.table("gastronomia_configuracion")
-            .select("comercio_id,activo")
+            .select("comercio_id,activo,preview_token_hash")
             .execute()
         )
         gastronomia_config_raw = respuesta.data or []
@@ -10269,6 +10487,7 @@ def admin_comercios():
         ultimos_comercios=ultimos_comercios,
         error=error,
         admin_user=session.get("admin_user"),
+        csrf_preview_admin=_csrf_preview_admin_token(),
     )
 
 

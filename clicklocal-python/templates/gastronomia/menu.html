@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+{% if es_preview %}
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
+<meta name="referrer" content="no-referrer">
+{% endif %}
 
 <title>{{ comercio.nombre_negocio }} | ClickLocal Gastronomía</title>
 
@@ -42,10 +46,12 @@
   content="{{ comercio.descripcion or 'Menú gastronómico en ClickLocal Paraná' }}"
 />
 
+{% if not es_preview %}
 <meta
   property="og:url"
   content="{{ dominio_oficial }}{{ request.path }}"
 />
+{% endif %}
 
 {% if ns.imagen_compartir %}
 <meta
@@ -139,6 +145,10 @@ input{
   min-height:100vh;
   background:var(--cream-2);
 }
+
+.preview-mode .main-grid{grid-template-columns:minmax(0,1fr)}
+.preview-banner{padding:12px 24px;background:#fff3cd;color:#664d03;text-align:center;font-weight:800;border-bottom:1px solid #ffecb5}
+.preview-options{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:12px;line-height:1.5}
 
 
 /* ==========================================================
@@ -2386,7 +2396,7 @@ input{
 
 </head>
 
-<body>
+<body{% if es_preview %} class="preview-mode"{% endif %}>
 
 {% set ns = namespace(hero_image='', destacados=[]) %}
 
@@ -2402,6 +2412,10 @@ input{
 
 
 <div class="app-shell">
+
+  {% if es_preview %}
+  <div class="preview-banner" role="status">Vista previa privada · Este comercio todavía no está publicado y no recibe pedidos.</div>
+  {% endif %}
 
   <header class="topbar">
 
@@ -2447,14 +2461,14 @@ input{
         </a>
       {% endif %}
 
-      <button
+      {% if not es_preview %}<button
         class="share-btn"
         type="button"
         onclick="compartirPagina()"
       >
         <span class="share-desktop-text">Compartir comercio</span>
         <span class="share-mobile-text">Compartir</span>
-      </button>
+      </button>{% endif %}
 
       <a
         class="mobile-gallery"
@@ -2718,7 +2732,7 @@ input{
                 class="featured-card {% if not producto.disponible %}no-disponible{% endif %}"
                 data-product
                 data-name="{{ producto.nombre | lower }}"
-                onclick="abrirModal('modal-{{ producto.id }}')"
+                {% if not es_preview %}onclick="abrirModal('modal-{{ producto.id }}')"{% endif %}
               >
 
                 <div class="featured-copy">
@@ -2847,6 +2861,14 @@ input{
                     </p>
                   {% endif %}
 
+                  {% if es_preview and producto.grupos_opciones %}
+                    <ul class="preview-options">
+                    {% for grupo in producto.grupos_opciones %}
+                      <li><strong>{{ grupo.nombre }}:</strong> {{ grupo.opciones | map(attribute='nombre') | join(', ') }}</li>
+                    {% endfor %}
+                    </ul>
+                  {% endif %}
+
 
                   <div class="menu-bottom">
 
@@ -2879,7 +2901,7 @@ input{
                     </div>
 
 
-                    {% if producto.disponible %}
+                    {% if producto.disponible and not es_preview %}
 
                       <span
                         class="menu-cart-count"
@@ -2934,7 +2956,7 @@ input{
     </div>
 
 
-    <aside class="cart">
+    {% if not es_preview %}<aside class="cart">
 
       <h3>
         Tu pedido
@@ -3257,9 +3279,11 @@ input{
     </div>
 
 {% endfor %}
+{% endif %}
 
 
 <script src="{{ url_for('static', filename='gastronomia/busqueda.js') }}"></script>
+{% if not es_preview %}
 <script>
 
 const carrito = {};
@@ -6578,6 +6602,7 @@ document.addEventListener(
 );
 
 </script>
+{% endif %}
 
 
 <script>

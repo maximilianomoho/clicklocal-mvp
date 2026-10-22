@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
+  <meta name="referrer" content="no-referrer">
+  <title>Vista previa privada · ClickLocal</title>
+  <style>
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f7f1e8;color:#231f20;font-family:system-ui,sans-serif}
+    main{width:min(520px,calc(100% - 40px));padding:28px;border-radius:20px;background:#fff;text-align:center;box-shadow:0 12px 35px rgba(67,43,36,.12)}
+    p{line-height:1.5;color:#756e6c} [hidden]{display:none}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Vista previa privada</h1>
+    <p id="estado">Validando el enlace…</p>
+    <p id="error" hidden>El enlace no es válido, venció o fue revocado.</p>
+  </main>
+  <script>
+  (function(){
+    "use strict";
+    var token = window.location.hash.slice(1);
+    window.history.replaceState(null, "", window.location.pathname);
+    if(!token){
+      document.getElementById("estado").hidden = true;
+      document.getElementById("error").hidden = false;
+      return;
+    }
+    fetch({{ url_for('gastronomia.validar_preview_gastronomico', comercio_id=comercio_id) | tojson }}, {
+      method:"POST",
+      credentials:"omit",
+      cache:"no-store",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({token:token})
+    }).then(function(respuesta){
+      token = "";
+      if(!respuesta.ok){ throw new Error("preview-invalida"); }
+      return respuesta.text();
+    }).then(function(html){
+      document.open();
+      document.write(html);
+      document.close();
+    }).catch(function(){
+      token = "";
+      document.getElementById("estado").hidden = true;
+      document.getElementById("error").hidden = false;
+    });
+  })();
+  </script>
+</body>
+</html>

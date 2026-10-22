@@ -97,7 +97,8 @@ def test_alta_asistida_crea_vertical_y_entra_en_modo_gestor():
     assert inserciones["comercios"]["categoria"] == "Gastronomía"
     assert inserciones["comercios"]["terminos_aceptados_at"] is None
     assert inserciones["comercios"]["terminos_version"] is None
-    assert inserciones["gastronomia_configuracion"]["activo"] is True
+    assert inserciones["comercios"].get("activo", True) is True
+    assert inserciones["gastronomia_configuracion"]["activo"] is False
     with cliente.session_transaction() as sesion:
         assert sesion["gestor_comercio_id"] == db.comercio_id
         assert sesion["user_id"] == "admin-no-debe-cambiar"
