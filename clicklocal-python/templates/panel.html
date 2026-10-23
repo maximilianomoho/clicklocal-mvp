@@ -1330,6 +1330,18 @@
             </div>
           </div>
 
+          {% if request.args.get("publicacion_estado") == "pausada" %}
+            <p class="panel-descripcion">La publicación quedó pausada.</p>
+          {% elif request.args.get("publicacion_estado") == "activa" %}
+            <p class="panel-descripcion">La publicación quedó activa.</p>
+          {% elif request.args.get("publicacion_estado_error") == "limite_plan" %}
+            <p class="panel-descripcion">Alcanzaste el límite de publicaciones activas de tu plan. Pausá otra publicación antes de activar esta.</p>
+          {% elif request.args.get("publicacion_estado_error") == "moderacion" %}
+            <p class="panel-descripcion">Esta publicación no puede activarse hasta completar la revisión de ClickLocal.</p>
+          {% elif request.args.get("publicacion_estado_error") %}
+            <p class="panel-descripcion">No se pudo cambiar el estado de la publicación.</p>
+          {% endif %}
+
           <div
             style="
               margin:0 0 18px;
@@ -1447,8 +1459,8 @@
 
                           {% if pub.metricas_conversion is not none %}
                             <span>
-                              📈 {{ pub.metricas_conversion }} %
-                              de conversión
+                              📈 Tasa de clics a WhatsApp:
+                              {{ pub.metricas_conversion }} %
                             </span>
                           {% else %}
                             <span style="color:#697386;">
@@ -1456,6 +1468,9 @@
                             </span>
                           {% endif %}
                         </div>
+                        <p style="margin:8px 0 0; color:#697386; font-size:11px; font-weight:600;">
+                          Los clics no garantizan mensajes enviados.
+                        </p>
                       </div>
                     {% endif %}
                   </div>
@@ -1472,7 +1487,26 @@
                       data-imagenes='{{ (pub.imagenes or [])|tojson }}'
                       data-portada="{{ pub.imagen_principal or pub.imagen_url or '' }}"
                     >Editar</button>
-                    <button type="button">Pausar</button>
+                    <form
+                      method="POST"
+                      action="{{ url_for('cambiar_estado_publicacion', publicacion_id=pub.id) }}"
+                      style="display:inline;"
+                      onsubmit="return confirm('{{ '¿Pausar esta publicación?' if pub.activa else '¿Activar esta publicación?' }}');"
+                    >
+                      <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ session.get('csrf_estado_publicacion', '') }}"
+                      >
+                      <input
+                        type="hidden"
+                        name="accion"
+                        value="{{ 'pausar' if pub.activa else 'activar' }}"
+                      >
+                      <button type="submit">
+                        {{ "Pausar" if pub.activa else "Activar" }}
+                      </button>
+                    </form>
                     <form
                       method="POST"
                       action="{{ url_for('eliminar_publicacion', publicacion_id=pub.id) }}"

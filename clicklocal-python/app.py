@@ -4562,6 +4562,26 @@ def login():
 
 # PANEL DEL COMERCIO
 
+CSRF_ESTADO_PUBLICACION_SESION = "csrf_estado_publicacion"
+
+
+def _csrf_estado_publicacion_token():
+    token = str(session.get(CSRF_ESTADO_PUBLICACION_SESION) or "")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[CSRF_ESTADO_PUBLICACION_SESION] = token
+    return token
+
+
+def _csrf_estado_publicacion_valido():
+    esperado = str(session.get(CSRF_ESTADO_PUBLICACION_SESION) or "")
+    recibido = str(request.form.get("csrf_token") or "")
+    return bool(
+        esperado
+        and recibido
+        and secrets.compare_digest(esperado, recibido)
+    )
+
 def limite_publicaciones_por_plan(comercio):
     plan = str((comercio or {}).get("plan") or "gratis").strip().lower()
     return 100 if plan == "premium" else 30
@@ -5068,6 +5088,8 @@ def panel():
 
     if not user_id:
         return redirect(url_for("login"))
+
+    _csrf_estado_publicacion_token()
 
     comercio = session.get("comercio") or comercio_default()
     publicaciones = []
@@ -7685,6 +7707,145 @@ def eliminar_lista_buscable(lista_id):
         return redirect(url_for("panel") + "?lista_error=1#listas")
 
     return redirect(url_for("panel") + "?lista_eliminada=1#listas")
+
+
+# PAUSAR O ACTIVAR PUBLICACIÓN
+@app.post("/publicacion/<publicacion_id>/estado")
+def cambiar_estado_publicacion(publicacion_id):
+    user_id = _user_id_panel_efectivo()
+
+    if not user_id:
+        return redirect(url_for("login"))
+
+    if not _csrf_estado_publicacion_valido():
+        return "Solicitud inválida.", 400
+
+    try:
+        uuid.UUID(str(publicacion_id))
+    except (ValueError, TypeError, AttributeError):
+        return redirect(
+            url_for("panel", publicacion_estado_error="id_invalido")
+            + "#mis-publicaciones"
+        )
+
+    accion = str(request.form.get("accion") or "").strip().lower()
+    if accion not in {"pausar", "activar"}:
+        return redirect(
+            url_for("panel", publicacion_estado_error="accion_invalida")
+            + "#mis-publicaciones"
+        )
+
+    try:
+        comercio_res = (
+            supabase_admin
+            .table("comercios")
+            .select("id,user_id,activo,plan")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        comercios = comercio_res.data or []
+
+        if not comercios or comercios[0].get("activo") is False:
+            return redirect(url_for("login"))
+
+        comercio = comercios[0]
+        comercio_id = comercio.get("id")
+
+        publicacion_res = (
+            supabase_admin
+            .table("publicaciones")
+            .select(
+                "id,comercio_id,activa,eliminada,estado_revision,"
+                "ocultada_por_moderacion"
+            )
+            .eq("id", publicacion_id)
+            .eq("comercio_id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+        publicaciones = publicacion_res.data or []
+
+        if not publicaciones or publicaciones[0].get("eliminada") is True:
+            return redirect(
+                url_for("panel", publicacion_estado_error="no_encontrada")
+                + "#mis-publicaciones"
+            )
+
+        publicacion = publicaciones[0]
+        activar = accion == "activar"
+
+        if activar:
+            estado_revision = str(
+                publicacion.get("estado_revision") or ""
+            ).strip().lower()
+            oculta_por_moderacion = (
+                publicacion.get("ocultada_por_moderacion") is True
+                or estado_revision == "oculta"
+            )
+            pendiente_en_modo_seguro = (
+                estado_revision == "pendiente"
+                and obtener_modo_moderacion_publicaciones() == "segura"
+            )
+
+            if oculta_por_moderacion or pendiente_en_modo_seguro:
+                return redirect(
+                    url_for("panel", publicacion_estado_error="moderacion")
+                    + "#mis-publicaciones"
+                )
+
+            activas_res = (
+                supabase_admin
+                .table("publicaciones")
+                .select("id,activa,eliminada")
+                .eq("comercio_id", comercio_id)
+                .execute()
+            )
+            cantidad_activas = contar_publicaciones_activas(
+                activas_res.data or []
+            )
+
+            if cantidad_activas >= limite_publicaciones_por_plan(comercio):
+                return redirect(
+                    url_for("panel", publicacion_estado_error="limite_plan")
+                    + "#mis-publicaciones"
+                )
+
+        cambios = {
+            "activa": activar,
+            "activa_solicitada": activar,
+            "pausada_por_limite_plan": False,
+        }
+
+        (
+            supabase_admin
+            .table("publicaciones")
+            .update(cambios)
+            .eq("id", publicacion_id)
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+        invalidar_cache_publicaciones_portada()
+
+        return redirect(
+            url_for(
+                "panel",
+                publicacion_estado=("activa" if activar else "pausada"),
+            )
+            + "#mis-publicaciones"
+        )
+
+    except Exception as error:
+        print(
+            "ERROR CAMBIANDO ESTADO DE PUBLICACIÓN:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(
+            url_for("panel", publicacion_estado_error="servidor")
+            + "#mis-publicaciones"
+        )
 
 
 # ELIMINAR PUBLICACIÓN COMPLETA
