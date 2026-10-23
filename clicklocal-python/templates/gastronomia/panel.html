@@ -32,6 +32,70 @@
   <p>{% if panel_seccion == 'configuracion' %}Definí los datos, modalidades y condiciones de tu comercio.{% else %}Administrá el catálogo que ven tus clientes.{% endif %}</p>
 </header>
 
+{% if panel_seccion == 'productos' %}
+<article class="panel-card" style="margin-bottom:20px;">
+  <div class="panel-card-header">
+    <div>
+      <p class="titulo-chico">ESTADO DE LA TIENDA</p>
+      {% if configuracion.publicacion_autorizada_at %}
+        <h2>{{ "Tienda encendida" if configuracion.activo else "Tienda apagada" }}</h2>
+        <p class="panel-descripcion">
+          {% if configuracion.activo %}
+            Tu menú está visible y puede recibir pedidos.
+          {% else %}
+            Tu menú no recibe pedidos nuevos. Podés seguir editando productos y configuración.
+          {% endif %}
+        </p>
+      {% else %}
+        <h2>Pendiente de autorización</h2>
+        <p class="panel-descripcion">
+          La tienda permanece en borrador hasta su primera publicación por ClickLocal.
+        </p>
+      {% endif %}
+    </div>
+
+    {% if configuracion.publicacion_autorizada_at %}
+      <form
+        method="post"
+        action="{{ url_for('gastronomia.cambiar_estado_tienda_gastronomia') }}"
+        onsubmit="return confirm('{{ '¿Apagar temporalmente la tienda?' if configuracion.activo else '¿Encender la tienda?' }}');"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_estado_tienda }}">
+        <input
+          type="hidden"
+          name="accion"
+          value="{{ 'apagar' if configuracion.activo else 'encender' }}"
+        >
+        <button
+          type="submit"
+          class="btn-principal mi-negocio-btn {{ 'mi-negocio-btn--secundario' if configuracion.activo else 'mi-negocio-btn--primario' }}"
+        >
+          {{ "Apagar tienda" if configuracion.activo else "Encender tienda" }}
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if request.args.get("tienda_estado") == "encendida" %}
+    <div style="margin-top:14px;padding:12px;border-radius:10px;background:#e8f7ee;color:#166534;font-weight:700;">
+      La tienda quedó encendida.
+    </div>
+  {% elif request.args.get("tienda_estado") == "apagada" %}
+    <div style="margin-top:14px;padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:700;">
+      La tienda quedó apagada. No recibirá pedidos nuevos.
+    </div>
+  {% elif request.args.get("tienda_error") == "sin_autorizacion" %}
+    <div style="margin-top:14px;padding:12px;border-radius:10px;background:#fff1f1;color:#991b1b;font-weight:700;">
+      ClickLocal todavía no autorizó la publicación de esta tienda.
+    </div>
+  {% elif request.args.get("tienda_error") %}
+    <div style="margin-top:14px;padding:12px;border-radius:10px;background:#fff1f1;color:#991b1b;font-weight:700;">
+      No se pudo cambiar el estado de la tienda. Intentá nuevamente.
+    </div>
+  {% endif %}
+</article>
+{% endif %}
+
 {% if panel_seccion == 'configuracion' %}
 
 <article

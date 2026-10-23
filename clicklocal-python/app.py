@@ -9414,7 +9414,7 @@ def admin_toggle_gastronomia(comercio_id):
         config_res = (
             supabase_admin
             .table("gastronomia_configuracion")
-            .select("comercio_id,activo")
+            .select("comercio_id,activo,publicacion_autorizada_at")
             .eq("comercio_id", comercio_id)
             .limit(1)
             .execute()
@@ -9439,6 +9439,10 @@ def admin_toggle_gastronomia(comercio_id):
             "activo": nuevo_estado,
         }
         if nuevo_estado:
+            if not configuraciones[0].get("publicacion_autorizada_at"):
+                actualizacion["publicacion_autorizada_at"] = (
+                    datetime.datetime.now(datetime.timezone.utc).isoformat()
+                )
             actualizacion.update({
                 "preview_token_hash": None,
                 "preview_token_created_at": None,

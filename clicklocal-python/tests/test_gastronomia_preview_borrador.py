@@ -61,6 +61,10 @@ class SupabaseFalso:
             "gastronomia_configuracion": [{
                 "comercio_id": comercio_id,
                 "activo": activo,
+                "publicacion_autorizada_at": (
+                    datetime.now(timezone.utc).isoformat()
+                    if activo else None
+                ),
                 "acepta_delivery": False,
                 "acepta_retiro": True,
                 "pedido_minimo": 0,
@@ -221,12 +225,19 @@ def test_publicar_revoca_preview_y_pedido_directo_rechaza_borrador():
             f"/admin/gastronomia/{COMERCIO_A}/toggle"
         )
     assert respuesta.status_code == 302
-    assert db.actualizaciones[-1][1] == {
+    actualizacion = db.actualizaciones[-1][1]
+    assert actualizacion == {
         "activo": True,
+        "publicacion_autorizada_at": actualizacion[
+            "publicacion_autorizada_at"
+        ],
         "preview_token_hash": None,
         "preview_token_created_at": None,
         "preview_token_expires_at": None,
     }
+    datetime.fromisoformat(
+        actualizacion["publicacion_autorizada_at"]
+    )
 
     db = SupabaseFalso()
     with patch(
@@ -339,3 +350,25 @@ def test_panel_sigue_admitiendo_edicion_con_configuracion_en_borrador():
     with patch("gastronomia.routes.supabase_admin", db):
         respuesta = cliente.get("/gastronomia/panel/productos")
     assert respuesta.status_code == 200
+    html = respuesta.get_data(as_text=True)
+    assert "Pendiente de autorización" in html
+    assert "Encender tienda" not in html
+
+
+def test_panel_publicado_muestra_control_para_apagar_tienda():
+    db = SupabaseFalso(activo=True, token="")
+    comercio = db.datos["comercios"][0]
+    comercio.update({"user_id": "propietaria-1", "terminos_aceptados_at": None})
+    cliente = app_module.app.test_client()
+    with cliente.session_transaction() as sesion:
+        sesion["user_id"] = "propietaria-1"
+        sesion["comercio"] = comercio
+
+    with patch("gastronomia.routes.supabase_admin", db):
+        respuesta = cliente.get("/gastronomia/panel/productos")
+
+    assert respuesta.status_code == 200
+    html = respuesta.get_data(as_text=True)
+    assert "Tienda encendida" in html
+    assert "Apagar tienda" in html
+    assert "/gastronomia/panel/tienda/estado" in html

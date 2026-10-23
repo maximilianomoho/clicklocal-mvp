@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 import hashlib
 import hmac
 from io import BytesIO
+import secrets
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -49,6 +50,25 @@ from .services.pedidos import (
 
 LIMITE_PRODUCTOS_ACTIVOS_GASTRONOMIA = 70
 CLICKLOCAL_PUBLIC_ORIGIN_GASTRONOMIA = "https://clicklocal.com.ar"
+CSRF_ESTADO_TIENDA_SESION = "csrf_estado_tienda_gastronomia"
+
+
+def _csrf_estado_tienda_token():
+    token = str(session.get(CSRF_ESTADO_TIENDA_SESION) or "")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[CSRF_ESTADO_TIENDA_SESION] = token
+    return token
+
+
+def _csrf_estado_tienda_valido():
+    esperado = str(session.get(CSRF_ESTADO_TIENDA_SESION) or "")
+    recibido = str(request.form.get("csrf_token") or "")
+    return bool(
+        esperado
+        and recibido
+        and secrets.compare_digest(esperado, recibido)
+    )
 
 
 def _limite_productos_gastronomia_alcanzado(cantidad_activos):
@@ -3429,6 +3449,78 @@ def plan_gastronomia():
     return panel_gastronomia("plan")
 
 
+@gastronomia_bp.post("/panel/tienda/estado")
+def cambiar_estado_tienda_gastronomia():
+    comercio = _comercio_panel_gastronomia()
+
+    if not comercio:
+        return redirect(url_for("login"))
+
+    if not _csrf_estado_tienda_valido():
+        abort(400)
+
+    accion = str(request.form.get("accion") or "").strip().lower()
+
+    if accion not in {"encender", "apagar"}:
+        return redirect(url_for(
+            "gastronomia.panel_gastronomia",
+            tienda_error="accion_invalida",
+        ))
+
+    comercio_id = comercio.get("id")
+
+    try:
+        configuracion_res = (
+            supabase_admin
+            .table("gastronomia_configuracion")
+            .select("comercio_id,activo,publicacion_autorizada_at")
+            .eq("comercio_id", comercio_id)
+            .limit(1)
+            .execute()
+        )
+        configuraciones = configuracion_res.data or []
+
+        if not configuraciones:
+            return redirect(url_for(
+                "gastronomia.configuracion_inicial"
+            ))
+
+        configuracion = configuraciones[0]
+
+        if not configuracion.get("publicacion_autorizada_at"):
+            return redirect(url_for(
+                "gastronomia.panel_gastronomia",
+                tienda_error="sin_autorizacion",
+            ))
+
+        nuevo_estado = accion == "encender"
+
+        (
+            supabase_admin
+            .table("gastronomia_configuracion")
+            .update({"activo": nuevo_estado})
+            .eq("comercio_id", comercio_id)
+            .execute()
+        )
+
+        return redirect(url_for(
+            "gastronomia.panel_gastronomia",
+            tienda_estado=("encendida" if nuevo_estado else "apagada"),
+        ))
+
+    except Exception as error:
+        print(
+            "ERROR CAMBIANDO ESTADO TIENDA GASTRONOMICA:",
+            type(error),
+            error,
+            flush=True,
+        )
+        return redirect(url_for(
+            "gastronomia.panel_gastronomia",
+            tienda_error="servidor",
+        ))
+
+
 @gastronomia_bp.route("/panel", methods=["GET", "POST"])
 def panel_gastronomia(panel_seccion="productos"):
     comercio = _comercio_panel_gastronomia()
@@ -3466,7 +3558,7 @@ def panel_gastronomia(panel_seccion="productos"):
             "descuento_transferencia_pct,delivery_distancia_activo,"
             "delivery_franjas,delivery_origen_direccion,"
             "delivery_origen_latitud,delivery_origen_longitud,"
-            "modalidad_pedidos"
+            "modalidad_pedidos,publicacion_autorizada_at"
         )
         .eq("comercio_id", comercio_id)
         .limit(1)
@@ -3937,6 +4029,7 @@ def panel_gastronomia(panel_seccion="productos"):
         metricas_por_producto=metricas_por_producto,
         periodo_metricas=periodo_metricas,
         panel_seccion="productos",
+        csrf_estado_tienda=_csrf_estado_tienda_token(),
     )
 
 
