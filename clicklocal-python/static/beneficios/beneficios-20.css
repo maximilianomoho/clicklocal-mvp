@@ -1,0 +1,576 @@
+/* Beneficios ClickLocal 2.0 — componente visual de etiqueta. */
+.beneficios-20-etiqueta {
+  --beneficios-20-etiqueta-fondo: #7a1f2b;
+  --beneficios-20-etiqueta-texto: #fff4df;
+  --beneficios-20-etiqueta-borde: rgba(255, 244, 223, 0.82);
+  --beneficios-20-etiqueta-sombra: 0 5px 14px rgba(65, 29, 23, 0.28);
+  --beneficios-20-etiqueta-radio: 0.85rem;
+  --beneficios-20-etiqueta-tamano: 1.05rem;
+  --beneficios-20-etiqueta-arriba: 0.6rem;
+  --beneficios-20-etiqueta-derecha: 0.6rem;
+
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 10.25rem;
+  max-width: none;
+  gap: 0.58rem;
+  padding: 0.68rem 0.9rem;
+  overflow: visible;
+  border: 1px solid var(--beneficios-20-etiqueta-borde);
+  border-radius: var(--beneficios-20-etiqueta-radio);
+  background: var(--beneficios-20-etiqueta-fondo);
+  box-shadow: var(--beneficios-20-etiqueta-sombra);
+  color: var(--beneficios-20-etiqueta-texto);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: var(--beneficios-20-etiqueta-tamano);
+  font-weight: 850;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: rotate(-3deg);
+  transform-origin: top right;
+}
+
+.beneficios-20-etiqueta__icono {
+  flex: 0 0 auto;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.beneficios-20-etiqueta__texto {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.18rem;
+  text-align: left;
+}
+
+.beneficios-20-etiqueta__titulo {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: none;
+}
+
+.beneficios-20-etiqueta__oferta {
+  font-size: var(--beneficios-20-etiqueta-tamano);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Variante aprobada para Gastronomía: cartel grande con acentos amarillos. */
+.promo-foto .beneficios-20-etiqueta,
+.comercio-foto .beneficios-20-etiqueta {
+  --beneficios-20-etiqueta-fondo: #971f2d;
+  --beneficios-20-etiqueta-texto: #fff5dc;
+  --beneficios-20-etiqueta-borde: #f4c542;
+  --beneficios-20-etiqueta-sombra: 0 7px 18px rgba(55, 18, 20, 0.38);
+  --beneficios-20-etiqueta-radio: 0.9rem;
+  --beneficios-20-etiqueta-tamano: 1.35rem;
+  position: relative;
+  min-width: 11.75rem;
+  gap: 0.7rem;
+  padding: 0.78rem 1.05rem;
+  border-width: 2px;
+  transform: rotate(-5deg) scale(1.04);
+}
+
+.promo-foto .beneficios-20-etiqueta__icono,
+.comercio-foto .beneficios-20-etiqueta__icono {
+  color: #f4c542;
+  font-size: 1.55rem;
+}
+
+.promo-foto .beneficios-20-etiqueta__titulo,
+.comercio-foto .beneficios-20-etiqueta__titulo {
+  font-size: 0;
+}
+
+.promo-foto .beneficios-20-etiqueta__titulo::before,
+.comercio-foto .beneficios-20-etiqueta__titulo::before {
+  content: "Beneficio";
+  color: #f4c542;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.promo-foto .beneficios-20-etiqueta__oferta,
+.comercio-foto .beneficios-20-etiqueta__oferta {
+  color: #fff5dc;
+  text-shadow: 0 1px 0 rgba(53, 13, 19, 0.35);
+}
+
+.promo-foto .beneficios-20-etiqueta::after,
+.comercio-foto .beneficios-20-etiqueta::after {
+  content: "";
+  position: absolute;
+  top: -0.42rem;
+  right: 0.7rem;
+  width: 1.05rem;
+  height: 0.45rem;
+  border-top: 3px solid #f4c542;
+  border-bottom: 3px solid #f4c542;
+  transform: rotate(18deg);
+}
+
+@media (max-width: 640px) {
+  .beneficios-20-etiqueta {
+    min-width: 9.35rem;
+    padding: 0.58rem 0.72rem;
+  }
+
+  .beneficios-20-etiqueta__titulo { font-size: 0.66rem; }
+  .beneficios-20-etiqueta__oferta { font-size: 0.96rem; }
+
+  .promo-foto .beneficios-20-etiqueta,
+  .comercio-foto .beneficios-20-etiqueta {
+    min-width: 10.25rem;
+    padding: 0.66rem 0.82rem;
+    transform: rotate(-5deg);
+  }
+
+  .promo-foto .beneficios-20-etiqueta__oferta,
+  .comercio-foto .beneficios-20-etiqueta__oferta {
+    font-size: 1.15rem;
+  }
+}
+
+.beneficios-20-etiqueta--superior-derecha {
+  position: absolute;
+  top: var(--beneficios-20-etiqueta-arriba);
+  right: var(--beneficios-20-etiqueta-derecha);
+}
+
+/* Estructura aislada usada solamente por la demostración visual. */
+.beneficios-20-demo {
+  min-height: 100vh;
+  margin: 0;
+  padding: 2rem 1rem 3rem;
+  background: #f7f3ee;
+  color: #302a28;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.beneficios-20-demo__contenedor {
+  width: min(100%, 980px);
+  margin: 0 auto;
+}
+
+.beneficios-20-demo__encabezado {
+  margin-bottom: 1.5rem;
+}
+
+.beneficios-20-demo__encabezado h1 {
+  margin: 0 0 0.5rem;
+  color: #7a1f2b;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.beneficios-20-demo__encabezado p {
+  max-width: 680px;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.beneficios-20-demo__aviso {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: #7a1f2b;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.beneficios-20-demo__grilla {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.beneficios-20-demo__tarjeta {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(91, 23, 32, 0.08);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 11px 30px rgba(61, 41, 35, 0.09);
+}
+
+.beneficios-20-demo__foto {
+  position: relative;
+  display: grid;
+  aspect-ratio: 11 / 12;
+  place-items: center;
+  background: linear-gradient(145deg, #e7d7c9, #c9a58f);
+  color: rgba(78, 44, 35, 0.7);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.beneficios-20-demo__tarjeta:nth-child(2) .beneficios-20-demo__foto {
+  background: linear-gradient(145deg, #d8dfca, #91a580);
+}
+
+.beneficios-20-demo__tarjeta:nth-child(3) .beneficios-20-demo__foto {
+  background: linear-gradient(145deg, #ddd3e8, #a38bb7);
+}
+
+.beneficios-20-demo__info {
+  padding: 0.9rem;
+}
+
+.beneficios-20-demo__info small {
+  color: #746b67;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.beneficios-20-demo__info h2 {
+  margin: 0.35rem 0 0;
+  font-size: 1rem;
+}
+
+@media (max-width: 700px) {
+  .beneficios-20-demo__grilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .beneficios-20-demo__tarjeta {
+    width: min(100%, 330px);
+    margin-inline: auto;
+  }
+}
+
+/* Modal aprobado de seis secciones, adaptado al panel. */
+.beneficios-20-modal[hidden] { display: none; }
+.beneficios-20-modal { position: fixed; inset: 0; z-index: 100000; display: grid; place-items: center; padding: 18px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.beneficios-20-modal * { box-sizing: border-box; }
+.beneficios-20-modal__fondo { position: absolute; inset: 0; background: rgba(35,23,20,.72); backdrop-filter: blur(2px); }
+.beneficios-20-modal__panel { position: relative; width: min(1040px,100%); max-height: calc(100vh - 36px); overflow: hidden; border: 1px solid rgba(122,31,43,.18); border-radius: 22px; background: #fbf8f4; box-shadow: 0 28px 90px rgba(22,12,10,.35); }
+.beneficios-20-modal__cabecera { display: flex; justify-content: space-between; gap: 20px; padding: 20px 24px; border-bottom: 1px solid #eadfd8; background: #fff; }
+.beneficios-20-modal__cabecera span { color: #7a1f2b; font-size: 11px; font-weight: 900; letter-spacing: .08em; }
+.beneficios-20-modal__cabecera h2 { margin: 4px 0 2px; }
+.beneficios-20-modal__cabecera p { margin: 0; color: #6e625e; font-weight: 700; }
+.beneficios-20-modal__cerrar { width: 38px; height: 38px; border: 1px solid #dfd3cc; border-radius: 50%; background: #fff; color: #7a1f2b; font-size: 26px; line-height: 1; }
+#beneficios-20-formulario { display: flex; max-height: calc(100vh - 145px); flex-direction: column; }
+.beneficios-20-modal__contenido { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; padding: 18px 24px 24px; overflow-y: auto; }
+.beneficios-20-recuadro { min-width: 0; margin: 0; padding: 16px; border: 1px solid #e4d8d1; border-radius: 16px; background: #fff; }
+.beneficios-20-recuadro legend { padding: 0 6px; color: #5b1720; font-size: 14px; font-weight: 900; text-transform: uppercase; }
+.beneficios-20-recuadro legend span { display: inline-grid; width: 24px; height: 24px; margin-right: 5px; place-items: center; border-radius: 50%; background: #7a1f2b; color: #fff4df; font-size: 12px; }
+.beneficios-20-campo { display: grid; gap: 5px; margin: 10px 0; color: #4f4541; font-size: 13px; font-weight: 800; }
+.beneficios-20-campo input, .beneficios-20-campo select, .beneficios-20-campo textarea { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #d9cec8; border-radius: 9px; background: #fff; color: #302a28; font: inherit; }
+.beneficios-20-opciones-linea { display: flex; gap: 14px; flex-wrap: wrap; margin: 9px 0; font-size: 13px; font-weight: 750; }
+.beneficios-20-duraciones { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+.beneficios-20-duraciones button { min-width: 38px; padding: 7px; border: 1px solid #d9cec8; border-radius: 8px; background: #fff; color: #5b1720; font-weight: 850; }
+.beneficios-20-duraciones button.seleccionado { background: #7a1f2b; color: #fff; }
+.beneficios-20-resumen, .beneficios-20-preview-texto { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #fff4df; color: #681823; font-size: 13px; line-height: 1.45; }
+.beneficios-20-dias { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; margin: 10px 0 14px; }
+.beneficios-20-dias[hidden], .beneficios-20-horario[hidden] { display: none; }
+.beneficios-20-dias label { display: grid; gap: 4px; justify-items: center; padding: 7px 2px; border: 1px solid #e5d9d2; border-radius: 8px; font-size: 11px; }
+.beneficios-20-horario { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.beneficios-20-check { display: flex; gap: 7px; align-items: center; margin-top: 12px; font-size: 13px; font-weight: 750; }
+.beneficios-20-etiqueta-preview { display: inline-flex; margin: 16px 0 5px; padding: .42rem .7rem; border: 1px solid rgba(122,31,43,.28); border-radius: 999px; background: #fff4df; color: #7a1f2b; font-size: .78rem; font-weight: 850; text-transform: uppercase; }
+.beneficios-20-etiqueta-preview.oscura { border-color: #7a1f2b; background: #7a1f2b; color: #fff4df; }
+.beneficios-20-metodos { display: grid; gap: 8px; margin-top: 8px; }
+.beneficios-20-metodos label { padding: 10px; border: 1px solid #e5d9d2; border-radius: 10px; font-size: 13px; font-weight: 800; }
+.beneficios-20-modal__pie { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 24px; border-top: 1px solid #eadfd8; background: #fff; }
+.beneficios-20-modal__pie p { margin: 0; color: #6e625e; font-size: 12px; }
+.beneficios-20-modal__pie div { display: flex; gap: 8px; }
+.beneficios-20-modal__pie button { padding: 10px 14px; border-radius: 10px; font-weight: 850; }
+.beneficios-20-boton-secundario { border: 1px solid #d9cec8; background: #fff; color: #4f4541; }
+.beneficios-20-boton-principal { border: 1px solid #7a1f2b; background: #7a1f2b; color: #fff; }
+body.beneficios-20-modal-abierto { overflow: hidden; }
+
+.beneficios-20-precio-linea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pagina-detalle-b1 .beneficios-20-precio-linea .detalle-precio { margin-bottom: 20px; }
+.beneficios-20-precio-etiqueta {
+  display: inline-flex;
+  margin-bottom: 20px;
+  padding: 7px 12px;
+  border: 2px solid rgba(122, 31, 43, .72);
+  border-radius: 999px;
+  background: #fff4df;
+  color: #7a1f2b;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+.beneficios-20-comercio-linea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.beneficios-20-publico__abrir {
+  display: inline-flex;
+  min-height: 50px;
+  padding: 13px 16px;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  border: 2px solid #7a1f2b;
+  border-radius: 999px;
+  background: #fffaf5;
+  box-shadow: 0 4px 12px rgba(91, 23, 32, .1);
+  color: #7a1f2b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.beneficios-20-publico__abrir:hover,
+.beneficios-20-publico__abrir:focus-visible {
+  background: #fff0e4;
+  box-shadow: 0 5px 15px rgba(91, 23, 32, .16);
+}
+.beneficios-20-publico-modal[hidden] { display: none; }
+.beneficios-20-publico-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  padding: 18px;
+  place-items: center;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.beneficios-20-publico-modal * { box-sizing: border-box; }
+.beneficios-20-publico-modal__fondo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: rgba(35, 23, 20, .72);
+  backdrop-filter: blur(2px);
+  cursor: default;
+}
+.beneficios-20-publico-modal__panel {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: hidden;
+  border: 1px solid rgba(122, 31, 43, .18);
+  border-radius: 22px;
+  background: #fbf8f4;
+  box-shadow: 0 28px 90px rgba(22, 12, 10, .35);
+  outline: none;
+}
+.beneficios-20-publico-modal__cabecera {
+  display: flex;
+  padding: 20px 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #eadfd8;
+  background: linear-gradient(135deg, #fff 0%, #fff7ef 100%);
+}
+.beneficios-20-publico-modal__cabecera h2 {
+  margin: 0;
+  color: #4e121a;
+  font-size: 19px;
+  letter-spacing: .01em;
+}
+.beneficios-20-publico-modal__cabecera p {
+  margin: 5px 0 0;
+  color: #4e121a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.08;
+}
+.beneficios-20-publico-modal__cerrar {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #dfd3cc;
+  border-radius: 50%;
+  background: #fff;
+  color: #7a1f2b;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+body.beneficios-20-publico-modal-abierto { overflow: hidden; }
+.beneficios-20-publico {
+  padding: 18px;
+  max-height: calc(100vh - 155px);
+  overflow-y: auto;
+}
+.beneficios-20-publico__selector {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+  color: #5d514b;
+  font-size: 12px;
+  font-weight: 800;
+}
+.beneficios-20-publico__selector select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d9cec8;
+  border-radius: 9px;
+  background: #fff;
+  color: #302a28;
+  font: inherit;
+}
+.beneficios-20-publico__tarjeta {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.beneficios-20-publico__tarjeta[hidden] { display: none; }
+.beneficios-20-publico__etiqueta {
+  display: grid;
+  width: 94px;
+  min-height: 94px;
+  padding: 12px;
+  place-items: center;
+  border: 5px solid #d5a548;
+  border-radius: 50%;
+  background: #7a1f2b;
+  box-shadow: 0 8px 22px rgba(91, 23, 32, .22);
+  color: #fff4df;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.05;
+  text-align: center;
+  text-transform: uppercase;
+}
+.beneficios-20-publico__tarjeta h2 {
+  margin: 15px 0 8px;
+  color: #4e121a;
+  font-size: 18px;
+}
+.beneficios-20-publico__detalle {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #d5a548;
+  border-radius: 0 8px 8px 0;
+  background: #fff8ed;
+  color: #514640;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.beneficios-20-publico__tarjeta ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #5d514b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.beneficios-20-publico__obtener,
+.beneficios-20-publico__enviar,
+.beneficios-20-publico__copiar {
+  display: inline-flex;
+  min-height: 42px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #7a1f2b;
+  border-radius: 10px;
+  background: #7a1f2b;
+  color: #fff;
+  font: inherit;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+.beneficios-20-publico__obtener {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 14px;
+  font-size: 15px;
+}
+.beneficios-20-publico__copiar {
+  margin-top: 2px;
+  border-color: #9a5a31;
+  background: #fff;
+  color: #7a1f2b;
+}
+.beneficios-20-publico__obtener:disabled {
+  opacity: .72;
+  cursor: default;
+}
+.beneficios-20-publico__estado {
+  min-height: 20px;
+  margin: 9px 0 0;
+  color: #5d514b;
+  font-size: 13px;
+}
+.beneficios-20-publico__cupon {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed #9a5a31;
+  border-radius: 12px;
+  background: #fff8ed;
+}
+.beneficios-20-publico__cupon[hidden],
+.beneficios-20-publico__enviar[hidden],
+.beneficios-20-publico__presencial[hidden] {
+  display: none;
+}
+.beneficios-20-publico__cupon p { margin: 0 0 7px; }
+.beneficios-20-publico__codigo {
+  display: block;
+  margin-bottom: 9px;
+  color: #4e121a;
+  font-size: 20px;
+  letter-spacing: .05em;
+  overflow-wrap: anywhere;
+}
+.beneficios-20-publico__cupon small {
+  display: block;
+  margin-top: 10px;
+  color: #6e625e;
+  line-height: 1.4;
+}
+@media (max-width: 760px) {
+  .beneficios-20-precio-linea { gap: 8px; }
+  .pagina-detalle-b1 .beneficios-20-precio-linea .detalle-precio,
+  .beneficios-20-precio-etiqueta { margin-bottom: 12px; }
+  .beneficios-20-precio-etiqueta { font-size: 11px; }
+  .beneficios-20-comercio-linea { align-items: center; }
+  .beneficios-20-publico__abrir {
+    min-height: 44px;
+    padding: 11px 10px;
+    font-size: 12px;
+  }
+  .beneficios-20-publico-modal { padding: 0; }
+  .beneficios-20-publico-modal__panel {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  .beneficios-20-publico-modal__cabecera { padding: 16px; }
+  .beneficios-20-publico-modal__cabecera p { font-size: 23px; }
+  .beneficios-20-publico {
+    max-height: calc(100vh - 105px);
+    padding: 14px;
+  }
+  .beneficios-20-modal { padding: 0; }
+  .beneficios-20-modal__panel { max-height: 100vh; border-radius: 0; }
+  #beneficios-20-formulario { max-height: calc(100vh - 116px); }
+  .beneficios-20-modal__contenido { grid-template-columns: 1fr; padding: 14px 14px 22px; }
+  .beneficios-20-modal__pie { align-items: stretch; flex-direction: column; padding: 12px 14px; }
+}

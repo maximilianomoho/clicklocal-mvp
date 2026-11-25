@@ -1,0 +1,62 @@
+{% if ofertas_beneficios %}
+  <button type="button" data-beneficios-modal-abrir hidden aria-controls="beneficios-20-publico-modal"></button>
+  <div id="beneficios-20-publico-modal" class="beneficios-20-publico-modal" role="dialog"
+    aria-modal="true" aria-labelledby="beneficios-20-publico-titulo" hidden>
+    <button type="button" class="beneficios-20-publico-modal__fondo"
+      data-beneficios-modal-cerrar aria-label="Cerrar promociones"></button>
+    <section class="beneficios-20-publico-modal__panel" tabindex="-1">
+      <header class="beneficios-20-publico-modal__cabecera">
+        <div><h2 id="beneficios-20-publico-titulo">Beneficio ClickLocal</h2><p>{{ nombre_beneficios or 'ClickLocal' }}</p></div>
+        <button type="button" class="beneficios-20-publico-modal__cerrar"
+          data-beneficios-modal-cerrar aria-label="Cerrar promociones">×</button>
+      </header>
+      <div class="beneficios-20-publico">
+        {% if ofertas_beneficios|length > 1 %}
+          <label class="beneficios-20-publico__selector"><span>Elegir promoción</span>
+            <select data-beneficios-selector>
+              {% for oferta in ofertas_beneficios %}<option value="{{ loop.index0 }}">{{ oferta.etiqueta }} · {{ oferta.beneficio.titulo }}</option>{% endfor %}
+            </select>
+          </label>
+        {% endif %}
+        {% for oferta in ofertas_beneficios %}
+          <article class="beneficios-20-publico__tarjeta" data-beneficio
+            data-beneficio-indice="{{ loop.index0 }}"
+            data-endpoint="/beneficios/{{ oferta.beneficio.id }}/codigo"
+            data-csrf="{{ csrf_beneficios }}" {% if not loop.first %}hidden{% endif %}>
+            <span class="beneficios-20-publico__etiqueta">{{ oferta.etiqueta }}</span>
+            <h2>{{ oferta.beneficio.titulo }}</h2>
+            {% if oferta.beneficio.detalle_promocion %}<p class="beneficios-20-publico__detalle">{{ oferta.beneficio.detalle_promocion }}</p>{% endif %}
+            <ul>{% for condicion in oferta.condiciones %}<li>{{ condicion }}</li>{% endfor %}</ul>
+            <button type="button" class="beneficios-20-publico__obtener">Obtener código</button>
+            <p class="beneficios-20-publico__estado" role="status" aria-live="polite"></p>
+            <div class="beneficios-20-publico__cupon" hidden>
+              <p>Tu código individual</p><strong class="beneficios-20-publico__codigo"></strong>
+              <p class="beneficios-20-publico__vencimiento"></p>
+              <button type="button" class="beneficios-20-publico__copiar">Copiar código</button>
+              <a class="beneficios-20-publico__enviar" target="_blank" rel="noopener noreferrer" hidden>Enviar por WhatsApp</a>
+              <p class="beneficios-20-publico__presencial" hidden>Mostrá este código en el comercio para usar el beneficio.</p>
+              <small>Obtenerlo o enviarlo no significa que el cupón haya sido utilizado.</small>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  <script src="{{ url_for('static', filename='beneficios/publico.js') }}"></script>
+  <script>
+  document.querySelectorAll('[data-beneficios-galeria-indice]').forEach(function (distintivo) {
+    distintivo.addEventListener('click', function (evento) {
+      evento.preventDefault(); evento.stopPropagation();
+      var indice = distintivo.dataset.beneficiosGaleriaIndice;
+      var selector = document.querySelector('[data-beneficios-selector]');
+      if (selector) { selector.value = indice; selector.dispatchEvent(new Event('change', {bubbles:true})); }
+      var tarjetas = document.querySelectorAll('#beneficios-20-publico-modal [data-beneficio-indice]');
+      tarjetas.forEach(function (tarjeta) { tarjeta.hidden = tarjeta.dataset.beneficioIndice !== indice; });
+      document.querySelector('[data-beneficios-modal-abrir]').click();
+    });
+    distintivo.addEventListener('keydown', function (evento) {
+      if (evento.key === 'Enter' || evento.key === ' ') { evento.preventDefault(); distintivo.click(); }
+    });
+  });
+  </script>
+{% endif %}

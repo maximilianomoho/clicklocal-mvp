@@ -18,6 +18,7 @@ except Exception as e:
 
 import json
 import datetime
+from zoneinfo import ZoneInfo
 import re
 import time
 from threading import Lock
@@ -56,6 +57,16 @@ from push_notifications import (
     configuracion_vapid,
     webpush_disponible,
 )
+from psycopg import connect as conectar_postgresql
+from beneficios.config import ConfiguracionBeneficios
+from beneficios.repository import RepositorioBeneficiosPostgresql
+from beneficios.routes import (
+    crear_blueprint_administracion_beneficios,
+    crear_blueprint_publico_beneficios,
+    texto_etiqueta as texto_etiqueta_beneficio,
+)
+from beneficios.services import ServicioBeneficios
+from beneficios.types import ConsultaBeneficios, ObjetivoBeneficio, TipoObjetivo
 
 
 def normalizar_precio(valor):
@@ -3395,6 +3406,53 @@ def inicio():
             if len(publicaciones_mas_vistas) >= 12:
                 break
 
+    ofertas_beneficios_galeria = ()
+    try:
+        publicaciones_beneficios = list(publicaciones_finales) + list(publicaciones_mas_vistas)
+        ids_publicaciones = {
+            str(item.get("id")) for item in publicaciones_beneficios
+            if item.get("id") and item.get("tipo") != "cartelera"
+        }
+        ids_comercios = {
+            str(item.get("comercio_id")) for item in publicaciones_beneficios
+            if item.get("comercio_id")
+        }
+        ids_comercios.update(
+            str(item.get("id") or item.get("comercio_id"))
+            for item in comercios_para_descubrir
+            if item.get("id") or item.get("comercio_id")
+        )
+        objetivos = tuple(
+            [ObjetivoBeneficio(TipoObjetivo.PUBLICACION, item) for item in sorted(ids_publicaciones)]
+            + [ObjetivoBeneficio(TipoObjetivo.COMERCIO, item) for item in sorted(ids_comercios)]
+        )
+        vigentes = _servicio_beneficios.consultar_vigentes(
+            ConsultaBeneficios(objetivos, datetime.datetime.now(datetime.timezone.utc))
+        ) if objetivos else ()
+        por_objetivo = {}
+        ofertas = []
+        for beneficio in vigentes:
+            oferta = _oferta_beneficio_publica(beneficio)
+            oferta["indice_galeria"] = len(ofertas)
+            ofertas.append(oferta)
+            por_objetivo.setdefault((beneficio.objetivo.tipo, beneficio.objetivo.id), []).append(oferta)
+        for item in publicaciones_beneficios:
+            candidatas = por_objetivo.get(
+                (TipoObjetivo.PUBLICACION, str(item.get("id") or "")), []
+            ) + por_objetivo.get(
+                (TipoObjetivo.COMERCIO, str(item.get("comercio_id") or "")), []
+            )
+            item["beneficio_20_etiqueta"] = candidatas[0]["etiqueta"] if candidatas else None
+            item["beneficio_20_indice"] = candidatas[0]["indice_galeria"] if candidatas else None
+        for item in comercios_para_descubrir:
+            comercio_id_beneficio = str(item.get("id") or item.get("comercio_id") or "")
+            candidatas = por_objetivo.get((TipoObjetivo.COMERCIO, comercio_id_beneficio), [])
+            item["beneficio_20_etiqueta"] = candidatas[0]["etiqueta"] if candidatas else None
+            item["beneficio_20_indice"] = candidatas[0]["indice_galeria"] if candidatas else None
+        ofertas_beneficios_galeria = tuple(ofertas)
+    except Exception as error_beneficios:
+        print("AVISO BENEFICIOS GALERIA:", type(error_beneficios), error_beneficios, flush=True)
+
     print("PORTADA más visto y preparación final: "f"{_clicklocal_time.perf_counter() - _clicklocal_etapa_inicio:.3f} s", flush=True)
     _clicklocal_render_inicio = _clicklocal_time.perf_counter()
     _clicklocal_html = render_template(
@@ -3409,7 +3467,9 @@ def inicio():
         categoria_seleccionada=categoria_seleccionada,
         macrocategorias=MACROCATEGORIAS_HOME,
         macro_slug=macro_slug,
-        macro_activa=macro_activa
+        macro_activa=macro_activa,
+        ofertas_beneficios_galeria=ofertas_beneficios_galeria,
+        csrf_beneficios=_csrf_beneficios_token(),
     )
     print("PORTADA render HTML: "f"{_clicklocal_time.perf_counter() - _clicklocal_render_inicio:.3f} s", flush=True)
     print("PORTADA TOTAL: "f"{_clicklocal_time.perf_counter() - _clicklocal_portada_inicio:.3f} s", flush=True)
@@ -5081,6 +5141,112 @@ def quitar_logo_negocio():
         )
 
 
+_configuracion_beneficios = ConfiguracionBeneficios.desde_entorno(os.environ)
+
+
+def _conectar_beneficios():
+    """Abre PostgreSQL con la configuración explícita del entorno."""
+    return conectar_postgresql(
+        **_configuracion_beneficios.parametros_conexion()
+    )
+
+
+_repositorio_beneficios = RepositorioBeneficiosPostgresql(
+    _conectar_beneficios,
+    secreto_codigos=_configuracion_beneficios.secreto_codigos,
+)
+_servicio_beneficios = ServicioBeneficios(_repositorio_beneficios)
+app.extensions["servicio_beneficios"] = _servicio_beneficios
+
+
+def _csrf_beneficios_token():
+    token = str(session.get("csrf_beneficios") or "")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_beneficios"] = token
+    return token
+
+
+app.extensions["csrf_beneficios_token"] = _csrf_beneficios_token
+
+
+def _oferta_beneficio_publica(beneficio):
+    nombres_dias = (
+        "lunes", "martes", "miércoles", "jueves",
+        "viernes", "sábado", "domingo",
+    )
+    condiciones = [
+        "Todos los días"
+        if beneficio.dias_semana == frozenset(range(7))
+        else ", ".join(
+            nombres_dias[dia] for dia in sorted(beneficio.dias_semana)
+        )
+    ]
+    if beneficio.hora_desde is not None and beneficio.hora_hasta is not None:
+        condiciones.append(
+            f"De {beneficio.hora_desde.strftime('%H:%M')} "
+            f"a {beneficio.hora_hasta.strftime('%H:%M')}"
+        )
+    else:
+        condiciones.append("Durante todo el día")
+    fecha_fin = beneficio.vigente_hasta.astimezone(ZoneInfo(beneficio.zona_horaria))
+    condiciones.append(f"Hasta el {fecha_fin.strftime('%d/%m/%Y')}")
+    if beneficio.cupo_maximo is not None:
+        condiciones.append("Cupo limitado")
+    return {
+        "beneficio": beneficio,
+        "etiqueta": texto_etiqueta_beneficio(beneficio),
+        "condiciones": tuple(condiciones),
+    }
+
+
+def _comercio_beneficios_sesion():
+    if not _user_id_panel_efectivo():
+        return None
+    comercio = session.get("comercio") or {}
+    return str(comercio.get("id") or "") or None
+
+
+def _whatsapp_beneficio_publico(comercio_id, mensaje):
+    """Resuelve el teléfono real del comercio; nunca acepta uno del cliente."""
+    try:
+        respuesta = (
+            supabase_admin
+            .table("comercios")
+            .select("id,whatsapp,activo")
+            .eq("id", comercio_id)
+            .eq("activo", True)
+            .limit(1)
+            .execute()
+        )
+        comercios = respuesta.data or []
+        if not comercios:
+            return ""
+        return construir_url_whatsapp(
+            comercios[0].get("whatsapp"),
+            mensaje,
+        )
+    except Exception:
+        return ""
+
+
+app.register_blueprint(
+    crear_blueprint_administracion_beneficios(
+        lambda: _servicio_beneficios,
+        _comercio_beneficios_sesion,
+        _csrf_beneficios_token,
+    )
+)
+app.register_blueprint(
+    crear_blueprint_publico_beneficios(
+        lambda: _servicio_beneficios,
+        _csrf_beneficios_token,
+        _whatsapp_beneficio_publico,
+        lambda comercio_id: _cargar_comercio_publico(comercio_id) is not None,
+    )
+)
+
+
 @app.route("/panel", methods=["GET", "POST"])
 @app.route("/panel.html", methods=["GET", "POST"])
 def panel():
@@ -5346,6 +5512,33 @@ def panel():
             publicaciones = session.get("publicaciones", [])
     else:
         publicaciones = session.get("publicaciones", [])
+
+    try:
+        objetivos_beneficios = tuple(
+            ObjetivoBeneficio(TipoObjetivo.PUBLICACION, str(pub.get("id")))
+            for pub in publicaciones if pub.get("id")
+        )
+        vigentes = _servicio_beneficios.consultar_vigentes(
+            ConsultaBeneficios(
+                objetivos_beneficios,
+                datetime.datetime.now(datetime.timezone.utc),
+            )
+        ) if objetivos_beneficios else ()
+        por_publicacion = {
+            beneficio.objetivo.id: beneficio for beneficio in vigentes
+            if beneficio.comercio_id == str(comercio_id)
+        }
+        for publicacion in publicaciones:
+            beneficio = por_publicacion.get(str(publicacion.get("id") or ""))
+            publicacion["beneficio_20"] = beneficio
+            publicacion["beneficio_20_etiqueta"] = (
+                texto_etiqueta_beneficio(beneficio) if beneficio else None
+            )
+    except Exception as error:
+        print("AVISO BENEFICIOS PANEL:", type(error), error, flush=True)
+        for publicacion in publicaciones:
+            publicacion["beneficio_20"] = None
+            publicacion["beneficio_20_etiqueta"] = None
 
     # ============================================================
     # CLICKLOCAL: MÉTRICAS PREMIUM POR PUBLICACIÓN V1
@@ -6346,7 +6539,8 @@ def panel():
         historias_activas=historias_activas,
         limite_historias_activas=2,
         modo_gestor=_modo_gestor_activo(),
-        admin_user=session.get("admin_user")
+        admin_user=session.get("admin_user"),
+        csrf_beneficios=_csrf_beneficios_token(),
     )
 
 
@@ -7953,6 +8147,7 @@ def detalle(publicacion_id):
     comercio = comercio_default()
     modulo_carrito_activo = False
     publicacion_comprable = False
+    ofertas_beneficios = ()
 
     categoria_origen = request.args.get(
         "categoria",
@@ -8076,6 +8271,89 @@ def detalle(publicacion_id):
                 or "Consultar ubicación"
             )
 
+        try:
+            instante_beneficios = datetime.datetime.now(
+                datetime.timezone.utc
+            )
+            objetivos_beneficios = (
+                ObjetivoBeneficio(
+                    TipoObjetivo.PUBLICACION,
+                    str(publicacion_id),
+                ),
+                ObjetivoBeneficio(
+                    TipoObjetivo.COMERCIO,
+                    str(comercio_id),
+                ),
+            )
+            vigentes = _servicio_beneficios.consultar_vigentes(
+                ConsultaBeneficios(
+                    objetivos_beneficios,
+                    instante_beneficios,
+                )
+            )
+
+            ofertas_por_id = {}
+            nombres_dias = (
+                "lunes", "martes", "miércoles", "jueves",
+                "viernes", "sábado", "domingo",
+            )
+
+            for beneficio in vigentes:
+                if beneficio.comercio_id != str(comercio_id):
+                    continue
+
+                condiciones = []
+                if beneficio.dias_semana == frozenset(range(7)):
+                    condiciones.append("Todos los días")
+                else:
+                    condiciones.append(
+                        ", ".join(
+                            nombres_dias[dia]
+                            for dia in sorted(beneficio.dias_semana)
+                        )
+                    )
+
+                if (
+                    beneficio.hora_desde is not None
+                    and beneficio.hora_hasta is not None
+                ):
+                    condiciones.append(
+                        "De "
+                        f"{beneficio.hora_desde.strftime('%H:%M')} "
+                        "a "
+                        f"{beneficio.hora_hasta.strftime('%H:%M')}"
+                    )
+                else:
+                    condiciones.append("Durante todo el día")
+
+                fecha_fin = beneficio.vigente_hasta.astimezone(
+                    ZoneInfo(beneficio.zona_horaria)
+                )
+                condiciones.append(
+                    f"Hasta el {fecha_fin.strftime('%d/%m/%Y')}"
+                )
+
+                if beneficio.cupo_maximo is not None:
+                    condiciones.append("Cupo limitado")
+
+                ofertas_por_id.setdefault(
+                    beneficio.id,
+                    {
+                        "beneficio": beneficio,
+                        "etiqueta": texto_etiqueta_beneficio(beneficio),
+                        "condiciones": tuple(condiciones),
+                    },
+                )
+
+            ofertas_beneficios = tuple(ofertas_por_id.values())
+        except Exception as error_beneficios:
+            print(
+                "ERROR cargando beneficios del detalle:",
+                error_beneficios,
+                flush=True,
+            )
+            ofertas_beneficios = ()
+
         from urllib.parse import quote
 
         whatsapp_numero = limpiar_numero_whatsapp(comercio.get("whatsapp"))
@@ -8134,6 +8412,8 @@ def detalle(publicacion_id):
         regreso_galeria_url=regreso_galeria_url,
         modulo_carrito_activo=modulo_carrito_activo,
         publicacion_comprable=publicacion_comprable,
+        ofertas_beneficios=ofertas_beneficios,
+        csrf_beneficios=_csrf_beneficios_token(),
     )
 
 

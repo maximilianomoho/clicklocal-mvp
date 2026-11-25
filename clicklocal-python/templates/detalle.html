@@ -100,6 +100,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='carrito/carrito.css') }}" />
   {% endif %}
 
+  {% if ofertas_beneficios %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='beneficios/beneficios-20.css') }}" />
+  {% endif %}
+
   <style>
     /* CLICKLOCAL: BOTÓN COMPARTIR PUBLICACIÓN V1 */
     .detalle-compartir {
@@ -1242,7 +1246,14 @@
           <p class="detalle-ciudad">📍 {{ comercio.ciudad }}</p>
 
           <h1 class="detalle-titulo">{{ publicacion.nombre }}</h1>
-          <p class="detalle-precio">{{ publicacion.precio|precio_arg }}</p>
+          <div class="beneficios-20-precio-linea">
+            <p class="detalle-precio">{{ publicacion.precio|precio_arg }}</p>
+            {% if ofertas_beneficios %}
+              <span class="beneficios-20-precio-etiqueta">
+                Beneficio ClickLocal: {{ ofertas_beneficios[0].etiqueta }}
+              </span>
+            {% endif %}
+          </div>
 
           {% if publicacion.descripcion %}
             <p class="detalle-descripcion">
@@ -1252,7 +1263,18 @@
 
           <div class="detalle-comercio">
             <p class="detalle-label">Comercio</p>
-            <h2>{{ comercio.nombre_negocio }}</h2>
+            <div class="beneficios-20-comercio-linea">
+              <h2>{{ comercio.nombre_negocio }}</h2>
+              {% if ofertas_beneficios %}
+                <button
+                  type="button"
+                  class="beneficios-20-publico__abrir"
+                  data-beneficios-modal-abrir
+                  aria-controls="beneficios-20-publico-modal"
+                  aria-expanded="false"
+                ><span aria-hidden="true">🏷</span> Ver beneficio</button>
+              {% endif %}
+            </div>
             <p>{{ comercio.direccion_mostrar }}</p>
           </div>
 
@@ -1325,6 +1347,110 @@
         </aside>
 
       </section>
+
+      {% if ofertas_beneficios %}
+        {% macro tarjeta_oferta(oferta, indice) %}
+          <article
+            class="beneficios-20-publico__tarjeta"
+            data-beneficio
+            data-beneficio-indice="{{ indice }}"
+            data-endpoint="/beneficios/{{ oferta.beneficio.id }}/codigo"
+            data-csrf="{{ csrf_beneficios }}"
+            {% if indice != 0 %}hidden{% endif %}
+          >
+            <span class="beneficios-20-publico__etiqueta">
+              {{ oferta.etiqueta }}
+            </span>
+            <h2>{{ oferta.beneficio.titulo }}</h2>
+            {% if oferta.beneficio.detalle_promocion %}
+              <p class="beneficios-20-publico__detalle">
+                {{ oferta.beneficio.detalle_promocion }}
+              </p>
+            {% endif %}
+            <ul>
+              {% for condicion in oferta.condiciones %}
+                <li>{{ condicion }}</li>
+              {% endfor %}
+            </ul>
+            <button type="button" class="beneficios-20-publico__obtener">
+              Obtener código
+            </button>
+            <p class="beneficios-20-publico__estado" role="status" aria-live="polite"></p>
+            <div class="beneficios-20-publico__cupon" hidden>
+              <p>Tu código individual</p>
+              <strong class="beneficios-20-publico__codigo"></strong>
+              <p class="beneficios-20-publico__vencimiento"></p>
+              <button type="button" class="beneficios-20-publico__copiar">
+                Copiar código
+              </button>
+              <a
+                class="beneficios-20-publico__enviar"
+                target="_blank"
+                rel="noopener noreferrer"
+                hidden
+              >Enviar por WhatsApp</a>
+              <p class="beneficios-20-publico__presencial" hidden>
+                Mostrá este código en el comercio para usar el beneficio.
+              </p>
+              <small>
+                Obtenerlo o enviarlo no significa que el cupón haya sido utilizado.
+              </small>
+            </div>
+          </article>
+        {% endmacro %}
+
+        <div
+          id="beneficios-20-publico-modal"
+          class="beneficios-20-publico-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="beneficios-20-publico-titulo"
+          hidden
+        >
+          <button
+            type="button"
+            class="beneficios-20-publico-modal__fondo"
+            data-beneficios-modal-cerrar
+            aria-label="Cerrar promociones"
+          ></button>
+          <section class="beneficios-20-publico-modal__panel" tabindex="-1">
+            <header class="beneficios-20-publico-modal__cabecera">
+              <div>
+                <h2 id="beneficios-20-publico-titulo">Beneficio ClickLocal</h2>
+                <p>{{ comercio.nombre_negocio }}</p>
+              </div>
+              <button
+                type="button"
+                class="beneficios-20-publico-modal__cerrar"
+                data-beneficios-modal-cerrar
+                aria-label="Cerrar promociones"
+              >×</button>
+            </header>
+
+            <div class="beneficios-20-publico">
+              {% if ofertas_beneficios|length > 1 %}
+                <label class="beneficios-20-publico__selector">
+                  <span>Elegir promoción</span>
+                  <select data-beneficios-selector>
+                    {% for oferta in ofertas_beneficios %}
+                      <option value="{{ loop.index0 }}">
+                        {{ oferta.etiqueta }} · {{ oferta.beneficio.titulo }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </label>
+              {% endif %}
+              {% for oferta in ofertas_beneficios %}
+                {{ tarjeta_oferta(oferta, loop.index0) }}
+              {% endfor %}
+            </div>
+          </section>
+        </div>
+      {% endif %}
+
+      {% if ofertas_beneficios %}
+        <script src="{{ url_for('static', filename='beneficios/publico.js') }}"></script>
+      {% endif %}
 
     </div>
 

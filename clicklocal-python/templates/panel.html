@@ -13,6 +13,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panel comercio | ClickLocal</title>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/static/beneficios/beneficios-20.css" />
 </head>
 
 <body>
@@ -1379,6 +1380,12 @@
                   <div>
                     <h3>{{ pub.nombre }}</h3>
 
+                    {% if pub.beneficio_20_etiqueta %}
+                      <span class="beneficios-20-etiqueta" data-beneficio-etiqueta>
+                        {{ pub.beneficio_20_etiqueta }}
+                      </span>
+                    {% endif %}
+
                     <p class="panel-descripcion">
                       {{ pub.descripcion or "Sin descripción." }}
                     </p>
@@ -1476,6 +1483,11 @@
                   </div>
 
                   <div class="acciones-publicacion">
+                    <button type="button" class="beneficios-20-abrir-modal"
+                      data-publicacion-id="{{ pub.id }}"
+                      data-producto="{{ pub.nombre|default('Publicación', true)|e }}">
+                      Beneficio
+                    </button>
                     <button
                       type="button"
                       class="boton-editar-publicacion"
@@ -2858,6 +2870,138 @@
   </script>
   <!-- FIN JS LISTAS BUSCABLES EDITAR ARRIBA -->
 
+  <section class="beneficios-20-recuadro" id="beneficios-20-gestion"
+    data-csrf-token="{{ csrf_beneficios }}">
+    <h2>Mis ofertas de Beneficios</h2>
+    <p>Podés editar o desactivar cada oferta sin borrar sus códigos anteriores.</p>
+    <div id="beneficios-20-lista" aria-live="polite">Cargando ofertas…</div>
+    <p id="beneficios-20-gestion-estado" role="status"></p>
+  </section>
+
+  <section class="beneficios-20-recuadro" id="beneficios-20-canje"
+    data-csrf-token="{{ csrf_beneficios }}">
+    <h2>Canjear cupón de Beneficios</h2>
+    <p>Validá el código antes de marcarlo como utilizado.</p>
+    <form id="beneficios-20-canje-formulario" novalidate>
+      <label class="beneficios-20-campo" for="beneficios-20-codigo">Código del cupón
+        <input id="beneficios-20-codigo" name="codigo" type="text"
+          autocomplete="off" autocapitalize="characters" spellcheck="false"
+          maxlength="32" required>
+      </label>
+      <button type="submit" class="beneficios-20-boton-secundario">Validar código</button>
+    </form>
+    <p id="beneficios-20-canje-estado" role="status"></p>
+    <div id="beneficios-20-canje-resultado" hidden>
+      <h3 id="beneficios-20-canje-titulo"></h3>
+      <p id="beneficios-20-canje-vencimiento"></p>
+      <p>Consultar este código no lo utiliza ni registra una venta.</p>
+      <button type="button" id="beneficios-20-consumir"
+        class="beneficios-20-boton-principal" disabled>Marcar como utilizado</button>
+    </div>
+  </section>
+
+  <div class="beneficios-20-modal" id="beneficios-20-modal"
+    data-csrf-token="{{ csrf_beneficios }}" hidden>
+    <div class="beneficios-20-modal__fondo" data-cerrar-modal></div>
+    <section class="beneficios-20-modal__panel" role="dialog" aria-modal="true"
+      aria-labelledby="beneficios-20-modal-titulo">
+      <header class="beneficios-20-modal__cabecera">
+        <div><span>BENEFICIOS CLICKLOCAL 2.0</span>
+          <h2 id="beneficios-20-modal-titulo">Configurar beneficio</h2>
+          <p id="beneficios-20-producto"></p></div>
+        <button type="button" class="beneficios-20-modal__cerrar"
+          data-cerrar-modal aria-label="Cerrar modal">×</button>
+      </header>
+      <form id="beneficios-20-formulario" novalidate>
+        <div class="beneficios-20-modal__contenido">
+          <fieldset class="beneficios-20-recuadro">
+            <legend><span>1</span> Tipo de beneficio</legend>
+            <label class="beneficios-20-campo">Promoción
+              <select id="beneficios-20-tipo">
+                <option value="porcentaje">Descuento porcentual</option>
+                <option value="monto_fijo">Descuento de monto fijo</option>
+                <option value="precio_especial">Precio especial</option>
+                <option value="dos_por_uno">2x1</option>
+                <option value="tres_por_dos">3x2</option>
+                <option value="segunda_unidad_50">Segunda unidad al 50%</option>
+              </select></label>
+            <label class="beneficios-20-campo" data-campo-valor>Valor
+              <span id="beneficios-20-unidad">%</span>
+              <input id="beneficios-20-valor" type="number" min="1" value="20"></label>
+            <div class="beneficios-20-preview-texto">Vista previa:
+              <strong id="beneficios-20-texto-promocion">20% OFF</strong></div>
+            <label class="beneficios-20-campo">Detalle visible de la promoción
+              <textarea id="beneficios-20-detalle-promocion" maxlength="200" rows="3"
+                placeholder="Ej.: Válido solo en efectivo"></textarea>
+              <small>Opcional · máximo 200 caracteres</small>
+            </label>
+          </fieldset>
+          <fieldset class="beneficios-20-recuadro">
+            <legend><span>2</span> Vigencia</legend>
+            <div class="beneficios-20-opciones-linea">
+              <label><input type="radio" name="inicio" value="inmediato" checked> Inicio inmediato</label>
+              <label><input type="radio" name="inicio" value="programado"> Programado</label></div>
+            <label class="beneficios-20-campo" id="beneficios-20-inicio-wrap">Fecha de inicio
+              <input id="beneficios-20-inicio" type="text" inputmode="numeric" placeholder="DD-MM-AAAA" maxlength="10" autocomplete="off"></label>
+            <div class="beneficios-20-campo"><span>Duración rápida</span>
+              <div class="beneficios-20-duraciones">
+                {% for dias in [1,3,7,15,30,45,60] %}<button type="button" data-dias="{{ dias }}"{% if dias == 7 %} class="seleccionado"{% endif %}>{{ dias }}</button>{% endfor %}
+              </div></div>
+            <label class="beneficios-20-campo">Finalización personalizada
+              <input id="beneficios-20-fin" type="text" inputmode="numeric" placeholder="DD-MM-AAAA" maxlength="10" autocomplete="off"></label>
+            <p class="beneficios-20-resumen" id="beneficios-20-resumen-vigencia"></p>
+          </fieldset>
+          <fieldset class="beneficios-20-recuadro">
+            <legend><span>3</span> Días y horarios</legend>
+            <div class="beneficios-20-opciones-linea">
+              <label><input type="radio" name="dias-modo" value="todos" checked> Todos los días</label>
+              <label><input type="radio" name="dias-modo" value="especificos"> Días específicos</label></div>
+            <div class="beneficios-20-dias" id="beneficios-20-dias" hidden>
+              {% for nombre in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'] %}<label><input type="checkbox" value="{{ loop.index0 }}">{{ nombre }}</label>{% endfor %}
+            </div>
+            <div class="beneficios-20-opciones-linea">
+              <label><input type="radio" name="horario-modo" value="todo" checked> Todo el día</label>
+              <label><input type="radio" name="horario-modo" value="franja"> Franja horaria</label></div>
+            <div class="beneficios-20-horario" id="beneficios-20-horario" hidden>
+              <label class="beneficios-20-campo">Desde<input id="beneficios-20-hora-desde" type="time" value="18:00"></label>
+              <label class="beneficios-20-campo">Hasta<input id="beneficios-20-hora-hasta" type="time" value="21:00"></label></div>
+          </fieldset>
+          <fieldset class="beneficios-20-recuadro">
+            <legend><span>4</span> Cupos</legend>
+            <div class="beneficios-20-opciones-linea">
+              <label><input type="radio" name="cupo-modo" value="sin-limite" checked> Sin límite</label>
+              <label><input type="radio" name="cupo-modo" value="limitado"> Máximo de códigos</label></div>
+            <label class="beneficios-20-campo" id="beneficios-20-cupo-wrap" hidden>Máximo de códigos
+              <input id="beneficios-20-cupo" type="number" min="1" value="50"></label>
+            <label class="beneficios-20-campo">Máximo de unidades por código
+              <input id="beneficios-20-unidades" type="number" min="1" value="1"></label>
+            <label class="beneficios-20-check"><input id="beneficios-20-mostrar-restantes" type="checkbox"> Mostrar cuántos códigos quedan</label>
+          </fieldset>
+          <fieldset class="beneficios-20-recuadro">
+            <legend><span>5</span> Etiqueta</legend>
+            <div class="beneficios-20-opciones-linea">
+              <label><input type="radio" name="tema" value="clara" checked> Clara</label>
+              <label><input type="radio" name="tema" value="oscura"> Oscura</label></div>
+            <div class="beneficios-20-etiqueta-preview" id="beneficios-20-etiqueta">20% OFF</div>
+          </fieldset>
+          <fieldset class="beneficios-20-recuadro">
+            <legend><span>6</span> Métodos de utilización</legend>
+            <div class="beneficios-20-metodos">
+              <label><input type="checkbox" name="metodo" value="whatsapp" checked disabled> WhatsApp (configuración)</label>
+              <label><input type="checkbox" name="metodo" value="qr" disabled> QR presencial (próximamente)</label>
+              <label><input type="checkbox" name="metodo" value="carrito" disabled> Carrito (próximamente)</label></div>
+          </fieldset>
+        </div>
+        <footer class="beneficios-20-modal__pie">
+          <p id="beneficios-20-estado" role="status">Configuración local aislada.</p>
+          <div><button type="button" class="beneficios-20-boton-secundario" data-cerrar-modal>Cancelar</button>
+            <button type="submit" class="beneficios-20-boton-principal">Guardar beneficio</button></div>
+        </footer>
+      </form>
+    </section>
+  </div>
+
+  <script src="/static/beneficios/beneficios-20.js"></script>
   <script src="/static/pwa.js"></script>
 
   {% if es_premium and not es_cine_teatro %}

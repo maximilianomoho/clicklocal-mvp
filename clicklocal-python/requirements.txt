@@ -22,6 +22,7 @@ multidict==6.7.1
 packaging==26.2
 pillow==12.2.0
 postgrest==2.31.0
+psycopg[binary]==3.2.13
 propcache==0.5.2
 pycparser==3.0
 pydantic==2.13.4

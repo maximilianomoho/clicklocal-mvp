@@ -12,6 +12,8 @@ from flask import abort, current_app, g, jsonify, make_response, redirect, rende
 from config.supabase_config import supabase_admin
 from modulos import obtener_modulo, pos_activo_para_comercio
 from whatsapp import limpiar_numero_whatsapp
+from beneficios.routes import texto_etiqueta as texto_etiqueta_beneficio
+from beneficios.types import ConsultaBeneficios, ObjetivoBeneficio, TipoObjetivo
 
 from . import gastronomia_bp
 from .services.delivery import (
@@ -69,6 +71,29 @@ def _csrf_estado_tienda_valido():
         and recibido
         and secrets.compare_digest(esperado, recibido)
     )
+
+
+def _oferta_beneficio_gastronomia(beneficio):
+    nombres = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+    condiciones = [
+        "Todos los días" if beneficio.dias_semana == frozenset(range(7))
+        else ", ".join(nombres[dia] for dia in sorted(beneficio.dias_semana))
+    ]
+    if beneficio.hora_desde is not None and beneficio.hora_hasta is not None:
+        condiciones.append(
+            f"De {beneficio.hora_desde.strftime('%H:%M')} a {beneficio.hora_hasta.strftime('%H:%M')}"
+        )
+    else:
+        condiciones.append("Durante todo el día")
+    fin = beneficio.vigente_hasta.astimezone(ZoneInfo(beneficio.zona_horaria))
+    condiciones.append(f"Hasta el {fin.strftime('%d/%m/%Y')}")
+    if beneficio.cupo_maximo is not None:
+        condiciones.append("Cupo limitado")
+    return {
+        "beneficio": beneficio,
+        "etiqueta": texto_etiqueta_beneficio(beneficio),
+        "condiciones": tuple(condiciones),
+    }
 
 
 def _limite_productos_gastronomia_alcanzado(cantidad_activos):
@@ -612,6 +637,42 @@ def inicio():
 
     promos_gastronomicas = promos_gastronomicas[:12]
 
+    ofertas_beneficios_galeria = ()
+    try:
+        servicio = current_app.extensions.get("servicio_beneficios")
+        ids_productos = {str(item.get("id")) for item in productos if item.get("id")}
+        objetivos = tuple(
+            [ObjetivoBeneficio(TipoObjetivo.COMERCIO, item) for item in sorted(comercio_ids)]
+            + [ObjetivoBeneficio(TipoObjetivo.GASTRONOMIA_PRODUCTO, item) for item in sorted(ids_productos)]
+        )
+        vigentes = servicio.consultar_vigentes(
+            ConsultaBeneficios(objetivos, datetime.now(timezone.utc))
+        ) if servicio is not None and objetivos else ()
+        por_objetivo = {}
+        ofertas = []
+        for beneficio in vigentes:
+            oferta = _oferta_beneficio_gastronomia(beneficio)
+            oferta["indice_galeria"] = len(ofertas)
+            ofertas.append(oferta)
+            por_objetivo.setdefault((beneficio.objetivo.tipo, beneficio.objetivo.id), []).append(oferta)
+
+        def marcar(items, tipo):
+            for item in items:
+                candidatas = por_objetivo.get((tipo, str(item.get("id") or "")), [])
+                item["beneficio_20_etiqueta"] = candidatas[0]["etiqueta"] if candidatas else None
+                item["beneficio_20_indice"] = candidatas[0]["indice_galeria"] if candidatas else None
+
+        marcar(comercios_gastronomicos, TipoObjetivo.COMERCIO)
+        marcar(productos_busqueda, TipoObjetivo.GASTRONOMIA_PRODUCTO)
+        marcar(destacados_gastronomicos, TipoObjetivo.GASTRONOMIA_PRODUCTO)
+        marcar(promos_gastronomicas, TipoObjetivo.GASTRONOMIA_PRODUCTO)
+        ofertas_beneficios_galeria = tuple(ofertas)
+    except Exception as error_beneficios:
+        current_app.logger.warning("Beneficios no disponibles en galería gastronómica: %s", type(error_beneficios).__name__)
+
+    csrf_proveedor = current_app.extensions.get("csrf_beneficios_token")
+    csrf_beneficios = csrf_proveedor() if csrf_proveedor else ""
+
     return render_template(
         "gastronomia/inicio.html",
         comercios_gastronomicos=comercios_gastronomicos,
@@ -619,6 +680,8 @@ def inicio():
         destacados_gastronomicos=destacados_gastronomicos,
         promos_gastronomicas=promos_gastronomicas,
         busqueda=busqueda,
+        ofertas_beneficios_galeria=ofertas_beneficios_galeria,
+        csrf_beneficios=csrf_beneficios,
     )
 
 

@@ -1,0 +1,15 @@
+{# Componente visual reutilizable de Beneficios ClickLocal 2.0. #}
+{% macro beneficios_20_etiqueta(texto) -%}
+  {% if texto %}
+    <span
+      class="beneficios-20-etiqueta beneficios-20-etiqueta--superior-derecha"
+      aria-label="Beneficio ClickLocal: {{ texto|e }}"
+    >
+      <span class="beneficios-20-etiqueta__icono" aria-hidden="true">🏷</span>
+      <span class="beneficios-20-etiqueta__texto">
+        <span class="beneficios-20-etiqueta__titulo">Beneficio ClickLocal</span>
+        <span class="beneficios-20-etiqueta__oferta">{{ texto|e }}</span>
+      </span>
+    </span>
+  {% endif %}
+{%- endmacro %}

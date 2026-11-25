@@ -13,9 +13,15 @@
   <title>
     ClickLocal Gastronomía | Paraná
   </title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='beneficios/beneficios-20.css') }}">
+  {% from "beneficios/_etiqueta.html" import beneficios_20_etiqueta %}
 
 
   <style>
+
+    .beneficios-20-galeria-accion { position:absolute; z-index:6; top:.6rem; right:.6rem; cursor:pointer; }
+    .beneficios-20-galeria-accion .beneficios-20-etiqueta { position:static; pointer-events:none; }
+    .comercio-foto, .promo-foto { position:relative; }
 
     :root {
       --crema: #f7f1e8;
@@ -1736,6 +1742,7 @@
           >
 
             <div class="promo-foto">
+              {% if producto.beneficio_20_etiqueta %}<span class="beneficios-20-galeria-accion" role="button" tabindex="0" data-beneficios-galeria-indice="{{ producto.beneficio_20_indice }}">{{ beneficios_20_etiqueta(producto.beneficio_20_etiqueta) }}</span>{% endif %}
 
               {% if producto.imagen_url %}
 
@@ -1836,6 +1843,7 @@
             >
 
               <div class="comercio-foto">
+                {% if comercio.beneficio_20_etiqueta %}<span class="beneficios-20-galeria-accion" role="button" tabindex="0" data-beneficios-galeria-indice="{{ comercio.beneficio_20_indice }}">{{ beneficios_20_etiqueta(comercio.beneficio_20_etiqueta) }}</span>{% endif %}
 
                 {% if comercio.imagen_portada %}
 
@@ -1984,6 +1992,7 @@
             >
 
               <div class="promo-foto">
+                {% if producto.beneficio_20_etiqueta %}<span class="beneficios-20-galeria-accion" role="button" tabindex="0" data-beneficios-galeria-indice="{{ producto.beneficio_20_indice }}">{{ beneficios_20_etiqueta(producto.beneficio_20_etiqueta) }}</span>{% endif %}
 
                 <img
                   src="{{ producto.imagen_url }}"
@@ -2071,6 +2080,7 @@
             >
 
               <div class="promo-foto">
+                {% if promo.beneficio_20_etiqueta %}<span class="beneficios-20-galeria-accion" role="button" tabindex="0" data-beneficios-galeria-indice="{{ promo.beneficio_20_indice }}">{{ beneficios_20_etiqueta(promo.beneficio_20_etiqueta) }}</span>{% endif %}
 
                 <img
                   src="{{ promo.imagen_url }}"
@@ -2524,6 +2534,9 @@ document.addEventListener("DOMContentLoaded", function(){
 })();
 </script>
 
+{% with ofertas_beneficios=ofertas_beneficios_galeria, nombre_beneficios='Gastronomía ClickLocal' %}
+  {% include 'beneficios/_publico_modal.html' %}
+{% endwith %}
 </body>
 
 </html>

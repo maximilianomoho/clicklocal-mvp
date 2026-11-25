@@ -13,6 +13,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ClickLocal Paraná</title>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='beneficios/beneficios-20.css') }}" />
+  {% from "beneficios/_etiqueta.html" import beneficios_20_etiqueta %}
+
+<style>
+.beneficios-20-galeria-accion { position:absolute; z-index:6; top:.6rem; right:.6rem; cursor:pointer; }
+.beneficios-20-galeria-accion .beneficios-20-etiqueta { position:static; pointer-events:none; }
+</style>
 
 <style>
   .accesos-directos-portada {
@@ -3785,6 +3792,7 @@ html {
                   categoria=categoria_seleccionada,
                   macro=macro_slug
                 ) }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}{% if not busqueda and loop.index > 8 %} publicacion-card-extra{% endif %}">
+                {% if pub.beneficio_20_etiqueta %}<span class="beneficios-20-galeria-accion" role="button" tabindex="0" data-beneficios-galeria-indice="{{ pub.beneficio_20_indice }}">{{ beneficios_20_etiqueta(pub.beneficio_20_etiqueta) }}</span>{% endif %}
                 {% if pub.tiene_historia %}
                   <span class="publicacion-historia-indicador">
                     Historia
@@ -4206,6 +4214,7 @@ html {
                   categoria=categoria_seleccionada,
                   macro=macro_slug
                 ) }}{% endif %}" class="publicacion-card {% if pub.categoria == 'Cine y Teatro' %}publicacion-card-cartelera{% endif %} {% if pub.tiene_historia %}publicacion-card-con-historia{% endif %}">
+                {% if pub.beneficio_20_etiqueta %}<span class="beneficios-20-galeria-accion" role="button" tabindex="0" data-beneficios-galeria-indice="{{ pub.beneficio_20_indice }}">{{ beneficios_20_etiqueta(pub.beneficio_20_etiqueta) }}</span>{% endif %}
                 {% if pub.tiene_historia %}
                   <span class="publicacion-historia-indicador">
                     Historia
@@ -9398,5 +9407,8 @@ html {
 </style>
 <!-- FIN CLICKLOCAL: PRECIO BORDO Y RECIENTES MOVIL DOS COLUMNAS V1 -->
 
+{% with ofertas_beneficios=ofertas_beneficios_galeria, nombre_beneficios='Comercios de ClickLocal' %}
+  {% include 'beneficios/_publico_modal.html' %}
+{% endwith %}
 </body>
 </html>
