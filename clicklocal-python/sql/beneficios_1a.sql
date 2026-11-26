@@ -18,7 +18,7 @@ begin
       join pg_namespace s on s.oid=c.relnamespace where s.nspname='public'
       and c.relname=r.tabla and c.relkind in ('r','p') and a.attname=r.columna
       and a.attnum>0 and not a.attisdropped
-      and format_type(a.atttypid,a.atttypmod)=r.tipo) then
+      and a.atttypid=to_regtype(r.tipo)) then
       raise exception 'Precondicion incumplida: %.% debe ser %',r.tabla,r.columna,r.tipo;
     end if;
   end loop;
