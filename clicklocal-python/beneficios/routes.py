@@ -42,11 +42,45 @@ def crear_blueprint_administracion_beneficios(
         try:
             beneficio = _beneficio_desde_json(
                 request.get_json(silent=True) or {},
-                publicacion_id=publicacion_id,
+                objetivo=ObjetivoBeneficio(
+                    TipoObjetivo.PUBLICACION,
+                    publicacion_id,
+                ),
                 comercio_id=str(comercio_id),
             )
             creado = obtener_servicio().crear_para_publicacion(beneficio)
             return jsonify({"ok": True, "beneficio": _beneficio_json(creado)}), 201
+        except ValidacionBeneficioError as error:
+            return jsonify({"ok": False, "mensaje": error.mensaje_publico}), 400
+        except BeneficioNoEncontradoError as error:
+            return jsonify({"ok": False, "mensaje": error.mensaje_publico}), 404
+        except BeneficiosError as error:
+            return jsonify({"ok": False, "mensaje": error.mensaje_publico}), 503
+
+    @blueprint.post(
+        "/panel/gastronomia/productos/<producto_id>/beneficios"
+    )
+    def crear_para_producto_gastronomico(producto_id: str):
+        comercio_id, error = _autorizar_canje(
+            obtener_comercio_id,
+            obtener_csrf_esperado,
+        )
+        if error is not None:
+            return error
+        try:
+            beneficio = _beneficio_desde_json(
+                request.get_json(silent=True) or {},
+                objetivo=ObjetivoBeneficio(
+                    TipoObjetivo.GASTRONOMIA_PRODUCTO,
+                    producto_id,
+                ),
+                comercio_id=comercio_id,
+            )
+            creado = obtener_servicio().crear_para_producto(beneficio)
+            return jsonify({
+                "ok": True,
+                "beneficio": _beneficio_json(creado),
+            }), 201
         except ValidacionBeneficioError as error:
             return jsonify({"ok": False, "mensaje": error.mensaje_publico}), 400
         except BeneficioNoEncontradoError as error:
@@ -82,7 +116,7 @@ def crear_blueprint_administracion_beneficios(
         try:
             beneficio = _beneficio_desde_json(
                 datos,
-                publicacion_id=str(datos.get("publicacion_id") or ""),
+                objetivo=_objetivo_desde_json(datos),
                 comercio_id=comercio_id,
             )
             editado = obtener_servicio().editar_del_comercio(
@@ -286,7 +320,24 @@ def crear_blueprint_publico_beneficios(
     return blueprint
 
 
-def _beneficio_desde_json(datos, *, publicacion_id: str, comercio_id: str) -> Beneficio:
+def _objetivo_desde_json(datos) -> ObjetivoBeneficio:
+    tipo_crudo = str(datos.get("objetivo_tipo") or "").strip()
+    objetivo_id = str(datos.get("objetivo_id") or "").strip()
+    if not tipo_crudo:
+        tipo_crudo = TipoObjetivo.PUBLICACION.value
+        objetivo_id = str(datos.get("publicacion_id") or "").strip()
+    try:
+        return ObjetivoBeneficio(TipoObjetivo(tipo_crudo), objetivo_id)
+    except ValueError as error:
+        raise ValidacionBeneficioError("objetivo inválido") from error
+
+
+def _beneficio_desde_json(
+    datos,
+    *,
+    objetivo: ObjetivoBeneficio,
+    comercio_id: str,
+) -> Beneficio:
     try:
         detalle_crudo = datos.get("detalle_promocion")
         if detalle_crudo is not None and not isinstance(detalle_crudo, str):
@@ -329,7 +380,7 @@ def _beneficio_desde_json(datos, *, publicacion_id: str, comercio_id: str) -> Be
         return Beneficio(
             id=str(uuid4()), comercio_id=comercio_id,
             titulo=str(datos.get("titulo") or "").strip(),
-            objetivo=ObjetivoBeneficio(TipoObjetivo.PUBLICACION, publicacion_id),
+            objetivo=objetivo,
             tipo_descuento=tipo, valor_descuento=valor,
             vigente_desde=_fecha(datos.get("vigente_desde")),
             vigente_hasta=_fecha(datos.get("vigente_hasta")),
@@ -360,7 +411,19 @@ def _hora(valor) -> time | None:
 
 def _beneficio_json(beneficio: Beneficio) -> dict[str, object]:
     return {
-        "id": beneficio.id, "publicacion_id": beneficio.objetivo.id,
+        "id": beneficio.id,
+        "objetivo_tipo": beneficio.objetivo.tipo.value,
+        "objetivo_id": beneficio.objetivo.id,
+        "publicacion_id": (
+            beneficio.objetivo.id
+            if beneficio.objetivo.tipo is TipoObjetivo.PUBLICACION
+            else None
+        ),
+        "gastronomia_producto_id": (
+            beneficio.objetivo.id
+            if beneficio.objetivo.tipo is TipoObjetivo.GASTRONOMIA_PRODUCTO
+            else None
+        ),
         "serie_id": beneficio.serie_id or beneficio.id,
         "numero_edicion": beneficio.numero_edicion,
         "titulo": beneficio.titulo,

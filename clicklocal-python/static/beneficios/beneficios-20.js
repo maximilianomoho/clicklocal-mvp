@@ -25,6 +25,25 @@
   let enviando = false;
   let duracion = 7;
 
+  function objetivoDelBoton(boton) {
+    if (!boton) return null;
+    if (boton.dataset.gastronomiaProductoId) {
+      return {
+        tipo: "gastronomia_producto",
+        id: boton.dataset.gastronomiaProductoId,
+        rutaCreacion: "/panel/gastronomia/productos/" + encodeURIComponent(boton.dataset.gastronomiaProductoId) + "/beneficios"
+      };
+    }
+    if (boton.dataset.publicacionId) {
+      return {
+        tipo: "publicacion",
+        id: boton.dataset.publicacionId,
+        rutaCreacion: "/panel/publicaciones/" + encodeURIComponent(boton.dataset.publicacionId) + "/beneficios"
+      };
+    }
+    return null;
+  }
+
   const iso = (fecha) => [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, "0"), String(fecha.getDate()).padStart(2, "0")].join("-");
   const visible = (fecha) => [String(fecha.getDate()).padStart(2, "0"), String(fecha.getMonth() + 1).padStart(2, "0"), fecha.getFullYear()].join("-");
   const leer = (texto) => {
@@ -139,9 +158,9 @@
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     if (enviando) return;
-    const publicacionId = botonActual && botonActual.dataset.publicacionId;
-    if (!publicacionId) {
-      estado.textContent = "No se pudo identificar la publicación."; return;
+    const objetivo = objetivoDelBoton(botonActual);
+    if (!objetivo) {
+      estado.textContent = "No se pudo identificar el producto."; return;
     }
     if (!inicio.value || !fin.value || leer(fin.value) <= leer(inicio.value)) {
       estado.textContent = "Revisá las fechas del beneficio."; return;
@@ -178,14 +197,17 @@
       mostrar_codigos_restantes: $("#beneficios-20-mostrar-restantes").checked,
       tema_etiqueta: $('input[name="tema"]:checked').value, metodos: ["whatsapp"]
     };
-    payload.publicacion_id = publicacionId;
+    payload.objetivo_tipo = objetivo.tipo;
+    payload.objetivo_id = objetivo.id;
+    if (objetivo.tipo === "publicacion") payload.publicacion_id = objetivo.id;
+    if (objetivo.tipo === "gastronomia_producto") payload.gastronomia_producto_id = objetivo.id;
     estado.textContent = "Guardando…";
     enviando = true;
     botonGuardar.disabled = true;
     try {
       const ruta = beneficioActual
         ? "/panel/beneficios/" + encodeURIComponent(beneficioActual.id)
-        : "/panel/publicaciones/" + encodeURIComponent(publicacionId) + "/beneficios";
+        : objetivo.rutaCreacion;
       const respuesta = await fetch(ruta, {
         method: beneficioActual ? "PUT" : "POST", credentials: "same-origin",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": modal.dataset.csrfToken },
@@ -214,11 +236,18 @@
     if (radio) radio.checked = true;
   }
 
-  function editarOferta(oferta) {
-    const botonPublicacion = document.querySelector(
-      `.beneficios-20-abrir-modal[data-publicacion-id="${CSS.escape(oferta.publicacion_id)}"]`
+  function botonParaOferta(oferta) {
+    const atributo = oferta.objetivo_tipo === "gastronomia_producto"
+      ? "data-gastronomia-producto-id"
+      : "data-publicacion-id";
+    return document.querySelector(
+      `.beneficios-20-abrir-modal[${atributo}="${CSS.escape(oferta.objetivo_id)}"]`
     );
-    if (!botonPublicacion || !oferta.activo) return;
+  }
+
+  function editarOferta(oferta) {
+    const botonObjetivo = botonParaOferta(oferta);
+    if (!botonObjetivo || !oferta.activo) return;
     formulario.reset();
     beneficioActual = oferta;
     tipo.value = oferta.tipo_descuento;
@@ -251,7 +280,7 @@
     botonGuardar.textContent = "Guardar nueva edición";
     actualizarPromocion();
     actualizarVigencia(false);
-    abrir(botonPublicacion, true);
+    abrir(botonObjetivo, true);
   }
 
   async function desactivarOferta(oferta) {
@@ -276,6 +305,7 @@
 
   function mostrarOfertas(ofertas) {
     listaOfertas.replaceChildren();
+    ofertas = ofertas.filter((oferta) => Boolean(botonParaOferta(oferta)));
     if (!ofertas.length) {
       listaOfertas.textContent = "Todavía no hay ofertas configuradas.";
       return;
@@ -285,7 +315,10 @@
       const tituloOferta = document.createElement("strong");
       tituloOferta.textContent = oferta.etiqueta + " — " + (oferta.activo ? "Activa" : "Desactivada");
       const detalle = document.createElement("p");
-      detalle.textContent = `Publicación ${oferta.publicacion_id} · Edición ${oferta.numero_edicion}`;
+      const nombreObjetivo = oferta.objetivo_tipo === "gastronomia_producto"
+        ? "Producto gastronómico"
+        : "Publicación";
+      detalle.textContent = `${nombreObjetivo} ${oferta.objetivo_id} · Edición ${oferta.numero_edicion}`;
       item.append(tituloOferta, detalle);
       if (oferta.activo) {
         const editar = document.createElement("button");

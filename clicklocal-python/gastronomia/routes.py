@@ -4079,6 +4079,9 @@ def panel_gastronomia(panel_seccion="productos"):
             flush=True,
         )
 
+    csrf_proveedor = current_app.extensions.get("csrf_beneficios_token")
+    csrf_beneficios = csrf_proveedor() if csrf_proveedor else ""
+
     return render_template(
         "gastronomia/productos.html",
         comercio=comercio,
@@ -4093,6 +4096,7 @@ def panel_gastronomia(panel_seccion="productos"):
         periodo_metricas=periodo_metricas,
         panel_seccion="productos",
         csrf_estado_tienda=_csrf_estado_tienda_token(),
+        csrf_beneficios=csrf_beneficios,
     )
 
 

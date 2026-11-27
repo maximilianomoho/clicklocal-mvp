@@ -45,3 +45,18 @@ def test_arnes_expone_ambas_galerias_sin_importar_app():
     assert '"/preview/galeria"' in arnes
     assert '"/preview/gastronomia"' in arnes
     assert "import app" not in arnes
+
+
+def test_panel_gastronomico_reutiliza_el_modal_y_no_altera_acciones_existentes():
+    panel_base = leer("templates/panel.html")
+    panel_gastronomia = leer("templates/gastronomia/panel.html")
+    javascript = leer("static/beneficios/beneficios-20.js")
+    rutas = leer("gastronomia/routes.py")
+
+    assert 'id="beneficios-20-modal"' in panel_base
+    assert 'data-gastronomia-producto-id="{{ producto.id }}"' in panel_gastronomia
+    assert "Beneficio ClickLocal" in panel_gastronomia
+    assert "Opciones y extras" in panel_gastronomia
+    assert "Crear promoción" in panel_gastronomia
+    assert "/panel/gastronomia/productos/" in javascript
+    assert "csrf_beneficios=csrf_beneficios" in rutas

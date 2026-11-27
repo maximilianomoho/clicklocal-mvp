@@ -1233,6 +1233,15 @@
               Opciones y extras
             </a>
 
+            <button
+              type="button"
+              class="beneficios-20-abrir-modal"
+              data-gastronomia-producto-id="{{ producto.id }}"
+              data-producto="{{ producto.nombre | default('Producto gastronómico', true) | e }}"
+            >
+              Beneficio ClickLocal
+            </button>
+
 
             <form
               method="POST"

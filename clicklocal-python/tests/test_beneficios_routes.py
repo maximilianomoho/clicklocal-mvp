@@ -10,6 +10,7 @@ from beneficios.types import ValidacionCodigo
 
 
 PUBLICACION = "a1000000-0000-4000-8000-000000000002"
+PRODUCTO_GASTRONOMICO = "a1000000-0000-4000-8000-000000000003"
 
 
 def datos_validos():
@@ -36,6 +37,13 @@ class ServicioFalso:
         self.beneficios = []
 
     def crear_para_publicacion(self, beneficio):
+        if not self.pertenece:
+            raise BeneficioNoEncontradoError(beneficio.objetivo.id)
+        self.recibido = beneficio
+        self.beneficios.append(beneficio)
+        return beneficio
+
+    def crear_para_producto(self, beneficio):
         if not self.pertenece:
             raise BeneficioNoEncontradoError(beneficio.objetivo.id)
         self.recibido = beneficio
@@ -114,6 +122,22 @@ def test_ruta_guarda_solo_whatsapp_configurado():
     assert [item.value for item in servicio.recibido.metodos] == ["whatsapp"]
 
 
+def test_ruta_gastronomica_asocia_el_beneficio_al_producto_correcto():
+    servicio = ServicioFalso()
+    respuesta = aplicacion(servicio).test_client().post(
+        f"/panel/gastronomia/productos/{PRODUCTO_GASTRONOMICO}/beneficios",
+        json=datos_validos(),
+        headers={"X-CSRF-Token": "csrf-seguro"},
+    )
+    datos = respuesta.get_json()["beneficio"]
+    assert respuesta.status_code == 201
+    assert servicio.recibido.objetivo.tipo.value == "gastronomia_producto"
+    assert servicio.recibido.objetivo.id == PRODUCTO_GASTRONOMICO
+    assert datos["objetivo_tipo"] == "gastronomia_producto"
+    assert datos["gastronomia_producto_id"] == PRODUCTO_GASTRONOMICO
+    assert datos["publicacion_id"] is None
+
+
 def test_detalle_promocion_es_opcional_y_admite_hasta_200_caracteres():
     servicio = ServicioFalso()
     cliente = aplicacion(servicio).test_client()
@@ -164,6 +188,7 @@ def test_blueprint_expone_solo_creacion_y_canje_administrativo():
     assert reglas == {
         "/static/<path:filename>",
         "/panel/publicaciones/<publicacion_id>/beneficios",
+        "/panel/gastronomia/productos/<producto_id>/beneficios",
         "/panel/beneficios",
         "/panel/beneficios/<beneficio_id>",
         "/panel/beneficios/<beneficio_id>/desactivar",
